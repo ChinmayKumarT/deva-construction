@@ -8,7 +8,7 @@ export function AdminPageHeader({ title, subtitle }: { title: string; subtitle?:
 }
 
 export function AdminPage({ children }: { children: React.ReactNode }) {
-  return <div className="px-8 py-10 max-w-6xl">{children}</div>;
+  return <div className="px-8 py-10 w-full">{children}</div>;
 }
 
 export function Field({
