@@ -18,3 +18,7 @@ html, body { background: var(--bg); color: var(--ink); }
 body { font-feature-settings: "ss01", "cv11"; }
 
 ::selection { background: #d1fae5; color: var(--brand-deep); }
+
+/* Hide scrollbar visuals but keep scrolling */
+.no-scrollbar { scrollbar-width: none; -ms-overflow-style: none; }
+.no-scrollbar::-webkit-scrollbar { width: 0; height: 0; display: none; }

@@ -6,223 +6,278 @@ import { useState, useTransition } from "react";
 import { signOut, deleteAccount } from "@/app/actions/auth";
 
 type NavItem = { href: string; label: string; icon: IconName };
+type NavGroup = { title?: string; items: NavItem[] };
 
 export type IconName =
   | "overview" | "projects" | "clients" | "suppliers" | "labourers"
   | "materials" | "costs" | "attendance" | "payments" | "updates" | "reports"
   | "menu" | "signout" | "trash";
 
-const NAV: NavItem[] = [
-  { href: "/admin", label: "Overview", icon: "overview" },
-  { href: "/admin/projects", label: "Projects", icon: "projects" },
-  { href: "/admin/clients", label: "Clients", icon: "clients" },
-  { href: "/admin/suppliers", label: "Suppliers", icon: "suppliers" },
-  { href: "/admin/labourers", label: "Labour", icon: "labourers" },
-  { href: "/admin/materials", label: "Materials", icon: "materials" },
-  { href: "/admin/costs", label: "Costs", icon: "costs" },
-  { href: "/admin/attendance", label: "Attendance", icon: "attendance" },
-  { href: "/admin/payments", label: "Payments", icon: "payments" },
-  { href: "/admin/updates", label: "Updates", icon: "updates" },
-  { href: "/admin/reports", label: "Reports", icon: "reports" },
+const GROUPS: NavGroup[] = [
+  {
+    items: [
+      { href: "/admin", label: "Overview", icon: "overview" },
+    ],
+  },
+  {
+    title: "Manage",
+    items: [
+      { href: "/admin/projects", label: "Projects", icon: "projects" },
+      { href: "/admin/clients", label: "Clients", icon: "clients" },
+      { href: "/admin/suppliers", label: "Suppliers", icon: "suppliers" },
+      { href: "/admin/labourers", label: "Labour", icon: "labourers" },
+    ],
+  },
+  {
+    title: "Operations",
+    items: [
+      { href: "/admin/materials", label: "Materials", icon: "materials" },
+      { href: "/admin/costs", label: "Costs", icon: "costs" },
+      { href: "/admin/attendance", label: "Attendance", icon: "attendance" },
+      { href: "/admin/payments", label: "Payments", icon: "payments" },
+      { href: "/admin/updates", label: "Updates", icon: "updates" },
+    ],
+  },
+  {
+    title: "Insights",
+    items: [
+      { href: "/admin/reports", label: "Reports", icon: "reports" },
+    ],
+  },
 ];
+
+const RAIL = GROUPS.flatMap((g) => g.items);
 
 export function Sidebar({ role, email }: { role: string; email: string }) {
   const [expanded, setExpanded] = useState(false);
 
   return (
-    <>
-      {/* Backdrop when expanded (closes on click, YouTube-like) */}
-      {expanded && (
-        <div
-          className="fixed inset-0 z-30 bg-black/30 lg:hidden"
-          onClick={() => setExpanded(false)}
-        />
-      )}
+    <aside
+      className={
+        "sticky top-0 h-screen bg-[#0f0f0f] text-white flex flex-col z-40 transition-[width] duration-150 " +
+        (expanded ? "w-[240px]" : "w-[72px]")
+      }
+    >
+      {/* Header */}
+      <div className="flex items-center h-14 px-2 shrink-0">
+        <button
+          onClick={() => setExpanded((v) => !v)}
+          aria-label="Toggle sidebar"
+          className="inline-flex items-center justify-center h-10 w-10 rounded-full hover:bg-white/10"
+        >
+          <Icon name="menu" size={22} />
+        </button>
+        {expanded && (
+          <Link href="/admin" className="ml-2 flex items-center gap-2">
+            <span className="inline-flex h-7 w-7 items-center justify-center rounded-md bg-brand text-white text-sm font-semibold">B</span>
+            <span className="text-base font-semibold tracking-wide">Builder</span>
+          </Link>
+        )}
+      </div>
 
-      <aside
-        className={
-          "sticky top-0 h-screen bg-forest text-forest-100 flex flex-col z-40 transition-[width] duration-150 " +
-          (expanded ? "w-[240px]" : "w-[76px]")
-        }
-      >
-        {/* Header: hamburger + brand */}
-        <div className="flex items-center h-14 px-3 border-b border-white/5">
-          <button
-            onClick={() => setExpanded((v) => !v)}
-            aria-label="Toggle sidebar"
-            className="inline-flex items-center justify-center h-10 w-10 rounded-full text-forest-100 hover:bg-white/10"
-          >
-            <Icon name="menu" size={22} />
-          </button>
-          {expanded && (
-            <Link href="/admin" className="ml-2 flex items-center gap-2 text-white">
-              <span className="inline-flex h-7 w-7 items-center justify-center rounded-md bg-brand text-white text-sm font-semibold">B</span>
-              <span className="text-sm font-semibold tracking-wide">Builder</span>
-            </Link>
-          )}
-        </div>
+      <nav className="flex-1 overflow-y-auto no-scrollbar px-2 pb-3">
+        {GROUPS.map((g, i) =>
+          expanded ? (
+            <ExpandedGroup key={i} group={g} showDivider={i > 0} />
+          ) : null,
+        )}
+        {!expanded &&
+          RAIL.map((item) => <RailRow key={item.href} item={item} />)}
+      </nav>
 
-        <nav className="flex-1 overflow-y-auto py-1.5">
-          {NAV.map((n) => (
-            <NavRow key={n.href} item={n} expanded={expanded} />
-          ))}
-        </nav>
-
-        <div className="border-t border-white/10 py-1.5">
-          <ActionRow icon="signout" label="Sign out" expanded={expanded} action={signOut} />
-          <DeleteRow expanded={expanded} />
-          {expanded && (
-            <div className="px-4 py-2 border-t border-white/5 mt-1">
-              <p className="text-[10px] uppercase tracking-[0.14em] text-forest-100/50 capitalize">{role}</p>
-              <p className="truncate text-xs text-white/80 mt-0.5">{email}</p>
+      <div className="border-t border-white/10 px-2 py-2 shrink-0">
+        {expanded ? (
+          <>
+            <ExpandedAction icon="signout" label="Sign out" action={signOut} />
+            <ExpandedDelete />
+            <div className="px-3 pt-3 pb-1">
+              <p className="text-[10px] uppercase tracking-[0.14em] text-white/40 capitalize">{role}</p>
+              <p className="truncate text-xs text-white/75 mt-0.5">{email}</p>
             </div>
-          )}
-        </div>
-      </aside>
-    </>
+          </>
+        ) : (
+          <>
+            <RailAction icon="signout" label="Sign out" action={signOut} />
+            <RailDelete />
+          </>
+        )}
+      </div>
+    </aside>
   );
 }
 
-function NavRow({ item, expanded }: { item: NavItem; expanded: boolean }) {
+/* ---------- Expanded mode ---------- */
+
+function ExpandedGroup({ group, showDivider }: { group: NavGroup; showDivider: boolean }) {
+  return (
+    <div className={showDivider ? "border-t border-white/10 pt-3 mt-3" : "mt-2"}>
+      {group.title && (
+        <h3 className="px-3 mb-1 text-base font-medium text-white">{group.title}</h3>
+      )}
+      {group.items.map((item) => (
+        <ExpandedRow key={item.href} item={item} />
+      ))}
+    </div>
+  );
+}
+
+function ExpandedRow({ item }: { item: NavItem }) {
   const pathname = usePathname();
   const isActive =
     pathname === item.href || (item.href !== "/admin" && pathname?.startsWith(item.href));
-
-  if (expanded) {
-    return (
-      <Link
-        href={item.href}
-        className={
-          "flex items-center gap-5 mx-1.5 h-10 px-3 rounded-lg text-sm transition-colors " +
-          (isActive
-            ? "bg-white/10 text-white font-medium"
-            : "text-forest-100 hover:bg-white/5")
-        }
-      >
-        <Icon name={item.icon} size={22} />
-        <span className="truncate">{item.label}</span>
-      </Link>
-    );
-  }
-
-  // Rail mode: icon centered + small label underneath
   return (
     <Link
       href={item.href}
       className={
-        "flex flex-col items-center justify-center mx-1 my-0.5 py-3 rounded-lg transition-colors " +
-        (isActive
-          ? "bg-white/10 text-white"
-          : "text-forest-100 hover:bg-white/5")
+        "flex items-center gap-6 px-3 h-10 rounded-lg text-sm transition-colors " +
+        (isActive ? "bg-white/15 font-medium" : "text-white/90 hover:bg-white/10")
       }
-      title={item.label}
     >
       <Icon name={item.icon} size={22} />
-      <span className={"mt-1.5 text-[10px] leading-none tracking-wide " + (isActive ? "font-medium" : "")}>
+      <span className="truncate">{item.label}</span>
+    </Link>
+  );
+}
+
+function ExpandedAction({
+  icon, label, action,
+}: { icon: IconName; label: string; action: (fd: FormData) => Promise<void> }) {
+  return (
+    <form action={action}>
+      <button
+        type="submit"
+        className="w-full flex items-center gap-6 px-3 h-10 rounded-lg text-sm text-white/90 hover:bg-white/10"
+      >
+        <Icon name={icon} size={22} />
+        <span>{label}</span>
+      </button>
+    </form>
+  );
+}
+
+function ExpandedDelete() {
+  const [show, setShow] = useState(false);
+  const [confirm, setConfirm] = useState("");
+  const [pending, start] = useTransition();
+  return (
+    <>
+      <button
+        onClick={() => setShow(true)}
+        className="w-full flex items-center gap-6 px-3 h-10 rounded-lg text-sm text-red-300/90 hover:bg-red-500/10 hover:text-red-200"
+      >
+        <Icon name="trash" size={22} />
+        <span>Delete account</span>
+      </button>
+      <DeleteDialog show={show} setShow={setShow} confirm={confirm} setConfirm={setConfirm} pending={pending} start={start} />
+    </>
+  );
+}
+
+/* ---------- Rail (collapsed) mode ---------- */
+
+function RailRow({ item }: { item: NavItem }) {
+  const pathname = usePathname();
+  const isActive =
+    pathname === item.href || (item.href !== "/admin" && pathname?.startsWith(item.href));
+  return (
+    <Link
+      href={item.href}
+      title={item.label}
+      className={
+        "flex flex-col items-center justify-center py-3 my-0.5 rounded-lg transition-colors " +
+        (isActive ? "bg-white/15" : "text-white/90 hover:bg-white/10")
+      }
+    >
+      <Icon name={item.icon} size={24} />
+      <span className={"mt-1.5 text-[10px] leading-none " + (isActive ? "font-medium" : "")}>
         {item.label}
       </span>
     </Link>
   );
 }
 
-function ActionRow({
-  icon, label, expanded, action,
-}: {
-  icon: IconName; label: string; expanded: boolean;
-  action: (fd: FormData) => Promise<void>;
-}) {
-  if (expanded) {
-    return (
-      <form action={action}>
-        <button
-          type="submit"
-          className="w-full flex items-center gap-5 mx-1.5 h-10 px-3 rounded-lg text-sm text-forest-100 hover:bg-white/5"
-        >
-          <Icon name={icon} size={22} />
-          <span>{label}</span>
-        </button>
-      </form>
-    );
-  }
+function RailAction({
+  icon, label, action,
+}: { icon: IconName; label: string; action: (fd: FormData) => Promise<void> }) {
   return (
     <form action={action}>
       <button
         type="submit"
         title={label}
-        className="w-full flex flex-col items-center justify-center mx-1 my-0.5 py-3 rounded-lg text-forest-100 hover:bg-white/5"
+        className="w-full flex flex-col items-center justify-center py-3 my-0.5 rounded-lg text-white/90 hover:bg-white/10"
       >
-        <Icon name={icon} size={22} />
-        <span className="mt-1.5 text-[10px] leading-none tracking-wide">{label}</span>
+        <Icon name={icon} size={24} />
+        <span className="mt-1.5 text-[10px] leading-none">{label}</span>
       </button>
     </form>
   );
 }
 
-function DeleteRow({ expanded }: { expanded: boolean }) {
+function RailDelete() {
   const [show, setShow] = useState(false);
   const [confirm, setConfirm] = useState("");
   const [pending, start] = useTransition();
-
-  const Trigger = expanded ? (
-    <button
-      onClick={() => setShow(true)}
-      className="w-full flex items-center gap-5 mx-1.5 h-10 px-3 rounded-lg text-sm text-red-300/85 hover:bg-red-500/10 hover:text-red-200"
-    >
-      <Icon name="trash" size={22} />
-      <span>Delete account</span>
-    </button>
-  ) : (
-    <button
-      onClick={() => setShow(true)}
-      title="Delete account"
-      className="w-full flex flex-col items-center justify-center mx-1 my-0.5 py-3 rounded-lg text-red-300/85 hover:bg-red-500/10 hover:text-red-200"
-    >
-      <Icon name="trash" size={22} />
-      <span className="mt-1.5 text-[10px] leading-none tracking-wide">Delete</span>
-    </button>
-  );
-
   return (
     <>
-      {Trigger}
-      {show && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
-          <div className="w-full max-w-md rounded-xl bg-white p-6 shadow-lg text-slate-900">
-            <h2 className="text-lg font-semibold">Delete your account?</h2>
-            <p className="mt-2 text-sm text-slate-600">
-              This is permanent. Your login is deleted and you are signed out.
-              Business records stay with the company but are unlinked from you.
-            </p>
-            <p className="mt-3 text-sm">
-              Type <code className="rounded bg-slate-100 px-1">DELETE</code> to confirm:
-            </p>
-            <input
-              value={confirm}
-              onChange={(e) => setConfirm(e.target.value)}
-              className="mt-2 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:border-brand focus:ring-2 focus:ring-brand/20"
-              autoFocus
-            />
-            <div className="mt-5 flex justify-end gap-2">
-              <button
-                onClick={() => { setShow(false); setConfirm(""); }}
-                className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm hover:bg-slate-100"
-              >
-                Cancel
-              </button>
-              <button
-                disabled={confirm !== "DELETE" || pending}
-                onClick={() => start(() => deleteAccount())}
-                className="rounded-lg bg-red-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-50"
-              >
-                {pending ? "Deleting…" : "Delete account"}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <button
+        onClick={() => setShow(true)}
+        title="Delete account"
+        className="w-full flex flex-col items-center justify-center py-3 my-0.5 rounded-lg text-red-300/85 hover:bg-red-500/10 hover:text-red-200"
+      >
+        <Icon name="trash" size={24} />
+        <span className="mt-1.5 text-[10px] leading-none">Delete</span>
+      </button>
+      <DeleteDialog show={show} setShow={setShow} confirm={confirm} setConfirm={setConfirm} pending={pending} start={start} />
     </>
   );
 }
+
+function DeleteDialog({
+  show, setShow, confirm, setConfirm, pending, start,
+}: {
+  show: boolean; setShow: (v: boolean) => void;
+  confirm: string; setConfirm: (v: string) => void;
+  pending: boolean; start: (cb: () => void) => void;
+}) {
+  if (!show) return null;
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
+      <div className="w-full max-w-md rounded-xl bg-white p-6 shadow-lg text-slate-900">
+        <h2 className="text-lg font-semibold">Delete your account?</h2>
+        <p className="mt-2 text-sm text-slate-600">
+          This is permanent. Your login is deleted and you are signed out.
+          Business records stay with the company but are unlinked from you.
+        </p>
+        <p className="mt-3 text-sm">
+          Type <code className="rounded bg-slate-100 px-1">DELETE</code> to confirm:
+        </p>
+        <input
+          value={confirm}
+          onChange={(e) => setConfirm(e.target.value)}
+          className="mt-2 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:border-brand focus:ring-2 focus:ring-brand/20"
+          autoFocus
+        />
+        <div className="mt-5 flex justify-end gap-2">
+          <button
+            onClick={() => { setShow(false); setConfirm(""); }}
+            className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm hover:bg-slate-100"
+          >
+            Cancel
+          </button>
+          <button
+            disabled={confirm !== "DELETE" || pending}
+            onClick={() => start(() => deleteAccount())}
+            className="rounded-lg bg-red-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-50"
+          >
+            {pending ? "Deleting…" : "Delete account"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ---------- Icons ---------- */
 
 function Icon({ name, size = 18 }: { name: IconName; size?: number }) {
   const props = {
