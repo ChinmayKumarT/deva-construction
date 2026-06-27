@@ -68,9 +68,12 @@ export function Sidebar({ role, email }: { role: string; email: string }) {
           <Icon name="menu" size={22} />
         </button>
         {expanded && (
-          <Link href="/admin" className="ml-2 flex items-center gap-2">
-            <span className="inline-flex h-7 w-7 items-center justify-center rounded-md bg-brand text-white text-sm font-semibold">B</span>
-            <span className="text-base font-semibold tracking-wide">Builder</span>
+          <Link href="/admin" className="ml-1 flex items-baseline gap-1.5">
+            <span className="inline-flex items-center justify-center h-7 w-9 rounded-md bg-brand">
+              <BrandMark />
+            </span>
+            <span className="text-[20px] font-semibold leading-none tracking-tight">Builder</span>
+            <sup className="ml-0.5 text-[10px] font-medium uppercase tracking-wider text-white/60">{role}</sup>
           </Link>
         )}
       </div>
@@ -274,6 +277,19 @@ function DeleteDialog({
         </div>
       </div>
     </div>
+  );
+}
+
+/* ---------- Brand mark ---------- */
+
+function BrandMark() {
+  // White hard-hat silhouette inside the green chip — same shape language as the Android adaptive icon
+  return (
+    <svg width="22" height="14" viewBox="0 0 22 14" fill="none" aria-hidden="true">
+      <path d="M2 11h18v2H2z" fill="#fff" />
+      <path d="M4 11V8a7 7 0 0 1 14 0v3" fill="#fff" />
+      <rect x="10" y="3" width="2" height="6" fill="#16a34a" />
+    </svg>
   );
 }
 
