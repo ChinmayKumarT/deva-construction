@@ -1,0 +1,15 @@
+# Copy this file to local.properties and fill in.
+# local.properties is gitignored.
+SUPABASE_URL=https://npjugegkzhrejepufaol.supabase.co
+SUPABASE_ANON_KEY=eyJ...your-anon-key...
+
+# --- Release signing (only needed when building a signed AAB/APK) ---
+# Generate the keystore once with:
+#   keytool -genkeypair -v -keystore release.jks -keyalg RSA -keysize 2048 \
+#           -validity 10000 -alias upload
+# Store release.jks OUTSIDE the repo and back it up — losing it means you can never
+# update the app on Play Store.
+RELEASE_STORE_FILE=
+RELEASE_STORE_PASSWORD=
+RELEASE_KEY_ALIAS=upload
+RELEASE_KEY_PASSWORD=

@@ -1,0 +1,18 @@
+[
+    {
+        "merged": "com.construction.manager.app-debug-56:/mipmap-anydpi-v26_ic_launcher.xml.flat",
+        "source": "com.construction.manager.app-main-58:/mipmap-anydpi-v26/ic_launcher.xml"
+    },
+    {
+        "merged": "com.construction.manager.app-debug-56:/mipmap-anydpi-v26_ic_launcher_round.xml.flat",
+        "source": "com.construction.manager.app-main-58:/mipmap-anydpi-v26/ic_launcher_round.xml"
+    },
+    {
+        "merged": "com.construction.manager.app-debug-56:/drawable_ic_launcher_background.xml.flat",
+        "source": "com.construction.manager.app-main-58:/drawable/ic_launcher_background.xml"
+    },
+    {
+        "merged": "com.construction.manager.app-debug-56:/drawable_ic_launcher_foreground.xml.flat",
+        "source": "com.construction.manager.app-main-58:/drawable/ic_launcher_foreground.xml"
+    }
+]

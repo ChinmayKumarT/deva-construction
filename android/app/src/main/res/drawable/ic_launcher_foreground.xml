@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- Adaptive icon foreground: hard-hat silhouette. Safe zone is the inner 66x66dp. -->
+    <group android:translateX="22" android:translateY="22">
+        <!-- Hat dome -->
+        <path
+            android:fillColor="#FFFFFF"
+            android:pathData="M14,42 Q14,18 32,18 Q50,18 50,42 Z" />
+        <!-- Brim -->
+        <path
+            android:fillColor="#FFFFFF"
+            android:pathData="M8,42 H56 V48 H8 Z" />
+        <!-- Center ridge -->
+        <path
+            android:fillColor="#0F172A"
+            android:pathData="M30,18 H34 V42 H30 Z" />
+        <!-- Side stripe -->
+        <path
+            android:fillColor="#0F172A"
+            android:pathData="M14,38 H50 V40 H14 Z" />
+    </group>
+</vector>
