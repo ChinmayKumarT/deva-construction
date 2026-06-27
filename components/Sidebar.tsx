@@ -2,9 +2,8 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useState } from "react";
+import { useState, useTransition } from "react";
 import { signOut, deleteAccount } from "@/app/actions/auth";
-import { useTransition } from "react";
 
 type NavItem = { href: string; label: string; icon: IconName };
 
@@ -18,127 +17,174 @@ const NAV: NavItem[] = [
   { href: "/admin/projects", label: "Projects", icon: "projects" },
   { href: "/admin/clients", label: "Clients", icon: "clients" },
   { href: "/admin/suppliers", label: "Suppliers", icon: "suppliers" },
-  { href: "/admin/labourers", label: "Labourers", icon: "labourers" },
+  { href: "/admin/labourers", label: "Labour", icon: "labourers" },
   { href: "/admin/materials", label: "Materials", icon: "materials" },
-  { href: "/admin/costs", label: "Cost tracking", icon: "costs" },
+  { href: "/admin/costs", label: "Costs", icon: "costs" },
   { href: "/admin/attendance", label: "Attendance", icon: "attendance" },
   { href: "/admin/payments", label: "Payments", icon: "payments" },
-  { href: "/admin/updates", label: "Project updates", icon: "updates" },
+  { href: "/admin/updates", label: "Updates", icon: "updates" },
   { href: "/admin/reports", label: "Reports", icon: "reports" },
 ];
 
 export function Sidebar({ role, email }: { role: string; email: string }) {
-  const [open, setOpen] = useState(true);
+  const [expanded, setExpanded] = useState(false);
 
   return (
-    <aside
-      className={
-        "sticky top-0 h-screen bg-forest text-forest-100 flex flex-col transition-[width] duration-200 " +
-        (open ? "w-[240px]" : "w-[68px]")
-      }
-    >
-      <div className="px-3 pt-4 pb-3 flex items-center justify-between">
-        <div className="flex items-center gap-2 text-white px-2">
-          <span className="inline-flex h-7 w-7 items-center justify-center rounded-md bg-brand text-white text-sm font-semibold shrink-0">
-            B
-          </span>
-          {open && <span className="text-sm font-semibold tracking-wide">Builder</span>}
-        </div>
-        <button
-          onClick={() => setOpen((v) => !v)}
-          aria-label={open ? "Collapse sidebar" : "Expand sidebar"}
-          className="rounded-md p-1.5 text-forest-100/70 hover:text-white hover:bg-white/5"
-        >
-          <Icon name="menu" />
-        </button>
-      </div>
-
-      {open && (
-        <div className="px-5 pb-3">
-          <p className="text-[10px] uppercase tracking-[0.16em] text-forest-100/60 capitalize">{role}</p>
-          <p className="truncate text-sm text-white/90">{email}</p>
-        </div>
+    <>
+      {/* Backdrop when expanded (closes on click, YouTube-like) */}
+      {expanded && (
+        <div
+          className="fixed inset-0 z-30 bg-black/30 lg:hidden"
+          onClick={() => setExpanded(false)}
+        />
       )}
 
-      <nav className="flex-1 overflow-y-auto px-2 pb-4 space-y-0.5">
-        {NAV.map((n) => (
-          <SidebarLink key={n.href} item={n} open={open} />
-        ))}
-      </nav>
+      <aside
+        className={
+          "sticky top-0 h-screen bg-forest text-forest-100 flex flex-col z-40 transition-[width] duration-150 " +
+          (expanded ? "w-[240px]" : "w-[76px]")
+        }
+      >
+        {/* Header: hamburger + brand */}
+        <div className="flex items-center h-14 px-3 border-b border-white/5">
+          <button
+            onClick={() => setExpanded((v) => !v)}
+            aria-label="Toggle sidebar"
+            className="inline-flex items-center justify-center h-10 w-10 rounded-full text-forest-100 hover:bg-white/10"
+          >
+            <Icon name="menu" size={22} />
+          </button>
+          {expanded && (
+            <Link href="/admin" className="ml-2 flex items-center gap-2 text-white">
+              <span className="inline-flex h-7 w-7 items-center justify-center rounded-md bg-brand text-white text-sm font-semibold">B</span>
+              <span className="text-sm font-semibold tracking-wide">Builder</span>
+            </Link>
+          )}
+        </div>
 
-      <div className="border-t border-white/10 p-2 space-y-1">
-        <SignOutRow open={open} />
-        <DeleteRow open={open} />
-      </div>
-    </aside>
+        <nav className="flex-1 overflow-y-auto py-1.5">
+          {NAV.map((n) => (
+            <NavRow key={n.href} item={n} expanded={expanded} />
+          ))}
+        </nav>
+
+        <div className="border-t border-white/10 py-1.5">
+          <ActionRow icon="signout" label="Sign out" expanded={expanded} action={signOut} />
+          <DeleteRow expanded={expanded} />
+          {expanded && (
+            <div className="px-4 py-2 border-t border-white/5 mt-1">
+              <p className="text-[10px] uppercase tracking-[0.14em] text-forest-100/50 capitalize">{role}</p>
+              <p className="truncate text-xs text-white/80 mt-0.5">{email}</p>
+            </div>
+          )}
+        </div>
+      </aside>
+    </>
   );
 }
 
-function SidebarLink({ item, open }: { item: NavItem; open: boolean }) {
+function NavRow({ item, expanded }: { item: NavItem; expanded: boolean }) {
   const pathname = usePathname();
   const isActive =
     pathname === item.href || (item.href !== "/admin" && pathname?.startsWith(item.href));
+
+  if (expanded) {
+    return (
+      <Link
+        href={item.href}
+        className={
+          "flex items-center gap-5 mx-1.5 h-10 px-3 rounded-lg text-sm transition-colors " +
+          (isActive
+            ? "bg-white/10 text-white font-medium"
+            : "text-forest-100 hover:bg-white/5")
+        }
+      >
+        <Icon name={item.icon} size={22} />
+        <span className="truncate">{item.label}</span>
+      </Link>
+    );
+  }
+
+  // Rail mode: icon centered + small label underneath
   return (
     <Link
       href={item.href}
-      title={open ? undefined : item.label}
       className={
-        "group relative flex items-center gap-3 rounded-md px-2.5 py-2 text-sm transition-colors " +
+        "flex flex-col items-center justify-center mx-1 my-0.5 py-3 rounded-lg transition-colors " +
         (isActive
-          ? "bg-brand text-white font-medium"
-          : "text-forest-100/85 hover:bg-white/5 hover:text-white")
+          ? "bg-white/10 text-white"
+          : "text-forest-100 hover:bg-white/5")
       }
+      title={item.label}
     >
-      <span className="shrink-0"><Icon name={item.icon} /></span>
-      {open && <span className="truncate">{item.label}</span>}
-      {!open && (
-        <span className="pointer-events-none absolute left-full ml-2 whitespace-nowrap rounded-md bg-forest-950 px-2 py-1 text-xs text-white opacity-0 shadow-lg group-hover:opacity-100 z-50">
-          {item.label}
-        </span>
-      )}
+      <Icon name={item.icon} size={22} />
+      <span className={"mt-1.5 text-[10px] leading-none tracking-wide " + (isActive ? "font-medium" : "")}>
+        {item.label}
+      </span>
     </Link>
   );
 }
 
-function SignOutRow({ open }: { open: boolean }) {
+function ActionRow({
+  icon, label, expanded, action,
+}: {
+  icon: IconName; label: string; expanded: boolean;
+  action: (fd: FormData) => Promise<void>;
+}) {
+  if (expanded) {
+    return (
+      <form action={action}>
+        <button
+          type="submit"
+          className="w-full flex items-center gap-5 mx-1.5 h-10 px-3 rounded-lg text-sm text-forest-100 hover:bg-white/5"
+        >
+          <Icon name={icon} size={22} />
+          <span>{label}</span>
+        </button>
+      </form>
+    );
+  }
   return (
-    <form action={signOut} title={open ? undefined : "Sign out"}>
+    <form action={action}>
       <button
         type="submit"
-        className="group relative w-full flex items-center gap-3 rounded-md px-2.5 py-2 text-sm text-forest-100/85 hover:bg-white/5 hover:text-white"
+        title={label}
+        className="w-full flex flex-col items-center justify-center mx-1 my-0.5 py-3 rounded-lg text-forest-100 hover:bg-white/5"
       >
-        <span className="shrink-0"><Icon name="signout" /></span>
-        {open && <span>Sign out</span>}
-        {!open && (
-          <span className="pointer-events-none absolute left-full ml-2 whitespace-nowrap rounded-md bg-forest-950 px-2 py-1 text-xs text-white opacity-0 shadow-lg group-hover:opacity-100 z-50">
-            Sign out
-          </span>
-        )}
+        <Icon name={icon} size={22} />
+        <span className="mt-1.5 text-[10px] leading-none tracking-wide">{label}</span>
       </button>
     </form>
   );
 }
 
-function DeleteRow({ open }: { open: boolean }) {
+function DeleteRow({ expanded }: { expanded: boolean }) {
   const [show, setShow] = useState(false);
   const [confirm, setConfirm] = useState("");
   const [pending, start] = useTransition();
+
+  const Trigger = expanded ? (
+    <button
+      onClick={() => setShow(true)}
+      className="w-full flex items-center gap-5 mx-1.5 h-10 px-3 rounded-lg text-sm text-red-300/85 hover:bg-red-500/10 hover:text-red-200"
+    >
+      <Icon name="trash" size={22} />
+      <span>Delete account</span>
+    </button>
+  ) : (
+    <button
+      onClick={() => setShow(true)}
+      title="Delete account"
+      className="w-full flex flex-col items-center justify-center mx-1 my-0.5 py-3 rounded-lg text-red-300/85 hover:bg-red-500/10 hover:text-red-200"
+    >
+      <Icon name="trash" size={22} />
+      <span className="mt-1.5 text-[10px] leading-none tracking-wide">Delete</span>
+    </button>
+  );
+
   return (
     <>
-      <button
-        onClick={() => setShow(true)}
-        title={open ? undefined : "Delete account"}
-        className="group relative w-full flex items-center gap-3 rounded-md px-2.5 py-2 text-sm text-red-300/80 hover:bg-red-500/10 hover:text-red-200"
-      >
-        <span className="shrink-0"><Icon name="trash" /></span>
-        {open && <span>Delete account</span>}
-        {!open && (
-          <span className="pointer-events-none absolute left-full ml-2 whitespace-nowrap rounded-md bg-forest-950 px-2 py-1 text-xs text-white opacity-0 shadow-lg group-hover:opacity-100 z-50">
-            Delete account
-          </span>
-        )}
-      </button>
-
+      {Trigger}
       {show && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
           <div className="w-full max-w-md rounded-xl bg-white p-6 shadow-lg text-slate-900">
@@ -178,9 +224,9 @@ function DeleteRow({ open }: { open: boolean }) {
   );
 }
 
-function Icon({ name }: { name: IconName }) {
+function Icon({ name, size = 18 }: { name: IconName; size?: number }) {
   const props = {
-    width: 18, height: 18, viewBox: "0 0 24 24", fill: "none",
+    width: size, height: size, viewBox: "0 0 24 24", fill: "none",
     stroke: "currentColor", strokeWidth: 1.75,
     strokeLinecap: "round" as const, strokeLinejoin: "round" as const,
   };
