@@ -7,7 +7,7 @@ const config: CapacitorConfig = {
   webDir: "public",
   server: {
     // Replace this with your deployed Vercel URL after step 2 in the playbook.
-    url: "https://construction-manager.vercel.app",
+    url: "https://deva-demo.vercel.app/admin/clients",
     cleartext: false,
   },
   android: {

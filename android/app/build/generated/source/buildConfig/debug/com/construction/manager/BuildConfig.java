@@ -10,7 +10,7 @@ public final class BuildConfig {
   public static final int VERSION_CODE = 1;
   public static final String VERSION_NAME = "0.1.0";
   // Field from default config.
-  public static final String SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5wanVnZWdremhyZWplcHVmYW9sIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODIzMTg4NTUsImV4cCI6MjA5Nzg5NDg1NX0.FKo7yh3vn7SjbKpVawlL5-diP2nbcwD1PTBBmIkMx5g";
+  public static final String SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlheXBmZ21vdmJmbXJqdW1nYnB1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODIzMTcwNzQsImV4cCI6MjA5Nzg5MzA3NH0.hXQUuKSnOTeR9kxU2Uk89VdI-qnFeGF6HyVMI_MqzKI";
   // Field from default config.
-  public static final String SUPABASE_URL = "https://npjugegkzhrejepufaol.supabase.co";
+  public static final String SUPABASE_URL = "https://iaypfgmovbfmrjumgbpu.supabase.co  ";
 }

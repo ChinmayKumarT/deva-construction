@@ -32,9 +32,9 @@ export default async function AdminOverview() {
       : 0;
   const stock = (materialStock.data ?? []).reduce((s, r) => s + Number(r.quantity ?? 0), 0);
 
-  const metrics: Metric[] = [
+  const metrics: { label: string; value: string; accent?: boolean; icon?: string }[] = [
     { label: "Total Projects", value: String(totalProjects.count ?? 0) },
-    { label: "Active Projects", value: String(activeProjects.count ?? 0) },
+    { label: "Active Projects", value: String(activeProjects.count ?? 0), accent: true },
     { label: "Total Cost", value: `₹${totalCost.toLocaleString()}` },
     { label: "Pending Payments", value: `₹${pendingTotal.toLocaleString()}` },
     { label: "Material Stock", value: stock.toLocaleString() },
@@ -45,11 +45,28 @@ export default async function AdminOverview() {
   return (
     <AdminPage>
       <AdminPageHeader title="Overview" subtitle="Live metrics across all projects." />
-      <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         {metrics.map((m) => (
-          <div key={m.label} className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-            <div className="text-xs uppercase tracking-wide text-slate-500">{m.label}</div>
-            <div className="mt-2 text-2xl font-semibold">{m.value}</div>
+          <div
+            key={m.label}
+            className={
+              "rounded-xl p-5 transition " +
+              (m.accent
+                ? "bg-brand text-white shadow-sm"
+                : "border border-[var(--line)] bg-white hover:border-brand/40")
+            }
+          >
+            <div
+              className={
+                "text-[11px] uppercase tracking-[0.12em] " +
+                (m.accent ? "text-white/80" : "text-slate-500")
+              }
+            >
+              {m.label}
+            </div>
+            <div className={"mt-2 text-2xl font-semibold " + (m.accent ? "text-white" : "text-ink")}>
+              {m.value}
+            </div>
           </div>
         ))}
       </section>

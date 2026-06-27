@@ -2,5 +2,19 @@
 @tailwind components;
 @tailwind utilities;
 
-:root { color-scheme: light; }
-body { @apply bg-slate-50 text-slate-900; }
+:root {
+  color-scheme: light;
+  --brand: #16a34a;
+  --brand-dark: #0f1f17;
+  --brand-deep: #14532d;
+  --ink: #0f172a;
+  --ink-muted: #475569;
+  --line: #e6e8e3;
+  --bg: #f7f8f5;
+  --card: #ffffff;
+}
+
+html, body { background: var(--bg); color: var(--ink); }
+body { font-feature-settings: "ss01", "cv11"; }
+
+::selection { background: #d1fae5; color: var(--brand-deep); }

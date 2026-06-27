@@ -2,6 +2,7 @@ import Link from "next/link";
 import { requireRole } from "@/lib/guard";
 import { signOut } from "@/app/actions/auth";
 import { DeleteAccountButton } from "@/components/DeleteAccountButton";
+import { SidebarLink } from "@/components/SidebarLink";
 
 const NAV = [
   { href: "/admin", label: "Overview" },
@@ -20,34 +21,39 @@ const NAV = [
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
   const { user, role } = await requireRole(["admin", "manager"]);
   return (
-    <div className="min-h-screen grid grid-cols-[220px_1fr]">
-      <aside className="border-r border-slate-200 bg-white p-4">
-        <div className="mb-6">
-          <p className="text-xs uppercase tracking-wide text-slate-500 capitalize">{role}</p>
-          <p className="truncate text-sm text-slate-700">{user.email}</p>
+    <div className="min-h-screen grid grid-cols-[240px_1fr] bg-[var(--bg)]">
+      <aside className="sticky top-0 h-screen bg-forest text-forest-100 flex flex-col">
+        <div className="px-5 pt-6 pb-4">
+          <div className="flex items-center gap-2 text-white">
+            <span className="inline-flex h-7 w-7 items-center justify-center rounded-md bg-brand text-white text-sm font-semibold">B</span>
+            <span className="text-sm font-semibold tracking-wide">Builder</span>
+          </div>
+          <div className="mt-5">
+            <p className="text-[10px] uppercase tracking-[0.16em] text-forest-100/60 capitalize">{role}</p>
+            <p className="truncate text-sm text-white/90">{user.email}</p>
+          </div>
         </div>
-        <nav className="space-y-1">
+
+        <nav className="flex-1 overflow-y-auto px-3 pb-4 space-y-0.5">
           {NAV.map((n) => (
-            <Link
-              key={n.href}
-              href={n.href}
-              className="block rounded-lg px-3 py-2 text-sm text-slate-700 hover:bg-slate-100"
-            >
-              {n.label}
-            </Link>
+            <SidebarLink key={n.href} href={n.href} label={n.label} />
           ))}
         </nav>
-        <form action={signOut} className="mt-6">
-          <button
-            type="submit"
-            className="w-full rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-100"
-          >
-            Sign out
-          </button>
-        </form>
-        <div className="mt-2"><DeleteAccountButton /></div>
+
+        <div className="border-t border-white/10 px-3 py-4 space-y-2">
+          <form action={signOut}>
+            <button
+              type="submit"
+              className="w-full rounded-md border border-white/15 bg-transparent px-3 py-1.5 text-sm text-forest-100 hover:bg-white/5"
+            >
+              Sign out
+            </button>
+          </form>
+          <DeleteAccountButton />
+        </div>
       </aside>
-      <section>{children}</section>
+
+      <section className="bg-[var(--bg)] min-h-screen">{children}</section>
     </div>
   );
 }

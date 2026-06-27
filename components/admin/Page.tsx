@@ -1,14 +1,14 @@
 export function AdminPageHeader({ title, subtitle }: { title: string; subtitle?: string }) {
   return (
-    <header className="mb-6">
-      <h1 className="text-2xl font-bold">{title}</h1>
+    <header className="mb-8">
+      <h1 className="text-2xl font-semibold tracking-tight text-ink">{title}</h1>
       {subtitle && <p className="mt-1 text-sm text-slate-600">{subtitle}</p>}
     </header>
   );
 }
 
 export function AdminPage({ children }: { children: React.ReactNode }) {
-  return <div className="p-8">{children}</div>;
+  return <div className="px-8 py-10 max-w-6xl">{children}</div>;
 }
 
 export function Field({
@@ -35,7 +35,7 @@ export function Field({
         required={required}
         defaultValue={defaultValue}
         step={step}
-        className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 outline-none focus:border-slate-500"
+        className="w-full rounded-lg border border-[var(--line)] bg-white px-3 py-2 outline-none focus:border-brand focus:ring-2 focus:ring-brand/20"
       />
     </label>
   );
@@ -58,7 +58,7 @@ export function Select({
       <select
         name={name}
         defaultValue={defaultValue}
-        className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2"
+        className="w-full rounded-lg border border-[var(--line)] bg-white px-3 py-2 focus:outline-none focus:border-brand focus:ring-2 focus:ring-brand/20"
       >
         {children}
       </select>
@@ -70,7 +70,7 @@ export function SubmitButton({ children }: { children: React.ReactNode }) {
   return (
     <button
       type="submit"
-      className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800"
+      className="rounded-lg bg-brand px-4 py-2 text-sm font-medium text-white hover:bg-brand-700 active:bg-brand-800 transition"
     >
       {children}
     </button>
@@ -87,23 +87,27 @@ export function DataTable({
   empty?: string;
 }) {
   if (rows.length === 0) {
-    return <p className="rounded-lg border border-dashed border-slate-300 bg-white p-6 text-center text-sm text-slate-500">{empty}</p>;
+    return (
+      <p className="rounded-xl border border-dashed border-[var(--line)] bg-white p-8 text-center text-sm text-slate-500">
+        {empty}
+      </p>
+    );
   }
   return (
-    <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white">
+    <div className="overflow-x-auto rounded-xl border border-[var(--line)] bg-white">
       <table className="w-full text-sm">
-        <thead className="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
+        <thead className="bg-forest-50 text-left text-[11px] uppercase tracking-wider text-forest-800/70">
           <tr>
             {columns.map((c) => (
-              <th key={c} className="px-4 py-2 font-medium">{c}</th>
+              <th key={c} className="px-4 py-3 font-medium">{c}</th>
             ))}
           </tr>
         </thead>
         <tbody>
           {rows.map((r, i) => (
-            <tr key={i} className="border-t border-slate-100">
+            <tr key={i} className="border-t border-[var(--line)] hover:bg-forest-50/50">
               {r.map((cell, j) => (
-                <td key={j} className="px-4 py-2 text-slate-700">{cell ?? "—"}</td>
+                <td key={j} className="px-4 py-3 text-slate-700">{cell ?? "—"}</td>
               ))}
             </tr>
           ))}
