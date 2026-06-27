@@ -15,9 +15,17 @@ export default async function LoginPage({
   return (
     <main className="min-h-screen grid lg:grid-cols-2 bg-[var(--bg)]">
       <aside className="hidden lg:flex flex-col justify-between bg-forest text-white p-12">
-        <div className="flex items-center gap-3">
-          <span className="inline-flex h-9 w-9 items-center justify-center rounded-md bg-brand text-white font-semibold">B</span>
-          <span className="text-lg font-semibold tracking-wide">Builder</span>
+        <div className="flex items-center gap-2">
+          <span className="inline-flex items-center justify-center h-9 w-12 rounded-md bg-brand">
+            <svg width="28" height="18" viewBox="0 0 22 14" fill="none" aria-hidden="true">
+              <path d="M2 11h18v2H2z" fill="#fff" />
+              <path d="M4 11V8a7 7 0 0 1 14 0v3" fill="#fff" />
+              <rect x="10" y="3" width="2" height="6" fill="#16a34a" />
+            </svg>
+          </span>
+          <span className="text-xl font-semibold tracking-tight">
+            Deva <span className="font-normal text-white/85">Construction</span>
+          </span>
         </div>
         <div className="max-w-md">
           <h2 className="text-3xl font-semibold leading-tight">
@@ -28,7 +36,7 @@ export default async function LoginPage({
           </p>
         </div>
         <div className="text-xs text-forest-100/60">
-          © Construction Manager
+          © Deva Construction
         </div>
       </aside>
 
@@ -36,7 +44,7 @@ export default async function LoginPage({
         <div className="w-full max-w-md">
           <header className="mb-8">
             <h1 className="text-2xl font-semibold tracking-tight text-ink">
-              {isSignUp ? "Create your account" : "Sign in"}
+              {isSignUp ? "Create your account" : "Sign in to Deva Construction"}
             </h1>
             <p className="mt-1 text-sm text-slate-600">
               {isSignUp ? "Pick the role that matches you on site." : "Welcome back."}

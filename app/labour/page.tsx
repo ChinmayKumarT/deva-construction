@@ -1,8 +1,6 @@
 import Link from "next/link";
 import { requireRole } from "@/lib/guard";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { signOut } from "@/app/actions/auth";
-import { DeleteAccountButton } from "@/components/DeleteAccountButton";
 import { selfCheckIn } from "./actions";
 
 const WAGE_FACTOR: Record<"present" | "half_day" | "absent", number> = {
@@ -24,13 +22,10 @@ export default async function LabourDashboard() {
   if (!labourer) {
     return (
       <main className="mx-auto max-w-2xl p-10">
-        <h1 className="text-2xl font-bold">Welcome</h1>
+        <h1 className="text-2xl font-semibold">Welcome</h1>
         <p className="mt-3 text-slate-600">
           Your account isn't linked to a labourer record yet. Ask the admin to link you in the Labourers page.
         </p>
-        <form action={signOut} className="mt-6">
-          <button className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm">Sign out</button>
-        </form>
       </main>
     );
   }
@@ -77,12 +72,6 @@ export default async function LabourDashboard() {
           <p className="text-xs uppercase tracking-wide text-slate-500">Labour dashboard</p>
           <h1 className="text-2xl font-bold">{labourer.name}</h1>
           <p className="mt-1 text-sm text-slate-500">{user.email}</p>
-        </div>
-        <div className="flex gap-2">
-          <form action={signOut}>
-            <button className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm">Sign out</button>
-          </form>
-          <DeleteAccountButton />
         </div>
       </div>
 

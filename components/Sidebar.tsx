@@ -5,51 +5,28 @@ import { usePathname } from "next/navigation";
 import { useState, useTransition } from "react";
 import { signOut, deleteAccount } from "@/app/actions/auth";
 
-type NavItem = { href: string; label: string; icon: IconName };
-type NavGroup = { title?: string; items: NavItem[] };
-
 export type IconName =
   | "overview" | "projects" | "clients" | "suppliers" | "labourers"
   | "materials" | "costs" | "attendance" | "payments" | "updates" | "reports"
-  | "menu" | "signout" | "trash";
+  | "menu" | "signout" | "trash" | "home" | "delivery" | "bill" | "wallet"
+  | "calendar-check" | "photo";
 
-const GROUPS: NavGroup[] = [
-  {
-    items: [
-      { href: "/admin", label: "Overview", icon: "overview" },
-    ],
-  },
-  {
-    title: "Manage",
-    items: [
-      { href: "/admin/projects", label: "Projects", icon: "projects" },
-      { href: "/admin/clients", label: "Clients", icon: "clients" },
-      { href: "/admin/suppliers", label: "Suppliers", icon: "suppliers" },
-      { href: "/admin/labourers", label: "Labour", icon: "labourers" },
-    ],
-  },
-  {
-    title: "Operations",
-    items: [
-      { href: "/admin/materials", label: "Materials", icon: "materials" },
-      { href: "/admin/costs", label: "Costs", icon: "costs" },
-      { href: "/admin/attendance", label: "Attendance", icon: "attendance" },
-      { href: "/admin/payments", label: "Payments", icon: "payments" },
-      { href: "/admin/updates", label: "Updates", icon: "updates" },
-    ],
-  },
-  {
-    title: "Insights",
-    items: [
-      { href: "/admin/reports", label: "Reports", icon: "reports" },
-    ],
-  },
-];
+export type NavItem = { href: string; label: string; icon: IconName };
+export type NavGroup = { title?: string; items: NavItem[] };
 
-const RAIL = GROUPS.flatMap((g) => g.items);
-
-export function Sidebar({ role, email }: { role: string; email: string }) {
+export function Sidebar({
+  role,
+  email,
+  groups,
+  homeHref = "/",
+}: {
+  role: string;
+  email: string;
+  groups: NavGroup[];
+  homeHref?: string;
+}) {
   const [expanded, setExpanded] = useState(false);
+  const rail = groups.flatMap((g) => g.items);
 
   return (
     <aside
@@ -68,24 +45,24 @@ export function Sidebar({ role, email }: { role: string; email: string }) {
           <Icon name="menu" size={22} />
         </button>
         {expanded && (
-          <Link href="/admin" className="ml-1 flex items-baseline gap-1.5">
+          <Link href={homeHref} className="ml-1 flex items-baseline gap-1.5">
             <span className="inline-flex items-center justify-center h-7 w-9 rounded-md bg-brand">
               <BrandMark />
             </span>
-            <span className="text-[20px] font-semibold leading-none tracking-tight">Builder</span>
+            <span className="text-[18px] font-semibold leading-none tracking-tight">
+              Deva <span className="font-normal text-white/85">Construction</span>
+            </span>
             <sup className="ml-0.5 text-[10px] font-medium uppercase tracking-wider text-white/60">{role}</sup>
           </Link>
         )}
       </div>
 
       <nav className="flex-1 overflow-y-auto no-scrollbar px-2 pb-3">
-        {GROUPS.map((g, i) =>
-          expanded ? (
-            <ExpandedGroup key={i} group={g} showDivider={i > 0} />
-          ) : null,
-        )}
-        {!expanded &&
-          RAIL.map((item) => <RailRow key={item.href} item={item} />)}
+        {expanded
+          ? groups.map((g, i) => (
+              <ExpandedGroup key={i} group={g} showDivider={i > 0} />
+            ))
+          : rail.map((item) => <RailRow key={item.href} item={item} />)}
       </nav>
 
       <div className="border-t border-white/10 px-2 py-2 shrink-0">
@@ -126,8 +103,7 @@ function ExpandedGroup({ group, showDivider }: { group: NavGroup; showDivider: b
 
 function ExpandedRow({ item }: { item: NavItem }) {
   const pathname = usePathname();
-  const isActive =
-    pathname === item.href || (item.href !== "/admin" && pathname?.startsWith(item.href));
+  const isActive = isItemActive(pathname, item.href);
   return (
     <Link
       href={item.href}
@@ -180,8 +156,7 @@ function ExpandedDelete() {
 
 function RailRow({ item }: { item: NavItem }) {
   const pathname = usePathname();
-  const isActive =
-    pathname === item.href || (item.href !== "/admin" && pathname?.startsWith(item.href));
+  const isActive = isItemActive(pathname, item.href);
   return (
     <Link
       href={item.href}
@@ -280,10 +255,20 @@ function DeleteDialog({
   );
 }
 
+/* ---------- Helpers ---------- */
+
+function isItemActive(pathname: string | null, href: string) {
+  if (!pathname) return false;
+  if (pathname === href) return true;
+  // Only treat as active for deeper paths when href has segments past role root.
+  const roleRoots = ["/admin", "/client", "/supplier", "/labour"];
+  if (roleRoots.includes(href)) return false;
+  return pathname.startsWith(href);
+}
+
 /* ---------- Brand mark ---------- */
 
 function BrandMark() {
-  // White hard-hat silhouette inside the green chip — same shape language as the Android adaptive icon
   return (
     <svg width="22" height="14" viewBox="0 0 22 14" fill="none" aria-hidden="true">
       <path d="M2 11h18v2H2z" fill="#fff" />
@@ -303,6 +288,7 @@ function Icon({ name, size = 18 }: { name: IconName; size?: number }) {
   };
   switch (name) {
     case "overview":
+    case "home":
       return (<svg {...props}><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></svg>);
     case "projects":
       return (<svg {...props}><path d="M3 21h18"/><path d="M5 21V8l7-5 7 5v13"/><path d="M9 21v-6h6v6"/></svg>);
@@ -317,13 +303,21 @@ function Icon({ name, size = 18 }: { name: IconName; size?: number }) {
     case "costs":
       return (<svg {...props}><path d="M3 3v18h18"/><path d="M7 16l4-4 3 3 6-7"/></svg>);
     case "attendance":
+    case "calendar-check":
       return (<svg {...props}><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 10h18"/><path d="M9 14l2 2 4-4"/></svg>);
     case "payments":
+    case "wallet":
       return (<svg {...props}><rect x="2" y="6" width="20" height="13" rx="2"/><path d="M2 11h20"/><path d="M6 16h4"/></svg>);
     case "updates":
       return (<svg {...props}><path d="M21 11.5a8.5 8.5 0 1 1-3-6.5"/><path d="M21 4v6h-6"/></svg>);
     case "reports":
       return (<svg {...props}><path d="M4 4h12l4 4v12a2 2 0 0 1-2 2H4z"/><path d="M14 4v6h6"/><path d="M8 14h8M8 18h6"/></svg>);
+    case "delivery":
+      return (<svg {...props}><path d="M3 7h11v10H3z"/><path d="M14 10h4l3 3v4h-7"/><circle cx="7.5" cy="18.5" r="1.5"/><circle cx="17.5" cy="18.5" r="1.5"/></svg>);
+    case "bill":
+      return (<svg {...props}><path d="M6 3h12v18l-3-2-3 2-3-2-3 2z"/><path d="M9 8h6M9 12h6M9 16h4"/></svg>);
+    case "photo":
+      return (<svg {...props}><rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="9" cy="11" r="2"/><path d="M21 17l-5-5-10 9"/></svg>);
     case "menu":
       return (<svg {...props}><path d="M4 6h16M4 12h16M4 18h16"/></svg>);
     case "signout":
