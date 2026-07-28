@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { AdminPage, AdminPageHeader, DataTable } from "@/components/admin/Page";
 
@@ -10,20 +11,28 @@ export default async function CostsPage() {
     supabase.from("payments").select("project_id, amount, status, payee_type").is("archived_at", null),
   ]);
 
-  const byProject = new Map<string, { materials: number; labour: number; supplierPaid: number }>();
-  for (const p of projects ?? []) byProject.set(p.id, { materials: 0, labour: 0, supplierPaid: 0 });
+  const byProject = new Map<
+    string,
+    { materials: number; labour: number; supplierPaid: number; materialCount: number; paymentCount: number }
+  >();
+  for (const p of projects ?? [])
+    byProject.set(p.id, { materials: 0, labour: 0, supplierPaid: 0, materialCount: 0, paymentCount: 0 });
 
   for (const m of materials ?? []) {
-    if (!m.project_id || m.status === "returned") continue;
+    if (!m.project_id) continue;
     const row = byProject.get(m.project_id);
-    if (row) row.materials += Number(m.quantity) * Number(m.unit_cost);
+    if (!row) continue;
+    row.materialCount += 1;
+    if (m.status === "returned") continue;
+    row.materials += Number(m.quantity) * Number(m.unit_cost);
   }
 
   for (const pay of payments ?? []) {
     if (!pay.project_id) continue;
-    if (pay.status !== "paid" && pay.status !== "approved") continue;
     const row = byProject.get(pay.project_id);
     if (!row) continue;
+    row.paymentCount += 1;
+    if (pay.status !== "paid" && pay.status !== "approved") continue;
     if (pay.payee_type === "labour") row.labour += Number(pay.amount);
     else row.supplierPaid += Number(pay.amount);
   }
@@ -70,6 +79,48 @@ export default async function CostsPage() {
         Spend includes <strong>approved</strong> and <strong>paid</strong> payments. Pending payments are not counted.
         Materials marked <strong>returned</strong> are excluded.
       </p>
+
+      {projects && projects.length > 0 && (
+        <section className="mt-10">
+          <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-slate-500">Adjust costs</h2>
+          <p className="mb-4 text-xs text-slate-500">
+            Edit a project&apos;s budget, or jump to its materials and payments to correct or clear an entry.
+          </p>
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {projects.map((p) => {
+              const c = byProject.get(p.id)!;
+              return (
+                <div key={p.id} className="rounded-xl border border-slate-200 bg-white p-4">
+                  <div className="mb-1 font-medium text-sm">{p.name}</div>
+                  <div className="mb-3 text-xs text-slate-500">
+                    Budget ₹{Number(p.total_cost).toLocaleString()}
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    <Link
+                      href={`/admin/projects/${p.id}/edit`}
+                      className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs text-slate-700 hover:bg-slate-100"
+                    >
+                      Edit budget
+                    </Link>
+                    <Link
+                      href={`/admin/materials?project=${p.id}`}
+                      className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs text-slate-700 hover:bg-slate-100"
+                    >
+                      Materials ({c.materialCount})
+                    </Link>
+                    <Link
+                      href={`/admin/payments?project=${p.id}`}
+                      className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs text-slate-700 hover:bg-slate-100"
+                    >
+                      Payments ({c.paymentCount})
+                    </Link>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </section>
+      )}
     </AdminPage>
   );
 }

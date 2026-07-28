@@ -70,6 +70,9 @@ export function ArchivedToggle({
   archivedCount: number | null;
   label: string;
 }) {
+  // basePath may already carry a query string (e.g. a ?project= filter), so
+  // join with & in that case rather than a second ?.
+  const withArchived = `${basePath}${basePath.includes("?") ? "&" : "?"}archived=1`;
   if (showArchived) {
     return (
       <Link href={basePath} className="text-sm font-medium text-brand-700 hover:underline">
@@ -79,7 +82,7 @@ export function ArchivedToggle({
   }
   if (!archivedCount) return null;
   return (
-    <Link href={`${basePath}?archived=1`} className="text-sm font-medium text-brand-700 hover:underline">
+    <Link href={withArchived} className="text-sm font-medium text-brand-700 hover:underline">
       View {archivedCount} archived {label} →
     </Link>
   );

@@ -17,15 +17,17 @@ const STATUS_STYLE: Record<string, string> = {
 export default async function PaymentsPage({
   searchParams,
 }: {
-  searchParams: { archived?: string };
+  searchParams: { archived?: string; project?: string };
 }) {
   const showArchived = searchParams.archived === "1";
+  const projectFilter = searchParams.project ?? null;
   const supabase = createSupabaseServerClient();
 
-  const base = supabase
+  let base = supabase
     .from("payments")
     .select("id, amount, status, payee_type, description, created_at, archived_at, projects(name), suppliers(name), labourers(name)")
     .order("created_at", { ascending: false });
+  if (projectFilter) base = base.eq("project_id", projectFilter);
 
   const [{ data: payments }, { data: projects }, { data: suppliers }, { data: labourers }, { count: archivedCount }] =
     await Promise.all([
@@ -35,6 +37,10 @@ export default async function PaymentsPage({
       supabase.from("labourers").select("id, name").is("archived_at", null).order("name"),
       supabase.from("payments").select("id", { count: "exact", head: true }).not("archived_at", "is", null),
     ]);
+
+  const filteredProjectName = projectFilter
+    ? projects?.find((p) => p.id === projectFilter)?.name ?? "selected project"
+    : null;
 
   return (
     <AdminPage>
@@ -47,8 +53,15 @@ export default async function PaymentsPage({
         }
       />
 
+      {filteredProjectName && (
+        <div className="mb-4 flex items-center justify-between rounded-lg border border-brand-200 bg-brand-50 px-4 py-2 text-sm text-brand-800">
+          <span>Showing payments for <strong>{filteredProjectName}</strong>{showArchived ? " (archived)" : ""}.</span>
+          <a href={showArchived ? "/admin/payments?archived=1" : "/admin/payments"} className="font-medium hover:underline">Clear filter</a>
+        </div>
+      )}
+
       <div className="mb-6">
-        <ArchivedToggle basePath="/admin/payments" showArchived={showArchived} archivedCount={archivedCount ?? 0} label="payments" />
+        <ArchivedToggle basePath={projectFilter ? `/admin/payments?project=${projectFilter}` : "/admin/payments"} showArchived={showArchived} archivedCount={archivedCount ?? 0} label="payments" />
       </div>
 
       {!showArchived && (
@@ -57,7 +70,7 @@ export default async function PaymentsPage({
           <option value="supplier">Supplier (bill)</option>
           <option value="labour">Labourer (wages)</option>
         </Select>
-        <Select label="Project" name="project_id" defaultValue="none">
+        <Select label="Project" name="project_id" defaultValue={projectFilter ?? "none"}>
           <option value="none">— none —</option>
           {projects?.map((p) => (<option key={p.id} value={p.id}>{p.name}</option>))}
         </Select>

@@ -6,15 +6,17 @@ import { createMaterial, markMaterialDelivered, archiveMaterial, unarchiveMateri
 export default async function MaterialsPage({
   searchParams,
 }: {
-  searchParams: { archived?: string };
+  searchParams: { archived?: string; project?: string };
 }) {
   const showArchived = searchParams.archived === "1";
+  const projectFilter = searchParams.project ?? null;
   const supabase = createSupabaseServerClient();
 
-  const base = supabase
+  let base = supabase
     .from("materials")
     .select("id, name, unit, quantity, unit_cost, status, ordered_at, archived_at, projects(name), suppliers(name)")
     .order("ordered_at", { ascending: false });
+  if (projectFilter) base = base.eq("project_id", projectFilter);
 
   const [{ data: materials }, { data: projects }, { data: suppliers }, { count: archivedCount }] =
     await Promise.all([
@@ -23,6 +25,10 @@ export default async function MaterialsPage({
       supabase.from("suppliers").select("id, name").is("archived_at", null).order("name"),
       supabase.from("materials").select("id", { count: "exact", head: true }).not("archived_at", "is", null),
     ]);
+
+  const filteredProjectName = projectFilter
+    ? projects?.find((p) => p.id === projectFilter)?.name ?? "selected project"
+    : null;
 
   const rows =
     materials?.map((m) => [
@@ -48,14 +54,21 @@ export default async function MaterialsPage({
         }
       />
 
+      {filteredProjectName && (
+        <div className="mb-4 flex items-center justify-between rounded-lg border border-brand-200 bg-brand-50 px-4 py-2 text-sm text-brand-800">
+          <span>Showing materials for <strong>{filteredProjectName}</strong>{showArchived ? " (archived)" : ""}.</span>
+          <a href={showArchived ? "/admin/materials?archived=1" : "/admin/materials"} className="font-medium hover:underline">Clear filter</a>
+        </div>
+      )}
+
       <div className="mb-6">
-        <ArchivedToggle basePath="/admin/materials" showArchived={showArchived} archivedCount={archivedCount ?? 0} label="materials" />
+        <ArchivedToggle basePath={projectFilter ? `/admin/materials?project=${projectFilter}` : "/admin/materials"} showArchived={showArchived} archivedCount={archivedCount ?? 0} label="materials" />
       </div>
 
       {!showArchived && (
         <form action={createMaterial} className="mb-8 grid gap-4 rounded-xl border border-slate-200 bg-white p-6 sm:grid-cols-2 lg:grid-cols-3">
           <Field label="Material name" name="name" required />
-          <Select label="Project" name="project_id" defaultValue="none">
+          <Select label="Project" name="project_id" defaultValue={projectFilter ?? "none"}>
             <option value="none" disabled>— choose —</option>
             {projects?.map((p) => (<option key={p.id} value={p.id}>{p.name}</option>))}
           </Select>
