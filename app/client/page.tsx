@@ -74,6 +74,9 @@ export default async function ClientDashboard() {
   for (const p of payments ?? []) {
     if (p.status !== "paid" && p.status !== "approved") continue;
     if (!p.project_id) continue;
+    // Only labour payments add to spend. Supplier payments settle material
+    // costs that are already counted above, so including them double-counts.
+    if (p.payee_type !== "labour") continue;
     spentByProject.set(p.project_id, (spentByProject.get(p.project_id) ?? 0) + Number(p.amount));
   }
 
@@ -100,7 +103,7 @@ export default async function ClientDashboard() {
             {projects!.map((p) => {
               const spent = spentByProject.get(p.id) ?? 0;
               const budget = Number(p.total_cost);
-              const pending = budget - spent;
+              const remaining = budget - spent;
               return (
                 <article key={p.id} className="rounded-xl border border-slate-200 bg-white p-5">
                   <div className="flex items-baseline justify-between">
@@ -119,7 +122,7 @@ export default async function ClientDashboard() {
                   <dl className="mt-4 grid grid-cols-3 gap-3 text-sm">
                     <Cell label="Budget" value={`₹${budget.toLocaleString()}`} />
                     <Cell label="Spent" value={`₹${spent.toLocaleString()}`} />
-                    <Cell label="Pending" value={`₹${pending.toLocaleString()}`} />
+                    <Cell label="Remaining" value={`₹${remaining.toLocaleString()}`} />
                   </dl>
                   {(p.start_date || p.end_date) && (
                     <p className="mt-3 text-xs text-slate-500">

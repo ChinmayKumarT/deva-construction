@@ -1525,8 +1525,12 @@ fun AdminReports() {
     val spent = projects.associate { p ->
         val mat = materials.filter { it.projectId == p.id && it.status != "returned" }
             .sumOf { it.quantity * it.unitCost }
-        val pay = payments.filter { it.projectId == p.id && it.status in listOf("paid","approved") }
-            .sumOf { it.amount }
+        // Labour only: supplier payments settle already-counted material costs,
+        // so counting them too would double-count (matches AdminCosts).
+        val pay = payments.filter {
+            it.projectId == p.id && it.status in listOf("paid", "approved") &&
+                it.payeeType == "labour"
+        }.sumOf { it.amount }
         p.id to mat + pay
     }
 

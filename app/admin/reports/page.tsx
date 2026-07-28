@@ -14,7 +14,7 @@ export default async function ReportsPage() {
   ] = await Promise.all([
     supabase.from("projects").select("id, name, status, total_cost, completion_pct").is("archived_at", null).order("name"),
     supabase.from("materials").select("project_id, quantity, unit_cost, status").is("archived_at", null),
-    supabase.from("payments").select("project_id, amount, status").is("archived_at", null),
+    supabase.from("payments").select("project_id, amount, status, payee_type").is("archived_at", null),
     supabase.from("attendance").select("date, status, labourer_id"),
     supabase.from("labourers").select("id, name, daily_wage").is("archived_at", null),
   ]);
@@ -31,6 +31,8 @@ export default async function ReportsPage() {
   for (const p of payments ?? []) {
     if (!p.project_id) continue;
     if (p.status !== "paid" && p.status !== "approved") continue;
+    // Labour only: supplier payments settle already-counted material costs.
+    if (p.payee_type !== "labour") continue;
     projectSpent.set(p.project_id, (projectSpent.get(p.project_id) ?? 0) + Number(p.amount));
   }
 

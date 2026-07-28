@@ -37,7 +37,8 @@ export default async function SiteReportPage({ params }: { params: { id: string 
       .filter((m) => m.status !== "returned")
       .reduce((sum, m) => sum + Number(m.quantity) * Number(m.unit_cost), 0) +
     (payments ?? [])
-      .filter((p) => p.status === "paid" || p.status === "approved")
+      // Labour only: supplier payments settle already-counted material costs.
+      .filter((p) => (p.status === "paid" || p.status === "approved") && p.payee_type === "labour")
       .reduce((sum, p) => sum + Number(p.amount), 0);
 
   const budget = Number(project.total_cost);
