@@ -46,16 +46,19 @@ export default async function ClientDashboard() {
           .from("project_updates")
           .select("id, stage, note, image_url, created_at, project_id")
           .in("project_id", projectIds)
+          .is("archived_at", null)
           .order("created_at", { ascending: false })
           .limit(20),
         supabase
           .from("materials")
           .select("project_id, quantity, unit_cost, status")
-          .in("project_id", projectIds),
+          .in("project_id", projectIds)
+          .is("archived_at", null),
         supabase
           .from("payments")
           .select("id, amount, status, description, created_at, project_id, payee_type")
           .in("project_id", projectIds)
+          .is("archived_at", null)
           .order("created_at", { ascending: false }),
       ])
     : [{ data: [] }, { data: [] }, { data: [] }];

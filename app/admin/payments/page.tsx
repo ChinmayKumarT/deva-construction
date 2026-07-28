@@ -1,6 +1,11 @@
+import Link from "next/link";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { AdminPage, AdminPageHeader, Field, Select, SubmitButton } from "@/components/admin/Page";
-import { approvePayment, createPayment, markPaymentPaid, rejectPayment } from "../actions";
+import { ArchivedToggle, RestoreAction } from "@/components/admin/RowActions";
+import {
+  approvePayment, createPayment, markPaymentPaid, rejectPayment,
+  archivePayment, unarchivePayment,
+} from "../actions";
 
 const STATUS_STYLE: Record<string, string> = {
   pending: "bg-amber-50 text-amber-700 border-amber-200",
@@ -9,22 +14,44 @@ const STATUS_STYLE: Record<string, string> = {
   rejected: "bg-red-50 text-red-700 border-red-200",
 };
 
-export default async function PaymentsPage() {
+export default async function PaymentsPage({
+  searchParams,
+}: {
+  searchParams: { archived?: string };
+}) {
+  const showArchived = searchParams.archived === "1";
   const supabase = createSupabaseServerClient();
-  const [{ data: payments }, { data: projects }, { data: suppliers }, { data: labourers }] = await Promise.all([
-    supabase
-      .from("payments")
-      .select("id, amount, status, payee_type, description, created_at, projects(name), suppliers(name), labourers(name)")
-      .order("created_at", { ascending: false }),
-    supabase.from("projects").select("id, name").is("archived_at", null).order("name"),
-    supabase.from("suppliers").select("id, name").order("name"),
-    supabase.from("labourers").select("id, name").order("name"),
-  ]);
+
+  const base = supabase
+    .from("payments")
+    .select("id, amount, status, payee_type, description, created_at, archived_at, projects(name), suppliers(name), labourers(name)")
+    .order("created_at", { ascending: false });
+
+  const [{ data: payments }, { data: projects }, { data: suppliers }, { data: labourers }, { count: archivedCount }] =
+    await Promise.all([
+      showArchived ? base.not("archived_at", "is", null) : base.is("archived_at", null),
+      supabase.from("projects").select("id, name").is("archived_at", null).order("name"),
+      supabase.from("suppliers").select("id, name").is("archived_at", null).order("name"),
+      supabase.from("labourers").select("id, name").is("archived_at", null).order("name"),
+      supabase.from("payments").select("id", { count: "exact", head: true }).not("archived_at", "is", null),
+    ]);
 
   return (
     <AdminPage>
-      <AdminPageHeader title="Payments" subtitle="Bills and wages. Pending → approved → paid." />
+      <AdminPageHeader
+        title={showArchived ? "Archived payments" : "Payments"}
+        subtitle={
+          showArchived
+            ? "Hidden from lists and excluded from cost totals."
+            : "Bills and wages. Pending → approved → paid."
+        }
+      />
 
+      <div className="mb-6">
+        <ArchivedToggle basePath="/admin/payments" showArchived={showArchived} archivedCount={archivedCount ?? 0} label="payments" />
+      </div>
+
+      {!showArchived && (
       <form action={createPayment} className="mb-8 grid gap-4 rounded-xl border border-slate-200 bg-white p-6 sm:grid-cols-2 lg:grid-cols-3">
         <Select label="Payee type" name="payee_type" defaultValue="supplier">
           <option value="supplier">Supplier (bill)</option>
@@ -48,6 +75,7 @@ export default async function PaymentsPage() {
           <SubmitButton>Create payment</SubmitButton>
         </div>
       </form>
+      )}
 
       <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white">
         <table className="w-full text-sm">
@@ -86,15 +114,28 @@ export default async function PaymentsPage() {
                   </td>
                   <td className="px-4 py-2 text-slate-600">{p.description ?? "—"}</td>
                   <td className="px-4 py-2">
-                    <div className="flex gap-1">
-                      {p.status === "pending" && (
+                    <div className="flex flex-wrap gap-1">
+                      {showArchived ? (
+                        <RestoreAction id={p.id} action={unarchivePayment} />
+                      ) : (
                         <>
-                          <ActionButton id={p.id} action={approvePayment} label="Approve" />
-                          <ActionButton id={p.id} action={rejectPayment} label="Reject" variant="ghost" />
+                          {p.status === "pending" && (
+                            <>
+                              <ActionButton id={p.id} action={approvePayment} label="Approve" />
+                              <ActionButton id={p.id} action={rejectPayment} label="Reject" variant="ghost" />
+                            </>
+                          )}
+                          {p.status === "approved" && (
+                            <ActionButton id={p.id} action={markPaymentPaid} label="Mark paid" />
+                          )}
+                          <Link
+                            href={`/admin/payments/${p.id}/edit`}
+                            className="rounded-md border border-slate-300 bg-white px-2 py-1 text-xs text-slate-700 hover:bg-slate-100"
+                          >
+                            Edit
+                          </Link>
+                          <ActionButton id={p.id} action={archivePayment} label="Archive" variant="ghost" />
                         </>
-                      )}
-                      {p.status === "approved" && (
-                        <ActionButton id={p.id} action={markPaymentPaid} label="Mark paid" />
                       )}
                     </div>
                   </td>

@@ -22,7 +22,7 @@ export default async function ProjectsPage({
     showArchived
       ? projectQuery.not("archived_at", "is", null)
       : projectQuery.is("archived_at", null),
-    supabase.from("clients").select("id, name").order("name"),
+    supabase.from("clients").select("id, name").is("archived_at", null).order("name"),
     supabase
       .from("projects")
       .select("id", { count: "exact", head: true })

@@ -98,6 +98,131 @@ function revalidateProjectViews() {
   revalidatePath("/client");
 }
 
+// Archiving any entity can change several dashboards at once (a supplier's name
+// appears on materials and payments, a labourer's on attendance), so rather than
+// track per-entity dependencies, refresh the admin tree and the role dashboards.
+function revalidateAll() {
+  for (const p of [
+    "/admin", "/admin/projects", "/admin/clients", "/admin/suppliers",
+    "/admin/labourers", "/admin/materials", "/admin/payments", "/admin/updates",
+    "/admin/attendance", "/admin/costs", "/admin/reports",
+    "/client", "/supplier", "/labour",
+  ]) revalidatePath(p);
+}
+
+/**
+ * "Delete" is a reversible archive across every entity -- the foreign keys in
+ * 02_domain.sql cascade, so a real DELETE on a project would destroy its
+ * materials and progress photos, and on a labourer would wipe their attendance
+ * (wage) history. See supabase/10_archive.sql and 11_archive_updates.sql.
+ */
+async function setArchived(table: string, id: string | null, archived: boolean) {
+  if (!id) throw new Error("id required");
+  const supabase = createSupabaseServerClient();
+  const { error } = await supabase
+    .from(table)
+    .update({ archived_at: archived ? new Date().toISOString() : null })
+    .eq("id", id);
+  if (error) throw new Error(error.message);
+  revalidateAll();
+}
+
+async function updateRow(table: string, id: string | null, patch: Record<string, unknown>) {
+  if (!id) throw new Error("id required");
+  const supabase = createSupabaseServerClient();
+  const { error } = await supabase.from(table).update(patch).eq("id", id);
+  if (error) throw new Error(error.message);
+  revalidateAll();
+}
+
+// ---------- Clients ----------
+export async function updateClient(fd: FormData) {
+  await updateRow("clients", str(fd, "id"), {
+    name: str(fd, "name"),
+    email: str(fd, "email"),
+    phone: str(fd, "phone"),
+    address: str(fd, "address"),
+    profile_id: uuidOrNull(fd, "profile_id"),
+  });
+  redirect("/admin/clients");
+}
+export async function archiveClient(fd: FormData) { await setArchived("clients", str(fd, "id"), true); }
+export async function unarchiveClient(fd: FormData) { await setArchived("clients", str(fd, "id"), false); }
+
+// ---------- Suppliers ----------
+export async function updateSupplier(fd: FormData) {
+  await updateRow("suppliers", str(fd, "id"), {
+    name: str(fd, "name"),
+    email: str(fd, "email"),
+    phone: str(fd, "phone"),
+    address: str(fd, "address"),
+    profile_id: uuidOrNull(fd, "profile_id"),
+  });
+  redirect("/admin/suppliers");
+}
+export async function archiveSupplier(fd: FormData) { await setArchived("suppliers", str(fd, "id"), true); }
+export async function unarchiveSupplier(fd: FormData) { await setArchived("suppliers", str(fd, "id"), false); }
+
+// ---------- Labourers ----------
+export async function updateLabourer(fd: FormData) {
+  await updateRow("labourers", str(fd, "id"), {
+    name: str(fd, "name"),
+    phone: str(fd, "phone"),
+    daily_wage: num(fd, "daily_wage") ?? 0,
+    active: fd.get("active") === "on",
+    profile_id: uuidOrNull(fd, "profile_id"),
+  });
+  redirect("/admin/labourers");
+}
+export async function archiveLabourer(fd: FormData) { await setArchived("labourers", str(fd, "id"), true); }
+export async function unarchiveLabourer(fd: FormData) { await setArchived("labourers", str(fd, "id"), false); }
+
+// ---------- Materials ----------
+export async function updateMaterial(fd: FormData) {
+  const status = (str(fd, "status") ?? "ordered") as "ordered" | "delivered" | "returned";
+  await updateRow("materials", str(fd, "id"), {
+    project_id: uuidOrNull(fd, "project_id"),
+    supplier_id: uuidOrNull(fd, "supplier_id"),
+    name: str(fd, "name"),
+    unit: str(fd, "unit") ?? "unit",
+    quantity: num(fd, "quantity") ?? 0,
+    unit_cost: num(fd, "unit_cost") ?? 0,
+    status,
+  });
+  redirect("/admin/materials");
+}
+export async function archiveMaterial(fd: FormData) { await setArchived("materials", str(fd, "id"), true); }
+export async function unarchiveMaterial(fd: FormData) { await setArchived("materials", str(fd, "id"), false); }
+
+// ---------- Payments ----------
+export async function updatePayment(fd: FormData) {
+  const payee_type = (str(fd, "payee_type") ?? "supplier") as "supplier" | "labour";
+  await updateRow("payments", str(fd, "id"), {
+    project_id: uuidOrNull(fd, "project_id"),
+    payee_type,
+    // The DB CHECK constraint requires exactly one of supplier_id/labourer_id
+    // to be set, matching payee_type -- so always clear the other one.
+    supplier_id: payee_type === "supplier" ? uuidOrNull(fd, "supplier_id") : null,
+    labourer_id: payee_type === "labour" ? uuidOrNull(fd, "labourer_id") : null,
+    amount: num(fd, "amount") ?? 0,
+    description: str(fd, "description"),
+  });
+  redirect("/admin/payments");
+}
+export async function archivePayment(fd: FormData) { await setArchived("payments", str(fd, "id"), true); }
+export async function unarchivePayment(fd: FormData) { await setArchived("payments", str(fd, "id"), false); }
+
+// ---------- Project updates ----------
+export async function updateProjectUpdate(fd: FormData) {
+  await updateRow("project_updates", str(fd, "id"), {
+    stage: str(fd, "stage"),
+    note: str(fd, "note"),
+  });
+  redirect("/admin/updates");
+}
+export async function archiveProjectUpdate(fd: FormData) { await setArchived("project_updates", str(fd, "id"), true); }
+export async function unarchiveProjectUpdate(fd: FormData) { await setArchived("project_updates", str(fd, "id"), false); }
+
 export async function createClient(fd: FormData) {
   const supabase = createSupabaseServerClient();
   const { error } = await supabase.from("clients").insert({

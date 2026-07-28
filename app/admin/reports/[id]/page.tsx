@@ -23,11 +23,13 @@ export default async function SiteReportPage({ params }: { params: { id: string 
     supabase
       .from("materials")
       .select("id, name, unit, quantity, unit_cost, status, ordered_at, delivered_at")
-      .eq("project_id", params.id),
+      .eq("project_id", params.id)
+      .is("archived_at", null),
     supabase
       .from("payments")
       .select("id, amount, status, description, payee_type, created_at")
-      .eq("project_id", params.id),
+      .eq("project_id", params.id)
+      .is("archived_at", null),
   ]);
 
   const spent =

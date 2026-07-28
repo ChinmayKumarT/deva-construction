@@ -6,8 +6,8 @@ export default async function CostsPage() {
 
   const [{ data: projects }, { data: materials }, { data: payments }] = await Promise.all([
     supabase.from("projects").select("id, name, total_cost, status").is("archived_at", null).order("name"),
-    supabase.from("materials").select("project_id, quantity, unit_cost, status"),
-    supabase.from("payments").select("project_id, amount, status, payee_type"),
+    supabase.from("materials").select("project_id, quantity, unit_cost, status").is("archived_at", null),
+    supabase.from("payments").select("project_id, amount, status, payee_type").is("archived_at", null),
   ]);
 
   const byProject = new Map<string, { materials: number; labour: number; supplierPaid: number }>();

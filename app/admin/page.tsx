@@ -17,11 +17,11 @@ export default async function AdminOverview() {
   ] = await Promise.all([
     supabase.from("projects").select("*", { count: "exact", head: true }).is("archived_at", null),
     supabase.from("projects").select("*", { count: "exact", head: true }).is("archived_at", null).eq("status", "active"),
-    supabase.from("payments").select("amount", { count: "exact" }).in("status", ["pending", "approved"]),
-    supabase.from("labourers").select("*", { count: "exact", head: true }).eq("active", true),
+    supabase.from("payments").select("amount", { count: "exact" }).is("archived_at", null).in("status", ["pending", "approved"]),
+    supabase.from("labourers").select("*", { count: "exact", head: true }).is("archived_at", null).eq("active", true),
     supabase.from("projects").select("total_cost").is("archived_at", null),
     supabase.from("projects").select("completion_pct, status").is("archived_at", null).neq("status", "cancelled"),
-    supabase.from("materials").select("quantity, status").eq("status", "delivered"),
+    supabase.from("materials").select("quantity, status").is("archived_at", null).eq("status", "delivered"),
   ]);
 
   const totalCost = (costAgg.data ?? []).reduce((s, r) => s + Number(r.total_cost ?? 0), 0);

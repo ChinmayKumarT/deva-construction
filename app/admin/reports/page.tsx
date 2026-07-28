@@ -13,10 +13,10 @@ export default async function ReportsPage() {
     { data: labourers },
   ] = await Promise.all([
     supabase.from("projects").select("id, name, status, total_cost, completion_pct").is("archived_at", null).order("name"),
-    supabase.from("materials").select("project_id, quantity, unit_cost, status"),
-    supabase.from("payments").select("project_id, amount, status"),
+    supabase.from("materials").select("project_id, quantity, unit_cost, status").is("archived_at", null),
+    supabase.from("payments").select("project_id, amount, status").is("archived_at", null),
     supabase.from("attendance").select("date, status, labourer_id"),
-    supabase.from("labourers").select("id, name, daily_wage"),
+    supabase.from("labourers").select("id, name, daily_wage").is("archived_at", null),
   ]);
 
   // ---- Per-site spend, for the site list ----

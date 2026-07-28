@@ -46,6 +46,98 @@ private fun ItemCard(title: String, sub: String, trailing: String? = null,
     }
 }
 
+/** Active / archived switch shown at the top of each admin list screen. */
+@Composable
+private fun ArchivedSwitch(showArchived: Boolean, onToggle: () -> Unit) {
+    Row(
+        Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            if (showArchived) "Showing archived" else "Showing active",
+            style = MaterialTheme.typography.bodySmall,
+            modifier = Modifier.weight(1f),
+        )
+        TextButton(onClick = onToggle) {
+            Text(if (showArchived) "Show active" else "Show archived")
+        }
+    }
+}
+
+/**
+ * Confirm before archiving. Archiving is reversible and never deletes -- see
+ * supabase/10_archive.sql for why a real DELETE would be destructive here.
+ */
+@Composable
+private fun ArchiveConfirmDialog(
+    name: String,
+    detail: String,
+    onDismiss: () -> Unit,
+    onConfirm: () -> Unit,
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Archive $name?") },
+        text = { Text("$detail Nothing is deleted — you can restore it from “Show archived”.") },
+        confirmButton = { TextButton(onClick = onConfirm) { Text("Archive") } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
+    )
+}
+
+/** Edit / Archive (or Restore) buttons for one row. */
+@Composable
+private fun RowScope.EntityActions(
+    archived: Boolean,
+    onEdit: () -> Unit,
+    onArchive: () -> Unit,
+    onRestore: () -> Unit,
+) {
+    if (archived) {
+        TextButton(onClick = onRestore) { Text("Restore") }
+    } else {
+        TextButton(onClick = onEdit) { Text("Edit") }
+        TextButton(onClick = onArchive) { Text("Archive") }
+    }
+}
+
+/** Small dialog scaffold shared by the per-entity edit dialogs. */
+@Composable
+private fun EditDialog(
+    title: String,
+    busy: Boolean,
+    error: String?,
+    canSave: Boolean,
+    onDismiss: () -> Unit,
+    onSave: () -> Unit,
+    content: @Composable ColumnScope.() -> Unit,
+) {
+    AlertDialog(
+        onDismissRequest = { if (!busy) onDismiss() },
+        title = { Text(title) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                content()
+                error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+            }
+        },
+        confirmButton = {
+            TextButton(enabled = canSave && !busy, onClick = onSave) {
+                Text(if (busy) "Saving…" else "Save")
+            }
+        },
+        dismissButton = { TextButton(enabled = !busy, onClick = onDismiss) { Text("Cancel") } },
+    )
+}
+
+/** Plain text field for use inside dialogs (the shared TextField adds list padding). */
+@Composable
+private fun DialogField(value: String, onChange: (String) -> Unit, label: String) {
+    OutlinedTextField(
+        value = value, onValueChange = onChange, label = { Text(label) },
+        singleLine = true, modifier = Modifier.fillMaxWidth(),
+    )
+}
+
 // ---------- Projects ----------
 @Composable
 fun AdminProjects() {
@@ -349,10 +441,13 @@ fun AdminClients() {
     var profiles by remember { mutableStateOf<List<Profile>>(emptyList()) }
     var version by remember { mutableStateOf(0) }
     var error by remember { mutableStateOf<String?>(null) }
+    var showArchived by remember { mutableStateOf(false) }
+    var editing by remember { mutableStateOf<ClientRow?>(null) }
+    var archiving by remember { mutableStateOf<ClientRow?>(null) }
     val scope = rememberCoroutineScope()
-    LaunchedEffect(version) {
+    LaunchedEffect(version, showArchived) {
         safe({
-            rows = Repo.listClients()
+            rows = if (showArchived) Repo.listArchivedClients() else Repo.listClients()
             profiles = Repo.listProfilesByRole(Role.client)
         }) { error = it }
     }
@@ -365,29 +460,96 @@ fun AdminClients() {
     var profile by remember { mutableStateOf<Profile?>(null) }
 
     FormColumn {
-        SectionTitle("Add client")
-        TextField(name, { name = it }, "Name")
-        TextField(email, { email = it }, "Email")
-        TextField(phone, { phone = it }, "Phone")
-        Dropdown("Link to login (optional)", unlinked, profile,
-            { it.fullName ?: it.id.take(8) }, { profile = it })
+        ArchivedSwitch(showArchived) { showArchived = !showArchived }
+        if (!showArchived) {
+            SectionTitle("Add client")
+            TextField(name, { name = it }, "Name")
+            TextField(email, { email = it }, "Email")
+            TextField(phone, { phone = it }, "Phone")
+            Dropdown("Link to login (optional)", unlinked, profile,
+                { it.fullName ?: it.id.take(8) }, { profile = it })
+            Button(onClick = {
+                scope.launch {
+                    safe({
+                        Repo.createClient(name, email.ifBlank { null }, phone.ifBlank { null },
+                            profile?.id)
+                        name = ""; email = ""; phone = ""; profile = null; version++
+                    }) { error = it }
+                }
+            }, modifier = Modifier.padding(16.dp)) { Text("Create") }
+        }
         error?.let { Text(it, color = MaterialTheme.colorScheme.error,
             modifier = Modifier.padding(16.dp)) }
-        Button(onClick = {
+        Divider()
+        SectionTitle(
+            if (showArchived) "Archived clients (${rows.size})" else "Clients (${rows.size})",
+        )
+        if (rows.isEmpty()) {
+            Text(if (showArchived) "No archived clients." else "No clients yet.",
+                Modifier.padding(16.dp))
+        }
+        rows.forEach { c ->
+            ItemCard(
+                c.name, "${c.email ?: "—"} · ${c.phone ?: "—"}",
+                if (c.profileId != null) "linked" else "no login",
+                actions = {
+                    EntityActions(
+                        archived = showArchived,
+                        onEdit = { editing = c },
+                        onArchive = { archiving = c },
+                        onRestore = {
+                            scope.launch {
+                                safe({ Repo.unarchiveClient(c.id); version++ }) { error = it }
+                            }
+                        },
+                    )
+                },
+            )
+        }
+    }
+
+    editing?.let { c ->
+        EditClientDialog(c, onDismiss = { editing = null }, onSaved = { editing = null; version++ })
+    }
+    archiving?.let { c ->
+        ArchiveConfirmDialog(
+            c.name,
+            "They will be hidden from lists and dropdowns. Their projects stay, and simply lose the client link.",
+            onDismiss = { archiving = null },
+            onConfirm = {
+                archiving = null
+                scope.launch { safe({ Repo.archiveClient(c.id); version++ }) { error = it } }
+            },
+        )
+    }
+}
+
+@Composable
+private fun EditClientDialog(client: ClientRow, onDismiss: () -> Unit, onSaved: () -> Unit) {
+    var name by remember { mutableStateOf(client.name) }
+    var email by remember { mutableStateOf(client.email ?: "") }
+    var phone by remember { mutableStateOf(client.phone ?: "") }
+    var error by remember { mutableStateOf<String?>(null) }
+    var busy by remember { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
+
+    EditDialog(
+        title = "Edit client", busy = busy, error = error, canSave = name.isNotBlank(),
+        onDismiss = onDismiss,
+        onSave = {
+            busy = true
             scope.launch {
                 safe({
-                    Repo.createClient(name, email.ifBlank { null }, phone.ifBlank { null },
-                        profile?.id)
-                    name = ""; email = ""; phone = ""; profile = null; version++
+                    Repo.updateClient(client.id, name, email.ifBlank { null }, phone.ifBlank { null })
+                    onSaved()
                 }) { error = it }
+                busy = false
             }
-        }, modifier = Modifier.padding(16.dp)) { Text("Create") }
-        Divider()
-        SectionTitle("Clients (${rows.size})")
-        rows.forEach { c ->
-            ItemCard(c.name, "${c.email ?: "—"} · ${c.phone ?: "—"}",
-                if (c.profileId != null) "linked" else "no login")
-        }
+        },
+    ) {
+        DialogField(name, { name = it }, "Name")
+        DialogField(email, { email = it }, "Email")
+        DialogField(phone, { phone = it }, "Phone")
     }
 }
 
@@ -398,10 +560,13 @@ fun AdminSuppliers() {
     var profiles by remember { mutableStateOf<List<Profile>>(emptyList()) }
     var version by remember { mutableStateOf(0) }
     var error by remember { mutableStateOf<String?>(null) }
+    var showArchived by remember { mutableStateOf(false) }
+    var editing by remember { mutableStateOf<SupplierRow?>(null) }
+    var archiving by remember { mutableStateOf<SupplierRow?>(null) }
     val scope = rememberCoroutineScope()
-    LaunchedEffect(version) {
+    LaunchedEffect(version, showArchived) {
         safe({
-            rows = Repo.listSuppliers()
+            rows = if (showArchived) Repo.listArchivedSuppliers() else Repo.listSuppliers()
             profiles = Repo.listProfilesByRole(Role.supplier)
         }) { error = it }
     }
@@ -413,29 +578,96 @@ fun AdminSuppliers() {
     var profile by remember { mutableStateOf<Profile?>(null) }
 
     FormColumn {
-        SectionTitle("Add supplier")
-        TextField(name, { name = it }, "Name")
-        TextField(email, { email = it }, "Email")
-        TextField(phone, { phone = it }, "Phone")
-        Dropdown("Link to login (optional)", unlinked, profile,
-            { it.fullName ?: it.id.take(8) }, { profile = it })
+        ArchivedSwitch(showArchived) { showArchived = !showArchived }
+        if (!showArchived) {
+            SectionTitle("Add supplier")
+            TextField(name, { name = it }, "Name")
+            TextField(email, { email = it }, "Email")
+            TextField(phone, { phone = it }, "Phone")
+            Dropdown("Link to login (optional)", unlinked, profile,
+                { it.fullName ?: it.id.take(8) }, { profile = it })
+            Button(onClick = {
+                scope.launch {
+                    safe({
+                        Repo.createSupplier(name, email.ifBlank { null }, phone.ifBlank { null },
+                            profile?.id)
+                        name = ""; email = ""; phone = ""; profile = null; version++
+                    }) { error = it }
+                }
+            }, modifier = Modifier.padding(16.dp)) { Text("Create") }
+        }
         error?.let { Text(it, color = MaterialTheme.colorScheme.error,
             modifier = Modifier.padding(16.dp)) }
-        Button(onClick = {
+        Divider()
+        SectionTitle(
+            if (showArchived) "Archived suppliers (${rows.size})" else "Suppliers (${rows.size})",
+        )
+        if (rows.isEmpty()) {
+            Text(if (showArchived) "No archived suppliers." else "No suppliers yet.",
+                Modifier.padding(16.dp))
+        }
+        rows.forEach { s ->
+            ItemCard(
+                s.name, "${s.email ?: "—"} · ${s.phone ?: "—"}",
+                if (s.profileId != null) "linked" else "no login",
+                actions = {
+                    EntityActions(
+                        archived = showArchived,
+                        onEdit = { editing = s },
+                        onArchive = { archiving = s },
+                        onRestore = {
+                            scope.launch {
+                                safe({ Repo.unarchiveSupplier(s.id); version++ }) { error = it }
+                            }
+                        },
+                    )
+                },
+            )
+        }
+    }
+
+    editing?.let { s ->
+        EditSupplierDialog(s, onDismiss = { editing = null }, onSaved = { editing = null; version++ })
+    }
+    archiving?.let { s ->
+        ArchiveConfirmDialog(
+            s.name,
+            "They will be hidden from lists and dropdowns. Past materials and payments are kept.",
+            onDismiss = { archiving = null },
+            onConfirm = {
+                archiving = null
+                scope.launch { safe({ Repo.archiveSupplier(s.id); version++ }) { error = it } }
+            },
+        )
+    }
+}
+
+@Composable
+private fun EditSupplierDialog(supplier: SupplierRow, onDismiss: () -> Unit, onSaved: () -> Unit) {
+    var name by remember { mutableStateOf(supplier.name) }
+    var email by remember { mutableStateOf(supplier.email ?: "") }
+    var phone by remember { mutableStateOf(supplier.phone ?: "") }
+    var error by remember { mutableStateOf<String?>(null) }
+    var busy by remember { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
+
+    EditDialog(
+        title = "Edit supplier", busy = busy, error = error, canSave = name.isNotBlank(),
+        onDismiss = onDismiss,
+        onSave = {
+            busy = true
             scope.launch {
                 safe({
-                    Repo.createSupplier(name, email.ifBlank { null }, phone.ifBlank { null },
-                        profile?.id)
-                    name = ""; email = ""; phone = ""; profile = null; version++
+                    Repo.updateSupplier(supplier.id, name, email.ifBlank { null }, phone.ifBlank { null })
+                    onSaved()
                 }) { error = it }
+                busy = false
             }
-        }, modifier = Modifier.padding(16.dp)) { Text("Create") }
-        Divider()
-        SectionTitle("Suppliers (${rows.size})")
-        rows.forEach { s ->
-            ItemCard(s.name, "${s.email ?: "—"} · ${s.phone ?: "—"}",
-                if (s.profileId != null) "linked" else "no login")
-        }
+        },
+    ) {
+        DialogField(name, { name = it }, "Name")
+        DialogField(email, { email = it }, "Email")
+        DialogField(phone, { phone = it }, "Phone")
     }
 }
 
@@ -446,10 +678,13 @@ fun AdminLabourers() {
     var profiles by remember { mutableStateOf<List<Profile>>(emptyList()) }
     var version by remember { mutableStateOf(0) }
     var error by remember { mutableStateOf<String?>(null) }
+    var showArchived by remember { mutableStateOf(false) }
+    var editing by remember { mutableStateOf<LabourerRow?>(null) }
+    var archiving by remember { mutableStateOf<LabourerRow?>(null) }
     val scope = rememberCoroutineScope()
-    LaunchedEffect(version) {
+    LaunchedEffect(version, showArchived) {
         safe({
-            rows = Repo.listLabourers()
+            rows = if (showArchived) Repo.listArchivedLabourers() else Repo.listLabourers()
             profiles = Repo.listProfilesByRole(Role.labour)
         }) { error = it }
     }
@@ -462,32 +697,112 @@ fun AdminLabourers() {
     var active by remember { mutableStateOf(true) }
 
     FormColumn {
-        SectionTitle("Add labourer")
-        TextField(name, { name = it }, "Name")
-        TextField(phone, { phone = it }, "Phone")
-        NumberField(wage, { wage = it }, "Daily wage")
-        Row(Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
-            verticalAlignment = Alignment.CenterVertically) {
-            Checkbox(active, { active = it }); Text("Active")
+        ArchivedSwitch(showArchived) { showArchived = !showArchived }
+        if (!showArchived) {
+            SectionTitle("Add labourer")
+            TextField(name, { name = it }, "Name")
+            TextField(phone, { phone = it }, "Phone")
+            NumberField(wage, { wage = it }, "Daily wage")
+            Row(Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+                verticalAlignment = Alignment.CenterVertically) {
+                Checkbox(active, { active = it }); Text("Active")
+            }
+            Dropdown("Link to login (optional)", unlinked, profile,
+                { it.fullName ?: it.id.take(8) }, { profile = it })
+            Button(onClick = {
+                scope.launch {
+                    safe({
+                        Repo.createLabourer(name, phone.ifBlank { null },
+                            wage.toDoubleOrNull() ?: 0.0, active, profile?.id)
+                        name = ""; phone = ""; wage = ""; profile = null; version++
+                    }) { error = it }
+                }
+            }, modifier = Modifier.padding(16.dp)) { Text("Create") }
         }
-        Dropdown("Link to login (optional)", unlinked, profile,
-            { it.fullName ?: it.id.take(8) }, { profile = it })
         error?.let { Text(it, color = MaterialTheme.colorScheme.error,
             modifier = Modifier.padding(16.dp)) }
-        Button(onClick = {
+        Divider()
+        SectionTitle(
+            if (showArchived) "Archived labourers (${rows.size})" else "Labourers (${rows.size})",
+        )
+        if (rows.isEmpty()) {
+            Text(if (showArchived) "No archived labourers." else "No labourers yet.",
+                Modifier.padding(16.dp))
+        }
+        rows.forEach { l ->
+            ItemCard(
+                l.name, "${l.phone ?: "—"} · ${if (l.active) "active" else "inactive"}",
+                money(l.dailyWage),
+                actions = {
+                    EntityActions(
+                        archived = showArchived,
+                        onEdit = { editing = l },
+                        onArchive = { archiving = l },
+                        onRestore = {
+                            scope.launch {
+                                safe({ Repo.unarchiveLabourer(l.id); version++ }) { error = it }
+                            }
+                        },
+                    )
+                },
+            )
+        }
+    }
+
+    editing?.let { l ->
+        EditLabourerDialog(l, onDismiss = { editing = null }, onSaved = { editing = null; version++ })
+    }
+    archiving?.let { l ->
+        ArchiveConfirmDialog(
+            l.name,
+            "They will be hidden from lists, attendance and assignment. " +
+                "Their attendance and wage history is kept.",
+            onDismiss = { archiving = null },
+            onConfirm = {
+                archiving = null
+                scope.launch { safe({ Repo.archiveLabourer(l.id); version++ }) { error = it } }
+            },
+        )
+    }
+}
+
+@Composable
+private fun EditLabourerDialog(labourer: LabourerRow, onDismiss: () -> Unit, onSaved: () -> Unit) {
+    var name by remember { mutableStateOf(labourer.name) }
+    var phone by remember { mutableStateOf(labourer.phone ?: "") }
+    var wage by remember { mutableStateOf(labourer.dailyWage.toString()) }
+    var active by remember { mutableStateOf(labourer.active) }
+    var error by remember { mutableStateOf<String?>(null) }
+    var busy by remember { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
+
+    EditDialog(
+        title = "Edit labourer", busy = busy, error = error, canSave = name.isNotBlank(),
+        onDismiss = onDismiss,
+        onSave = {
+            busy = true
             scope.launch {
                 safe({
-                    Repo.createLabourer(name, phone.ifBlank { null },
-                        wage.toDoubleOrNull() ?: 0.0, active, profile?.id)
-                    name = ""; phone = ""; wage = ""; profile = null; version++
+                    Repo.updateLabourer(
+                        labourer.id, name, phone.ifBlank { null },
+                        wage.toDoubleOrNull() ?: 0.0, active,
+                    )
+                    onSaved()
                 }) { error = it }
+                busy = false
             }
-        }, modifier = Modifier.padding(16.dp)) { Text("Create") }
-        Divider()
-        SectionTitle("Labourers (${rows.size})")
-        rows.forEach { l ->
-            ItemCard(l.name, "${l.phone ?: "—"} · ${if (l.active) "active" else "inactive"}",
-                money(l.dailyWage))
+        },
+    ) {
+        DialogField(name, { name = it }, "Name")
+        DialogField(phone, { phone = it }, "Phone")
+        OutlinedTextField(
+            value = wage,
+            onValueChange = { s -> if (s.isEmpty() || s.toDoubleOrNull() != null) wage = s },
+            label = { Text("Daily wage") }, singleLine = true,
+            modifier = Modifier.fillMaxWidth(),
+        )
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Checkbox(active, { active = it }); Text("Active")
         }
     }
 }
@@ -500,10 +815,13 @@ fun AdminMaterials() {
     var suppliers by remember { mutableStateOf<List<SupplierRow>>(emptyList()) }
     var version by remember { mutableStateOf(0) }
     var error by remember { mutableStateOf<String?>(null) }
+    var showArchived by remember { mutableStateOf(false) }
+    var editing by remember { mutableStateOf<MaterialRow?>(null) }
+    var archiving by remember { mutableStateOf<MaterialRow?>(null) }
     val scope = rememberCoroutineScope()
-    LaunchedEffect(version) {
+    LaunchedEffect(version, showArchived) {
         safe({
-            rows = Repo.listMaterials()
+            rows = if (showArchived) Repo.listArchivedMaterials() else Repo.listMaterials()
             projects = Repo.listProjects()
             suppliers = Repo.listSuppliers()
         }) { error = it }
@@ -517,43 +835,122 @@ fun AdminMaterials() {
     var supplier by remember { mutableStateOf<SupplierRow?>(null) }
 
     FormColumn {
-        SectionTitle("Add material")
-        TextField(name, { name = it }, "Name")
-        TextField(unit, { unit = it }, "Unit (kg, bag…)")
-        NumberField(qty, { qty = it }, "Quantity")
-        NumberField(unitCost, { unitCost = it }, "Unit cost")
-        Dropdown("Status", listOf("ordered","delivered","returned"), status, { it }, { status = it })
-        Dropdown("Project", projects, project, { it.name }, { project = it })
-        Dropdown("Supplier", suppliers, supplier, { it.name }, { supplier = it })
+        ArchivedSwitch(showArchived) { showArchived = !showArchived }
+        if (!showArchived) {
+            SectionTitle("Add material")
+            TextField(name, { name = it }, "Name")
+            TextField(unit, { unit = it }, "Unit (kg, bag…)")
+            NumberField(qty, { qty = it }, "Quantity")
+            NumberField(unitCost, { unitCost = it }, "Unit cost")
+            Dropdown("Status", listOf("ordered","delivered","returned"), status, { it }, { status = it })
+            Dropdown("Project", projects, project, { it.name }, { project = it })
+            Dropdown("Supplier", suppliers, supplier, { it.name }, { supplier = it })
+            Button(onClick = {
+                val p = project ?: return@Button
+                scope.launch {
+                    safe({
+                        Repo.createMaterial(p.id, supplier?.id, name, unit,
+                            qty.toDoubleOrNull() ?: 0.0, unitCost.toDoubleOrNull() ?: 0.0, status)
+                        name = ""; qty = ""; unitCost = ""; version++
+                    }) { error = it }
+                }
+            }, modifier = Modifier.padding(16.dp)) { Text("Create") }
+        }
         error?.let { Text(it, color = MaterialTheme.colorScheme.error,
             modifier = Modifier.padding(16.dp)) }
-        Button(onClick = {
-            val p = project ?: return@Button
-            scope.launch {
-                safe({
-                    Repo.createMaterial(p.id, supplier?.id, name, unit,
-                        qty.toDoubleOrNull() ?: 0.0, unitCost.toDoubleOrNull() ?: 0.0, status)
-                    name = ""; qty = ""; unitCost = ""; version++
-                }) { error = it }
-            }
-        }, modifier = Modifier.padding(16.dp)) { Text("Create") }
         Divider()
-        SectionTitle("Materials (${rows.size})")
+        SectionTitle(
+            if (showArchived) "Archived materials (${rows.size})" else "Materials (${rows.size})",
+        )
+        if (rows.isEmpty()) {
+            Text(if (showArchived) "No archived materials." else "No materials yet.",
+                Modifier.padding(16.dp))
+        }
         rows.forEach { m ->
-            ItemCard(m.name,
+            ItemCard(
+                m.name,
                 "${m.quantity} ${m.unit} · ${m.status}",
                 money(m.quantity * m.unitCost),
-                actions = if (m.status == "ordered") {
-                    {
+                actions = {
+                    if (!showArchived && m.status == "ordered") {
                         TextButton(onClick = {
                             scope.launch {
                                 safe({ Repo.markMaterialDelivered(m.id); version++ }) { error = it }
                             }
-                        }) { Text("Mark delivered") }
+                        }) { Text("Delivered") }
                     }
-                } else null,
+                    EntityActions(
+                        archived = showArchived,
+                        onEdit = { editing = m },
+                        onArchive = { archiving = m },
+                        onRestore = {
+                            scope.launch {
+                                safe({ Repo.unarchiveMaterial(m.id); version++ }) { error = it }
+                            }
+                        },
+                    )
+                },
             )
         }
+    }
+
+    editing?.let { m ->
+        EditMaterialDialog(m, onDismiss = { editing = null }, onSaved = { editing = null; version++ })
+    }
+    archiving?.let { m ->
+        ArchiveConfirmDialog(
+            m.name,
+            "It will be hidden from lists and excluded from cost totals.",
+            onDismiss = { archiving = null },
+            onConfirm = {
+                archiving = null
+                scope.launch { safe({ Repo.archiveMaterial(m.id); version++ }) { error = it } }
+            },
+        )
+    }
+}
+
+@Composable
+private fun EditMaterialDialog(material: MaterialRow, onDismiss: () -> Unit, onSaved: () -> Unit) {
+    var name by remember { mutableStateOf(material.name) }
+    var unit by remember { mutableStateOf(material.unit) }
+    var qty by remember { mutableStateOf(material.quantity.toString()) }
+    var unitCost by remember { mutableStateOf(material.unitCost.toString()) }
+    var status by remember { mutableStateOf(material.status) }
+    var error by remember { mutableStateOf<String?>(null) }
+    var busy by remember { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
+
+    EditDialog(
+        title = "Edit material", busy = busy, error = error, canSave = name.isNotBlank(),
+        onDismiss = onDismiss,
+        onSave = {
+            busy = true
+            scope.launch {
+                safe({
+                    Repo.updateMaterial(
+                        material.id, name, unit.ifBlank { "unit" },
+                        qty.toDoubleOrNull() ?: 0.0, unitCost.toDoubleOrNull() ?: 0.0, status,
+                    )
+                    onSaved()
+                }) { error = it }
+                busy = false
+            }
+        },
+    ) {
+        DialogField(name, { name = it }, "Name")
+        DialogField(unit, { unit = it }, "Unit")
+        OutlinedTextField(
+            value = qty,
+            onValueChange = { s -> if (s.isEmpty() || s.toDoubleOrNull() != null) qty = s },
+            label = { Text("Quantity") }, singleLine = true, modifier = Modifier.fillMaxWidth(),
+        )
+        OutlinedTextField(
+            value = unitCost,
+            onValueChange = { s -> if (s.isEmpty() || s.toDoubleOrNull() != null) unitCost = s },
+            label = { Text("Unit cost") }, singleLine = true, modifier = Modifier.fillMaxWidth(),
+        )
+        Dropdown("Status", listOf("ordered","delivered","returned"), status, { it }, { status = it })
     }
 }
 
@@ -566,10 +963,13 @@ fun AdminPayments() {
     var labourers by remember { mutableStateOf<List<LabourerRow>>(emptyList()) }
     var version by remember { mutableStateOf(0) }
     var error by remember { mutableStateOf<String?>(null) }
+    var showArchived by remember { mutableStateOf(false) }
+    var editing by remember { mutableStateOf<PaymentRow?>(null) }
+    var archiving by remember { mutableStateOf<PaymentRow?>(null) }
     val scope = rememberCoroutineScope()
-    LaunchedEffect(version) {
+    LaunchedEffect(version, showArchived) {
         safe({
-            rows = Repo.listPayments()
+            rows = if (showArchived) Repo.listArchivedPayments() else Repo.listPayments()
             projects = Repo.listProjects()
             suppliers = Repo.listSuppliers()
             labourers = Repo.listLabourers()
@@ -583,55 +983,127 @@ fun AdminPayments() {
     var labourer by remember { mutableStateOf<LabourerRow?>(null) }
 
     FormColumn {
-        SectionTitle("Create payment")
-        Dropdown("Payee type", listOf("supplier","labour"), payeeType, { it }, { payeeType = it })
-        Dropdown("Project", projects, project, { it.name }, { project = it })
-        if (payeeType == "supplier")
-            Dropdown("Supplier", suppliers, supplier, { it.name }, { supplier = it })
-        else
-            Dropdown("Labourer", labourers, labourer, { it.name }, { labourer = it })
-        NumberField(amount, { amount = it }, "Amount")
-        TextField(desc, { desc = it }, "Description")
+        ArchivedSwitch(showArchived) { showArchived = !showArchived }
+        if (!showArchived) {
+            SectionTitle("Create payment")
+            Dropdown("Payee type", listOf("supplier","labour"), payeeType, { it }, { payeeType = it })
+            Dropdown("Project", projects, project, { it.name }, { project = it })
+            if (payeeType == "supplier")
+                Dropdown("Supplier", suppliers, supplier, { it.name }, { supplier = it })
+            else
+                Dropdown("Labourer", labourers, labourer, { it.name }, { labourer = it })
+            NumberField(amount, { amount = it }, "Amount")
+            TextField(desc, { desc = it }, "Description")
+            Button(onClick = {
+                scope.launch {
+                    safe({
+                        Repo.createPayment(project?.id, payeeType,
+                            supplier?.id, labourer?.id,
+                            amount.toDoubleOrNull() ?: 0.0, desc.ifBlank { null })
+                        amount = ""; desc = ""; version++
+                    }) { error = it }
+                }
+            }, modifier = Modifier.padding(16.dp)) { Text("Create") }
+        }
         error?.let { Text(it, color = MaterialTheme.colorScheme.error,
             modifier = Modifier.padding(16.dp)) }
-        Button(onClick = {
-            scope.launch {
-                safe({
-                    Repo.createPayment(project?.id, payeeType,
-                        supplier?.id, labourer?.id,
-                        amount.toDoubleOrNull() ?: 0.0, desc.ifBlank { null })
-                    amount = ""; desc = ""; version++
-                }) { error = it }
-            }
-        }, modifier = Modifier.padding(16.dp)) { Text("Create") }
         Divider()
-        SectionTitle("Payments (${rows.size})")
+        SectionTitle(
+            if (showArchived) "Archived payments (${rows.size})" else "Payments (${rows.size})",
+        )
+        if (rows.isEmpty()) {
+            Text(if (showArchived) "No archived payments." else "No payments yet.",
+                Modifier.padding(16.dp))
+        }
         rows.forEach { p ->
             ItemCard("${p.payeeType} · ${p.description ?: "—"}",
                 p.status, money(p.amount),
                 actions = {
-                    when (p.status) {
-                        "pending" -> {
-                            TextButton(onClick = {
-                                scope.launch {
-                                    safe({ Repo.approvePayment(p.id); version++ }) { error = it }
-                                }
-                            }) { Text("Approve") }
-                            TextButton(onClick = {
-                                scope.launch {
-                                    safe({ Repo.rejectPayment(p.id); version++ }) { error = it }
-                                }
-                            }) { Text("Reject") }
-                        }
-                        "approved" -> TextButton(onClick = {
-                            scope.launch {
-                                safe({ Repo.markPaymentPaid(p.id); version++ }) { error = it }
+                    if (!showArchived) {
+                        when (p.status) {
+                            "pending" -> {
+                                TextButton(onClick = {
+                                    scope.launch {
+                                        safe({ Repo.approvePayment(p.id); version++ }) { error = it }
+                                    }
+                                }) { Text("Approve") }
+                                TextButton(onClick = {
+                                    scope.launch {
+                                        safe({ Repo.rejectPayment(p.id); version++ }) { error = it }
+                                    }
+                                }) { Text("Reject") }
                             }
-                        }) { Text("Mark paid") }
+                            "approved" -> TextButton(onClick = {
+                                scope.launch {
+                                    safe({ Repo.markPaymentPaid(p.id); version++ }) { error = it }
+                                }
+                            }) { Text("Paid") }
+                        }
                     }
+                    EntityActions(
+                        archived = showArchived,
+                        onEdit = { editing = p },
+                        onArchive = { archiving = p },
+                        onRestore = {
+                            scope.launch {
+                                safe({ Repo.unarchivePayment(p.id); version++ }) { error = it }
+                            }
+                        },
+                    )
                 },
             )
         }
+    }
+
+    editing?.let { p ->
+        EditPaymentDialog(p, onDismiss = { editing = null }, onSaved = { editing = null; version++ })
+    }
+    archiving?.let { p ->
+        ArchiveConfirmDialog(
+            "this ${p.payeeType} payment",
+            "It will be hidden from lists and excluded from cost totals.",
+            onDismiss = { archiving = null },
+            onConfirm = {
+                archiving = null
+                scope.launch { safe({ Repo.archivePayment(p.id); version++ }) { error = it } }
+            },
+        )
+    }
+}
+
+@Composable
+private fun EditPaymentDialog(payment: PaymentRow, onDismiss: () -> Unit, onSaved: () -> Unit) {
+    var amount by remember { mutableStateOf(payment.amount.toString()) }
+    var desc by remember { mutableStateOf(payment.description ?: "") }
+    var error by remember { mutableStateOf<String?>(null) }
+    var busy by remember { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
+
+    EditDialog(
+        title = "Edit payment", busy = busy, error = error,
+        canSave = amount.toDoubleOrNull() != null,
+        onDismiss = onDismiss,
+        onSave = {
+            busy = true
+            scope.launch {
+                safe({
+                    Repo.updatePayment(payment.id, amount.toDoubleOrNull() ?: 0.0, desc.ifBlank { null })
+                    onSaved()
+                }) { error = it }
+                busy = false
+            }
+        },
+    ) {
+        OutlinedTextField(
+            value = amount,
+            onValueChange = { s -> if (s.isEmpty() || s.toDoubleOrNull() != null) amount = s },
+            label = { Text("Amount") }, singleLine = true, modifier = Modifier.fillMaxWidth(),
+        )
+        DialogField(desc, { desc = it }, "Description")
+        Text(
+            "Status (${payment.status}) is changed with the Approve / Paid buttons, not here.",
+            style = MaterialTheme.typography.labelSmall,
+        )
     }
 }
 
@@ -682,9 +1154,15 @@ fun AdminUpdates() {
     var version by remember { mutableStateOf(0) }
     var error by remember { mutableStateOf<String?>(null) }
     var posting by remember { mutableStateOf(false) }
+    var showArchived by remember { mutableStateOf(false) }
+    var editing by remember { mutableStateOf<ProjectUpdateRow?>(null) }
+    var archiving by remember { mutableStateOf<ProjectUpdateRow?>(null) }
     val scope = rememberCoroutineScope()
-    LaunchedEffect(version) {
-        safe({ rows = Repo.listUpdates(); projects = Repo.listProjects() }) { error = it }
+    LaunchedEffect(version, showArchived) {
+        safe({
+            rows = if (showArchived) Repo.listArchivedUpdates() else Repo.listUpdates()
+            projects = Repo.listProjects()
+        }) { error = it }
     }
     var project by remember { mutableStateOf<ProjectRow?>(null) }
     var stage by remember { mutableStateOf("") }
@@ -697,59 +1175,68 @@ fun AdminUpdates() {
     ) { uri -> pickedUri = uri }
 
     FormColumn {
-        SectionTitle("Post project update")
-        Dropdown("Project", projects, project, { it.name }, { project = it })
-        TextField(stage, { stage = it }, "Stage")
-        NumberField(completion, { completion = it }, "Completion %")
-        TextField(note, { note = it }, "Note")
+        ArchivedSwitch(showArchived) { showArchived = !showArchived }
+        if (!showArchived) {
+            SectionTitle("Post project update")
+            Dropdown("Project", projects, project, { it.name }, { project = it })
+            TextField(stage, { stage = it }, "Stage")
+            NumberField(completion, { completion = it }, "Completion %")
+            TextField(note, { note = it }, "Note")
 
-        Row(Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            OutlinedButton(onClick = {
-                picker.launch(PickVisualMediaRequest(
-                    ActivityResultContracts.PickVisualMedia.ImageOnly
-                ))
-            }) { Text(if (pickedUri == null) "Pick photo" else "Change photo") }
-            if (pickedUri != null) {
-                AsyncImage(pickedUri, contentDescription = null,
-                    modifier = Modifier.size(56.dp))
-                TextButton(onClick = { pickedUri = null }) { Text("Clear") }
+            Row(Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedButton(onClick = {
+                    picker.launch(PickVisualMediaRequest(
+                        ActivityResultContracts.PickVisualMedia.ImageOnly
+                    ))
+                }) { Text(if (pickedUri == null) "Pick photo" else "Change photo") }
+                if (pickedUri != null) {
+                    AsyncImage(pickedUri, contentDescription = null,
+                        modifier = Modifier.size(56.dp))
+                    TextButton(onClick = { pickedUri = null }) { Text("Clear") }
+                }
             }
+
+            Button(
+                onClick = {
+                    val p = project ?: return@Button
+                    posting = true
+                    scope.launch {
+                        safe({
+                            var url: String? = null
+                            val uri = pickedUri
+                            if (uri != null) {
+                                val bytes = context.contentResolver.openInputStream(uri)
+                                    ?.use { it.readBytes() } ?: byteArrayOf()
+                                val ext = context.contentResolver.getType(uri)
+                                    ?.substringAfter("/", "jpg") ?: "jpg"
+                                url = Repo.uploadProjectImage(p.id, bytes, ext)
+                            }
+                            Repo.postProjectUpdate(p.id, stage.ifBlank { null },
+                                note.ifBlank { null }, url, completion.toDoubleOrNull())
+                            stage = ""; note = ""; completion = ""; pickedUri = null
+                            version++
+                        }) { error = it }
+                        posting = false
+                    }
+                },
+                enabled = !posting,
+                modifier = Modifier.padding(16.dp),
+            ) { Text(if (posting) "Posting…" else "Post") }
         }
 
         error?.let { Text(it, color = MaterialTheme.colorScheme.error,
             modifier = Modifier.padding(16.dp)) }
 
-        Button(
-            onClick = {
-                val p = project ?: return@Button
-                posting = true
-                scope.launch {
-                    safe({
-                        var url: String? = null
-                        val uri = pickedUri
-                        if (uri != null) {
-                            val bytes = context.contentResolver.openInputStream(uri)
-                                ?.use { it.readBytes() } ?: byteArrayOf()
-                            val ext = context.contentResolver.getType(uri)
-                                ?.substringAfter("/", "jpg") ?: "jpg"
-                            url = Repo.uploadProjectImage(p.id, bytes, ext)
-                        }
-                        Repo.postProjectUpdate(p.id, stage.ifBlank { null },
-                            note.ifBlank { null }, url, completion.toDoubleOrNull())
-                        stage = ""; note = ""; completion = ""; pickedUri = null
-                        version++
-                    }) { error = it }
-                    posting = false
-                }
-            },
-            enabled = !posting,
-            modifier = Modifier.padding(16.dp),
-        ) { Text(if (posting) "Posting…" else "Post") }
-
         Divider()
-        SectionTitle("Recent updates (${rows.size})")
+        SectionTitle(
+            if (showArchived) "Archived updates (${rows.size})" else "Recent updates (${rows.size})",
+        )
+        if (rows.isEmpty()) {
+            Text(if (showArchived) "No archived updates." else "No updates yet.",
+                Modifier.padding(16.dp))
+        }
         rows.forEach { u ->
             ElevatedCard(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp)) {
                 Column(Modifier.padding(12.dp)) {
@@ -764,9 +1251,74 @@ fun AdminUpdates() {
                             modifier = Modifier.fillMaxWidth().heightIn(max = 200.dp)
                                 .padding(top = 8.dp))
                     }
+                    Row(Modifier.padding(top = 6.dp),
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        EntityActions(
+                            archived = showArchived,
+                            onEdit = { editing = u },
+                            onArchive = { archiving = u },
+                            onRestore = {
+                                val id = u.id ?: return@EntityActions
+                                scope.launch {
+                                    safe({ Repo.unarchiveUpdate(id); version++ }) { error = it }
+                                }
+                            },
+                        )
+                    }
                 }
             }
         }
+    }
+
+    editing?.let { u ->
+        EditUpdateDialog(u, onDismiss = { editing = null }, onSaved = { editing = null; version++ })
+    }
+    archiving?.let { u ->
+        ArchiveConfirmDialog(
+            "this update",
+            "It will be hidden from admin and from the client's dashboard.",
+            onDismiss = { archiving = null },
+            onConfirm = {
+                val id = u.id
+                archiving = null
+                if (id != null) {
+                    scope.launch { safe({ Repo.archiveUpdate(id); version++ }) { error = it } }
+                }
+            },
+        )
+    }
+}
+
+@Composable
+private fun EditUpdateDialog(update: ProjectUpdateRow, onDismiss: () -> Unit, onSaved: () -> Unit) {
+    var stage by remember { mutableStateOf(update.stage ?: "") }
+    var note by remember { mutableStateOf(update.note ?: "") }
+    var error by remember { mutableStateOf<String?>(null) }
+    var busy by remember { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
+
+    EditDialog(
+        title = "Edit update", busy = busy, error = error, canSave = update.id != null,
+        onDismiss = onDismiss,
+        onSave = {
+            val id = update.id ?: return@EditDialog
+            busy = true
+            scope.launch {
+                safe({
+                    Repo.updateProjectUpdate(id, stage.ifBlank { null }, note.ifBlank { null })
+                    onSaved()
+                }) { error = it }
+                busy = false
+            }
+        },
+    ) {
+        DialogField(stage, { stage = it }, "Stage")
+        DialogField(note, { note = it }, "Note")
+        Text(
+            "The photo can't be changed here, and editing the stage does not change the " +
+                "project's current stage — post a new update for that.",
+            style = MaterialTheme.typography.labelSmall,
+        )
     }
 }
 

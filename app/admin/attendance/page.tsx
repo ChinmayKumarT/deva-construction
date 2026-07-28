@@ -12,7 +12,7 @@ export default async function AttendancePage({
   const date = searchParams.date ?? new Date().toISOString().slice(0, 10);
 
   const [{ data: labourers }, { data: assignments }, { data: rows }, { data: projects }] = await Promise.all([
-    supabase.from("labourers").select("id, name, daily_wage").eq("active", true).order("name"),
+    supabase.from("labourers").select("id, name, daily_wage").is("archived_at", null).eq("active", true).order("name"),
     supabase.from("project_labourers").select("labourer_id, project_id, assigned_at, unassigned_at").is("unassigned_at", null),
     supabase.from("attendance").select("labourer_id, status, project_id").eq("date", date),
     supabase.from("projects").select("id, name").is("archived_at", null).order("name"),

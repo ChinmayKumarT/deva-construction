@@ -22,6 +22,7 @@ data class ClientRow(
     val email: String? = null,
     val phone: String? = null,
     @SerialName("profile_id") val profileId: String? = null,
+    @SerialName("archived_at") val archivedAt: String? = null,
 )
 
 @Serializable
@@ -31,6 +32,7 @@ data class SupplierRow(
     val email: String? = null,
     val phone: String? = null,
     @SerialName("profile_id") val profileId: String? = null,
+    @SerialName("archived_at") val archivedAt: String? = null,
 )
 
 @Serializable
@@ -41,6 +43,7 @@ data class LabourerRow(
     @SerialName("daily_wage") val dailyWage: Double = 0.0,
     val active: Boolean = true,
     @SerialName("profile_id") val profileId: String? = null,
+    @SerialName("archived_at") val archivedAt: String? = null,
 )
 
 @Serializable
@@ -76,6 +79,7 @@ data class MaterialRow(
     val status: String = "ordered",
     @SerialName("ordered_at") val orderedAt: String? = null,
     @SerialName("delivered_at") val deliveredAt: String? = null,
+    @SerialName("archived_at") val archivedAt: String? = null,
 )
 
 @Serializable
@@ -89,6 +93,7 @@ data class PaymentRow(
     val status: String = "pending",
     val description: String? = null,
     @SerialName("created_at") val createdAt: String? = null,
+    @SerialName("archived_at") val archivedAt: String? = null,
 )
 
 @Serializable
@@ -108,6 +113,7 @@ data class ProjectUpdateRow(
     val note: String? = null,
     @SerialName("image_url") val imageUrl: String? = null,
     @SerialName("created_at") val createdAt: String? = null,
+    @SerialName("archived_at") val archivedAt: String? = null,
 )
 
 @Serializable

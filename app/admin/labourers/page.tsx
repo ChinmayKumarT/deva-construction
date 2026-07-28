@@ -1,21 +1,32 @@
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { AdminPage, AdminPageHeader, DataTable, Field, Select, SubmitButton } from "@/components/admin/Page";
-import { assignLabourer, createLabourer } from "../actions";
+import { ArchivedToggle, ManageCard, ManageSection, RestoreAction, RowActions } from "@/components/admin/RowActions";
+import { assignLabourer, createLabourer, archiveLabourer, unarchiveLabourer } from "../actions";
 
-export default async function LabourersPage() {
+export default async function LabourersPage({
+  searchParams,
+}: {
+  searchParams: { archived?: string };
+}) {
+  const showArchived = searchParams.archived === "1";
   const supabase = createSupabaseServerClient();
-  const [{ data: labourers }, { data: profiles }, { data: projects }, { data: assignments }] = await Promise.all([
-    supabase
-      .from("labourers")
-      .select("id, name, phone, daily_wage, active, profile_id")
-      .order("created_at", { ascending: false }),
-    supabase.from("profiles").select("id, full_name").eq("role", "labour"),
-    supabase.from("projects").select("id, name").is("archived_at", null).order("name"),
-    supabase
-      .from("project_labourers")
-      .select("labourer_id, project_id, projects(name)")
-      .is("unassigned_at", null),
-  ]);
+
+  const base = supabase
+    .from("labourers")
+    .select("id, name, phone, daily_wage, active, profile_id, archived_at")
+    .order("created_at", { ascending: false });
+
+  const [{ data: labourers }, { data: profiles }, { data: projects }, { data: assignments }, { count: archivedCount }] =
+    await Promise.all([
+      showArchived ? base.not("archived_at", "is", null) : base.is("archived_at", null),
+      supabase.from("profiles").select("id, full_name").eq("role", "labour"),
+      supabase.from("projects").select("id, name").is("archived_at", null).order("name"),
+      supabase
+        .from("project_labourers")
+        .select("labourer_id, project_id, projects(name)")
+        .is("unassigned_at", null),
+      supabase.from("labourers").select("id", { count: "exact", head: true }).not("archived_at", "is", null),
+    ]);
 
   const linked = new Set((labourers ?? []).map((l) => l.profile_id).filter(Boolean));
   const unlinkedProfiles = (profiles ?? []).filter((p) => !linked.has(p.id));
@@ -39,34 +50,66 @@ export default async function LabourersPage() {
 
   return (
     <AdminPage>
-      <AdminPageHeader title="Labourers" subtitle="Workers on site." />
+      <AdminPageHeader
+        title={showArchived ? "Archived labourers" : "Labourers"}
+        subtitle={
+          showArchived
+            ? "Hidden from lists, attendance and assignment. Their attendance and wage history is kept."
+            : "Workers on site."
+        }
+      />
 
-      <form action={createLabourer} className="mb-8 grid gap-4 rounded-xl border border-slate-200 bg-white p-6 sm:grid-cols-2 lg:grid-cols-3">
-        <Field label="Name" name="name" required />
-        <Field label="Phone" name="phone" />
-        <Field label="Daily wage (₹)" name="daily_wage" type="number" step="0.01" />
-        <Select label="Link to login (optional)" name="profile_id" defaultValue="none">
-          <option value="none">— none —</option>
-          {unlinkedProfiles.map((p) => (
-            <option key={p.id} value={p.id}>{p.full_name || p.id.slice(0, 8)}</option>
-          ))}
-        </Select>
-        <label className="flex items-center gap-2 text-sm text-slate-700">
-          <input type="checkbox" name="active" defaultChecked />
-          Active
-        </label>
-        <div className="sm:col-span-2 lg:col-span-3">
-          <SubmitButton>Add labourer</SubmitButton>
-        </div>
-      </form>
+      <div className="mb-6">
+        <ArchivedToggle basePath="/admin/labourers" showArchived={showArchived} archivedCount={archivedCount ?? 0} label="labourers" />
+      </div>
+
+      {!showArchived && (
+        <form action={createLabourer} className="mb-8 grid gap-4 rounded-xl border border-slate-200 bg-white p-6 sm:grid-cols-2 lg:grid-cols-3">
+          <Field label="Name" name="name" required />
+          <Field label="Phone" name="phone" />
+          <Field label="Daily wage (₹)" name="daily_wage" type="number" step="0.01" />
+          <Select label="Link to login (optional)" name="profile_id" defaultValue="none">
+            <option value="none">— none —</option>
+            {unlinkedProfiles.map((p) => (
+              <option key={p.id} value={p.id}>{p.full_name || p.id.slice(0, 8)}</option>
+            ))}
+          </Select>
+          <label className="flex items-center gap-2 text-sm text-slate-700">
+            <input type="checkbox" name="active" defaultChecked />
+            Active
+          </label>
+          <div className="sm:col-span-2 lg:col-span-3">
+            <SubmitButton>Add labourer</SubmitButton>
+          </div>
+        </form>
+      )}
 
       <DataTable
         columns={["Name", "Phone", "Daily wage", "Current site", "Status", "Login"]}
         rows={rows}
-        empty="No labourers yet."
+        empty={showArchived ? "No archived labourers." : "No labourers yet."}
       />
 
-      {labourers && labourers.length > 0 && projects && projects.length > 0 && (
+      {labourers && labourers.length > 0 && (
+        <ManageSection showArchived={showArchived}>
+          {labourers.map((l) => (
+            <ManageCard key={l.id} title={l.name}>
+              {showArchived ? (
+                <RestoreAction id={l.id} action={unarchiveLabourer} />
+              ) : (
+                <RowActions
+                  editHref={`/admin/labourers/${l.id}/edit`}
+                  id={l.id}
+                  name={l.name}
+                  archiveAction={archiveLabourer}
+                />
+              )}
+            </ManageCard>
+          ))}
+        </ManageSection>
+      )}
+
+      {!showArchived && labourers && labourers.length > 0 && projects && projects.length > 0 && (
         <section className="mt-8">
           <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-500">Assign to project</h2>
           <div className="grid gap-3 sm:grid-cols-2">

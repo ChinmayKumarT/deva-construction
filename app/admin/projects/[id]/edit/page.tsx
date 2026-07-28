@@ -14,7 +14,7 @@ export default async function EditProjectPage({ params }: { params: { id: string
       )
       .eq("id", params.id)
       .single(),
-    supabase.from("clients").select("id, name").order("name"),
+    supabase.from("clients").select("id, name").is("archived_at", null).order("name"),
   ]);
   if (!project) notFound();
 

@@ -1,57 +1,81 @@
+import Link from "next/link";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { AdminPage, AdminPageHeader, Field, Select, SubmitButton } from "@/components/admin/Page";
-import { postProjectUpdate } from "../actions";
+import { ArchivedToggle, RestoreAction } from "@/components/admin/RowActions";
+import { postProjectUpdate, archiveProjectUpdate, unarchiveProjectUpdate } from "../actions";
 
-export default async function UpdatesPage() {
+export default async function UpdatesPage({
+  searchParams,
+}: {
+  searchParams: { archived?: string };
+}) {
+  const showArchived = searchParams.archived === "1";
   const supabase = createSupabaseServerClient();
-  const [{ data: updates }, { data: projects }] = await Promise.all([
-    supabase
-      .from("project_updates")
-      .select("id, stage, note, image_url, created_at, projects(name)")
-      .order("created_at", { ascending: false })
-      .limit(50),
+
+  const base = supabase
+    .from("project_updates")
+    .select("id, stage, note, image_url, created_at, archived_at, projects(name)")
+    .order("created_at", { ascending: false })
+    .limit(50);
+
+  const [{ data: updates }, { data: projects }, { count: archivedCount }] = await Promise.all([
+    showArchived ? base.not("archived_at", "is", null) : base.is("archived_at", null),
     supabase.from("projects").select("id, name").is("archived_at", null).order("name"),
+    supabase.from("project_updates").select("id", { count: "exact", head: true }).not("archived_at", "is", null),
   ]);
 
   return (
     <AdminPage>
-      <AdminPageHeader title="Project updates" subtitle="Post progress notes and site photos visible to the client." />
+      <AdminPageHeader
+        title={showArchived ? "Archived updates" : "Project updates"}
+        subtitle={
+          showArchived
+            ? "Hidden from admin and from the client's dashboard."
+            : "Post progress notes and site photos visible to the client."
+        }
+      />
 
-      <form action={postProjectUpdate} encType="multipart/form-data" className="mb-8 grid gap-4 rounded-xl border border-slate-200 bg-white p-6 sm:grid-cols-2 lg:grid-cols-3">
-        <Select label="Project" name="project_id" defaultValue="none">
-          <option value="none" disabled>— choose —</option>
-          {projects?.map((p) => (<option key={p.id} value={p.id}>{p.name}</option>))}
-        </Select>
-        <Field label="Stage (e.g. Foundation, Slab)" name="stage" />
-        <Field label="Completion %" name="completion_pct" type="number" step="0.1" />
-        <label className="block text-sm">
-          <span className="mb-1 block font-medium text-slate-700">Photo (upload)</span>
-          <input
-            type="file"
-            name="image_file"
-            accept="image/*"
-            className="w-full rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm file:mr-3 file:rounded-md file:border-0 file:bg-slate-100 file:px-3 file:py-1.5"
-          />
-        </label>
-        <Field label="…or image URL" name="image_url" />
-        <label className="block text-sm sm:col-span-2 lg:col-span-2">
-          <span className="mb-1 block font-medium text-slate-700">Note</span>
-          <textarea
-            name="note"
-            rows={3}
-            className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2"
-            placeholder="e.g. Slab pouring completed on east side; curing for 7 days."
-          />
-        </label>
-        <div className="sm:col-span-2 lg:col-span-3">
-          <SubmitButton>Post update</SubmitButton>
-        </div>
-      </form>
+      <div className="mb-6">
+        <ArchivedToggle basePath="/admin/updates" showArchived={showArchived} archivedCount={archivedCount ?? 0} label="updates" />
+      </div>
+
+      {!showArchived && (
+        <form action={postProjectUpdate} encType="multipart/form-data" className="mb-8 grid gap-4 rounded-xl border border-slate-200 bg-white p-6 sm:grid-cols-2 lg:grid-cols-3">
+          <Select label="Project" name="project_id" defaultValue="none">
+            <option value="none" disabled>— choose —</option>
+            {projects?.map((p) => (<option key={p.id} value={p.id}>{p.name}</option>))}
+          </Select>
+          <Field label="Stage (e.g. Foundation, Slab)" name="stage" />
+          <Field label="Completion %" name="completion_pct" type="number" step="0.1" />
+          <label className="block text-sm">
+            <span className="mb-1 block font-medium text-slate-700">Photo (upload)</span>
+            <input
+              type="file"
+              name="image_file"
+              accept="image/*"
+              className="w-full rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm file:mr-3 file:rounded-md file:border-0 file:bg-slate-100 file:px-3 file:py-1.5"
+            />
+          </label>
+          <Field label="…or image URL" name="image_url" />
+          <label className="block text-sm sm:col-span-2 lg:col-span-2">
+            <span className="mb-1 block font-medium text-slate-700">Note</span>
+            <textarea
+              name="note"
+              rows={3}
+              className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2"
+              placeholder="e.g. Slab pouring completed on east side; curing for 7 days."
+            />
+          </label>
+          <div className="sm:col-span-2 lg:col-span-3">
+            <SubmitButton>Post update</SubmitButton>
+          </div>
+        </form>
+      )}
 
       <ul className="space-y-4">
         {(updates ?? []).length === 0 && (
           <li className="rounded-lg border border-dashed border-slate-300 bg-white p-6 text-center text-sm text-slate-500">
-            No updates posted yet.
+            {showArchived ? "No archived updates." : "No updates posted yet."}
           </li>
         )}
         {updates?.map((u) => (
@@ -67,6 +91,30 @@ export default async function UpdatesPage() {
               // eslint-disable-next-line @next/next/no-img-element
               <img src={u.image_url} alt="Site update" className="mt-3 max-h-72 rounded-lg border border-slate-200 object-cover" />
             )}
+            <div className="mt-4 flex items-center gap-2 border-t border-slate-100 pt-3">
+              {showArchived ? (
+                <RestoreAction id={u.id} action={unarchiveProjectUpdate} />
+              ) : (
+                <>
+                  <Link
+                    href={`/admin/updates/${u.id}/edit`}
+                    className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs text-slate-700 hover:bg-slate-100"
+                  >
+                    Edit
+                  </Link>
+                  <form action={archiveProjectUpdate}>
+                    <input type="hidden" name="id" value={u.id} />
+                    <button
+                      type="submit"
+                      title="Hide this update from admin and the client. Nothing is deleted."
+                      className="rounded-lg border border-red-300 bg-white px-3 py-1.5 text-xs text-red-700 hover:bg-red-50"
+                    >
+                      Archive
+                    </button>
+                  </form>
+                </>
+              )}
+            </div>
           </li>
         ))}
       </ul>

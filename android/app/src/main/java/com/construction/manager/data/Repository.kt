@@ -6,6 +6,7 @@ import io.github.jan.supabase.postgrest.from
 import io.github.jan.supabase.postgrest.postgrest
 import io.github.jan.supabase.postgrest.query.Count
 import io.github.jan.supabase.postgrest.query.Order
+import io.github.jan.supabase.postgrest.query.PostgrestRequestBuilder
 import io.github.jan.supabase.postgrest.query.filter.FilterOperator
 import io.github.jan.supabase.storage.storage
 import kotlinx.serialization.json.JsonNull
@@ -14,6 +15,77 @@ import kotlinx.serialization.json.put
 import java.time.LocalDate
 
 object Repo {
+
+    // ---------- Archive helpers ----------
+    // "Delete" is a reversible archive everywhere: the foreign keys in
+    // 02_domain.sql cascade, so deleting a project would destroy its materials
+    // and progress photos, and deleting a labourer would wipe their attendance
+    // (wage) history. See supabase/10_archive.sql and 11_archive_updates.sql.
+    private fun PostgrestRequestBuilder.activeOnly() {
+        filter { filter("archived_at", FilterOperator.IS, "null") }
+    }
+    private fun PostgrestRequestBuilder.archivedOnly() {
+        filter { filterNot("archived_at", FilterOperator.IS, "null") }
+    }
+
+    private suspend fun setArchived(table: String, id: String, archived: Boolean) {
+        supabase.from(table).update(buildJsonObject {
+            if (archived) put("archived_at", java.time.Instant.now().toString())
+            else put("archived_at", JsonNull)
+        }) { filter { eq("id", id) } }
+    }
+
+    suspend fun archiveClient(id: String) = setArchived("clients", id, true)
+    suspend fun unarchiveClient(id: String) = setArchived("clients", id, false)
+    suspend fun archiveSupplier(id: String) = setArchived("suppliers", id, true)
+    suspend fun unarchiveSupplier(id: String) = setArchived("suppliers", id, false)
+    suspend fun archiveLabourer(id: String) = setArchived("labourers", id, true)
+    suspend fun unarchiveLabourer(id: String) = setArchived("labourers", id, false)
+    suspend fun archiveMaterial(id: String) = setArchived("materials", id, true)
+    suspend fun unarchiveMaterial(id: String) = setArchived("materials", id, false)
+    suspend fun archivePayment(id: String) = setArchived("payments", id, true)
+    suspend fun unarchivePayment(id: String) = setArchived("payments", id, false)
+    suspend fun archiveUpdate(id: String) = setArchived("project_updates", id, true)
+    suspend fun unarchiveUpdate(id: String) = setArchived("project_updates", id, false)
+
+    // ---------- Updates (edit) ----------
+    suspend fun updateClient(id: String, name: String, email: String?, phone: String?) {
+        supabase.from("clients").update(buildJsonObject {
+            put("name", name); put("email", email); put("phone", phone)
+        }) { filter { eq("id", id) } }
+    }
+    suspend fun updateSupplier(id: String, name: String, email: String?, phone: String?) {
+        supabase.from("suppliers").update(buildJsonObject {
+            put("name", name); put("email", email); put("phone", phone)
+        }) { filter { eq("id", id) } }
+    }
+    suspend fun updateLabourer(id: String, name: String, phone: String?, dailyWage: Double, active: Boolean) {
+        supabase.from("labourers").update(buildJsonObject {
+            put("name", name); put("phone", phone)
+            put("daily_wage", dailyWage); put("active", active)
+        }) { filter { eq("id", id) } }
+    }
+    suspend fun updateMaterial(
+        id: String, name: String, unit: String, quantity: Double,
+        unitCost: Double, status: String,
+    ) {
+        supabase.from("materials").update(buildJsonObject {
+            put("name", name); put("unit", unit)
+            put("quantity", quantity); put("unit_cost", unitCost)
+            put("status", status)
+        }) { filter { eq("id", id) } }
+    }
+    suspend fun updatePayment(id: String, amount: Double, description: String?) {
+        supabase.from("payments").update(buildJsonObject {
+            put("amount", amount); put("description", description)
+        }) { filter { eq("id", id) } }
+    }
+    suspend fun updateProjectUpdate(id: String, stage: String?, note: String?) {
+        supabase.from("project_updates").update(buildJsonObject {
+            put("stage", stage); put("note", note)
+        }) { filter { eq("id", id) } }
+    }
+
 
     // ---------- Auth ----------
     suspend fun signIn(email: String, password: String) {
@@ -87,17 +159,33 @@ object Repo {
             order("created_at", Order.DESCENDING)
         }.decodeList<ProjectRow>()
     suspend fun listClients() = supabase.from("clients")
-        .select { order("created_at", Order.DESCENDING) }.decodeList<ClientRow>()
+        .select { activeOnly(); order("created_at", Order.DESCENDING) }.decodeList<ClientRow>()
     suspend fun listSuppliers() = supabase.from("suppliers")
-        .select { order("created_at", Order.DESCENDING) }.decodeList<SupplierRow>()
+        .select { activeOnly(); order("created_at", Order.DESCENDING) }.decodeList<SupplierRow>()
     suspend fun listLabourers() = supabase.from("labourers")
-        .select { order("created_at", Order.DESCENDING) }.decodeList<LabourerRow>()
+        .select { activeOnly(); order("created_at", Order.DESCENDING) }.decodeList<LabourerRow>()
     suspend fun listMaterials() = supabase.from("materials")
-        .select { order("ordered_at", Order.DESCENDING) }.decodeList<MaterialRow>()
+        .select { activeOnly(); order("ordered_at", Order.DESCENDING) }.decodeList<MaterialRow>()
     suspend fun listPayments() = supabase.from("payments")
-        .select { order("created_at", Order.DESCENDING) }.decodeList<PaymentRow>()
+        .select { activeOnly(); order("created_at", Order.DESCENDING) }.decodeList<PaymentRow>()
     suspend fun listUpdates() = supabase.from("project_updates")
-        .select { order("created_at", Order.DESCENDING); limit(50) }.decodeList<ProjectUpdateRow>()
+        .select { activeOnly(); order("created_at", Order.DESCENDING); limit(50) }
+        .decodeList<ProjectUpdateRow>()
+
+    // ---------- Archived lists ----------
+    suspend fun listArchivedClients() = supabase.from("clients")
+        .select { archivedOnly(); order("created_at", Order.DESCENDING) }.decodeList<ClientRow>()
+    suspend fun listArchivedSuppliers() = supabase.from("suppliers")
+        .select { archivedOnly(); order("created_at", Order.DESCENDING) }.decodeList<SupplierRow>()
+    suspend fun listArchivedLabourers() = supabase.from("labourers")
+        .select { archivedOnly(); order("created_at", Order.DESCENDING) }.decodeList<LabourerRow>()
+    suspend fun listArchivedMaterials() = supabase.from("materials")
+        .select { archivedOnly(); order("ordered_at", Order.DESCENDING) }.decodeList<MaterialRow>()
+    suspend fun listArchivedPayments() = supabase.from("payments")
+        .select { archivedOnly(); order("created_at", Order.DESCENDING) }.decodeList<PaymentRow>()
+    suspend fun listArchivedUpdates() = supabase.from("project_updates")
+        .select { archivedOnly(); order("created_at", Order.DESCENDING); limit(50) }
+        .decodeList<ProjectUpdateRow>()
     suspend fun listAttendance(date: String) =
         supabase.from("attendance").select { filter { eq("date", date) } }.decodeList<AttendanceRow>()
     suspend fun listProfilesByRole(role: Role) = supabase.from("profiles")
@@ -298,12 +386,20 @@ object Repo {
         if (projectIds.isEmpty()) return emptyList()
         return supabase.from("project_updates")
             .select {
-                filter { isIn("project_id", projectIds) }
+                filter {
+                    isIn("project_id", projectIds)
+                    filter("archived_at", FilterOperator.IS, "null")
+                }
                 order("created_at", Order.DESCENDING); limit(20)
             }.decodeList()
     }
     suspend fun supplierMaterials(supplierId: String) = supabase.from("materials")
-        .select { filter { eq("supplier_id", supplierId) } }.decodeList<MaterialRow>()
+        .select {
+            filter {
+                eq("supplier_id", supplierId)
+                filter("archived_at", FilterOperator.IS, "null")
+            }
+        }.decodeList<MaterialRow>()
     suspend fun recordSupplierDelivery(
         projectId: String, supplierId: String, name: String,
         unit: String, quantity: Double, unitCost: Double, status: String,
@@ -318,7 +414,10 @@ object Repo {
     }
     suspend fun supplierPayments(supplierId: String) = supabase.from("payments")
         .select {
-            filter { eq("supplier_id", supplierId) }
+            filter {
+                eq("supplier_id", supplierId)
+                filter("archived_at", FilterOperator.IS, "null")
+            }
             order("created_at", Order.DESCENDING)
         }.decodeList<PaymentRow>()
     suspend fun labourerAttendance(labourerId: String, sinceDate: String) =

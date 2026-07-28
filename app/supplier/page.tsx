@@ -35,11 +35,13 @@ export default async function SupplierDashboard() {
       .from("materials")
       .select("id, name, quantity, unit, unit_cost, status, ordered_at, delivered_at, projects(id, name)")
       .eq("supplier_id", supplier.id)
+      .is("archived_at", null)
       .order("ordered_at", { ascending: false }),
     supabase
       .from("payments")
       .select("id, amount, status, description, created_at, projects(name)")
       .eq("supplier_id", supplier.id)
+      .is("archived_at", null)
       .order("created_at", { ascending: false }),
     supabase.from("projects").select("id, name").is("archived_at", null).order("name"),
   ]);
