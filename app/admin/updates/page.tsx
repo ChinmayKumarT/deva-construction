@@ -10,7 +10,7 @@ export default async function UpdatesPage() {
       .select("id, stage, note, image_url, created_at, projects(name)")
       .order("created_at", { ascending: false })
       .limit(50),
-    supabase.from("projects").select("id, name").order("name"),
+    supabase.from("projects").select("id, name").is("archived_at", null).order("name"),
   ]);
 
   return (

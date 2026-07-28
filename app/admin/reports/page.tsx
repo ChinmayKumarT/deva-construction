@@ -12,7 +12,7 @@ export default async function ReportsPage() {
     { data: attendance },
     { data: labourers },
   ] = await Promise.all([
-    supabase.from("projects").select("id, name, status, total_cost, completion_pct").order("name"),
+    supabase.from("projects").select("id, name, status, total_cost, completion_pct").is("archived_at", null).order("name"),
     supabase.from("materials").select("project_id, quantity, unit_cost, status"),
     supabase.from("payments").select("project_id, amount, status"),
     supabase.from("attendance").select("date, status, labourer_id"),

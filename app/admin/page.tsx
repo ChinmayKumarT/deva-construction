@@ -15,12 +15,12 @@ export default async function AdminOverview() {
     completionAgg,
     materialStock,
   ] = await Promise.all([
-    supabase.from("projects").select("*", { count: "exact", head: true }),
-    supabase.from("projects").select("*", { count: "exact", head: true }).eq("status", "active"),
+    supabase.from("projects").select("*", { count: "exact", head: true }).is("archived_at", null),
+    supabase.from("projects").select("*", { count: "exact", head: true }).is("archived_at", null).eq("status", "active"),
     supabase.from("payments").select("amount", { count: "exact" }).in("status", ["pending", "approved"]),
     supabase.from("labourers").select("*", { count: "exact", head: true }).eq("active", true),
-    supabase.from("projects").select("total_cost"),
-    supabase.from("projects").select("completion_pct, status").neq("status", "cancelled"),
+    supabase.from("projects").select("total_cost").is("archived_at", null),
+    supabase.from("projects").select("completion_pct, status").is("archived_at", null).neq("status", "cancelled"),
     supabase.from("materials").select("quantity, status").eq("status", "delivered"),
   ]);
 

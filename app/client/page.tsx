@@ -35,6 +35,7 @@ export default async function ClientDashboard() {
       "id, name, status, current_stage, completion_pct, total_cost, start_date, end_date, original_end_date, extension_reason",
     )
     .eq("client_id", client.id)
+    .is("archived_at", null)
     .order("created_at", { ascending: false });
 
   const projectIds = (projects ?? []).map((p) => p.id);

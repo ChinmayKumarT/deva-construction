@@ -10,7 +10,7 @@ export default async function LabourersPage() {
       .select("id, name, phone, daily_wage, active, profile_id")
       .order("created_at", { ascending: false }),
     supabase.from("profiles").select("id, full_name").eq("role", "labour"),
-    supabase.from("projects").select("id, name").order("name"),
+    supabase.from("projects").select("id, name").is("archived_at", null).order("name"),
     supabase
       .from("project_labourers")
       .select("labourer_id, project_id, projects(name)")

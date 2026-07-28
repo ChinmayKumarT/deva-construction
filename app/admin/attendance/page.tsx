@@ -15,7 +15,7 @@ export default async function AttendancePage({
     supabase.from("labourers").select("id, name, daily_wage").eq("active", true).order("name"),
     supabase.from("project_labourers").select("labourer_id, project_id, assigned_at, unassigned_at").is("unassigned_at", null),
     supabase.from("attendance").select("labourer_id, status, project_id").eq("date", date),
-    supabase.from("projects").select("id, name").order("name"),
+    supabase.from("projects").select("id, name").is("archived_at", null).order("name"),
   ]);
 
   const projectName = new Map((projects ?? []).map((p) => [p.id, p.name]));

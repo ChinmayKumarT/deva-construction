@@ -8,6 +8,7 @@ import io.github.jan.supabase.postgrest.query.Count
 import io.github.jan.supabase.postgrest.query.Order
 import io.github.jan.supabase.postgrest.query.filter.FilterOperator
 import io.github.jan.supabase.storage.storage
+import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import java.time.LocalDate
@@ -51,11 +52,19 @@ object Repo {
         val pendingPayments: Double, val labourCount: Int, val completion: Double,
     )
     suspend fun adminMetrics(): AdminMetrics {
-        val total = supabase.from("projects").select { count(Count.EXACT) }.countOrNull() ?: 0
-        val active = supabase.from("projects").select {
-            filter { eq("status", "active") }; count(Count.EXACT)
+        // Archived projects are excluded everywhere so the dashboard totals match
+        // the project list the user actually sees.
+        val total = supabase.from("projects").select {
+            filter { filter("archived_at", FilterOperator.IS, "null") }; count(Count.EXACT)
         }.countOrNull() ?: 0
-        val projects = supabase.from("projects").select().decodeList<ProjectRow>()
+        val active = supabase.from("projects").select {
+            filter {
+                eq("status", "active")
+                filter("archived_at", FilterOperator.IS, "null")
+            }
+            count(Count.EXACT)
+        }.countOrNull() ?: 0
+        val projects = listProjects()
         val payments = supabase.from("payments").select {
             filter { isIn("status", listOf("pending", "approved")) }
         }.decodeList<PaymentRow>()
@@ -73,7 +82,10 @@ object Repo {
 
     // ---------- Lists ----------
     suspend fun listProjects() = supabase.from("projects")
-        .select { order("created_at", Order.DESCENDING) }.decodeList<ProjectRow>()
+        .select {
+            filter { filter("archived_at", FilterOperator.IS, "null") }
+            order("created_at", Order.DESCENDING)
+        }.decodeList<ProjectRow>()
     suspend fun listClients() = supabase.from("clients")
         .select { order("created_at", Order.DESCENDING) }.decodeList<ClientRow>()
     suspend fun listSuppliers() = supabase.from("suppliers")
@@ -107,6 +119,39 @@ object Repo {
             if (endDate != null) put("end_date", endDate)
         })
     }
+
+    suspend fun updateProject(
+        id: String, name: String, clientId: String?, status: String,
+        stage: String?, totalCost: Double, completion: Double, endDate: String?,
+    ) {
+        supabase.from("projects").update(buildJsonObject {
+            put("name", name)
+            put("client_id", clientId)
+            put("status", status)
+            put("current_stage", stage)
+            put("total_cost", totalCost)
+            put("completion_pct", completion)
+            put("end_date", endDate)
+        }) { filter { eq("id", id) } }
+    }
+
+    // "Delete" is a reversible archive -- a real DELETE cascades and would
+    // destroy the project's materials and progress updates (see 10_archive.sql).
+    suspend fun archiveProject(id: String) {
+        supabase.from("projects").update(buildJsonObject {
+            put("archived_at", java.time.Instant.now().toString())
+        }) { filter { eq("id", id) } }
+    }
+    suspend fun unarchiveProject(id: String) {
+        supabase.from("projects").update(buildJsonObject {
+            put("archived_at", JsonNull)
+        }) { filter { eq("id", id) } }
+    }
+    suspend fun listArchivedProjects() = supabase.from("projects")
+        .select {
+            filter { filterNot("archived_at", FilterOperator.IS, "null") }
+            order("created_at", Order.DESCENDING)
+        }.decodeList<ProjectRow>()
 
     // Only ever sends end_date/extension_reason -- original_end_date and
     // extension_updated_at are DB-trigger-managed (see
@@ -242,8 +287,13 @@ object Repo {
             .decodeSingleOrNull()
     }
     suspend fun myProjects(clientId: String) = supabase.from("projects")
-        .select { filter { eq("client_id", clientId) }; order("created_at", Order.DESCENDING) }
-        .decodeList<ProjectRow>()
+        .select {
+            filter {
+                eq("client_id", clientId)
+                filter("archived_at", FilterOperator.IS, "null")
+            }
+            order("created_at", Order.DESCENDING)
+        }.decodeList<ProjectRow>()
     suspend fun myUpdates(projectIds: List<String>): List<ProjectUpdateRow> {
         if (projectIds.isEmpty()) return emptyList()
         return supabase.from("project_updates")

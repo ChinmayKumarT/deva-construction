@@ -9,7 +9,7 @@ export default async function MaterialsPage() {
       .from("materials")
       .select("id, name, unit, quantity, unit_cost, status, ordered_at, projects(name), suppliers(name)")
       .order("ordered_at", { ascending: false }),
-    supabase.from("projects").select("id, name").order("name"),
+    supabase.from("projects").select("id, name").is("archived_at", null).order("name"),
     supabase.from("suppliers").select("id, name").order("name"),
   ]);
 

@@ -41,7 +41,7 @@ export default async function SupplierDashboard() {
       .select("id, amount, status, description, created_at, projects(name)")
       .eq("supplier_id", supplier.id)
       .order("created_at", { ascending: false }),
-    supabase.from("projects").select("id, name").order("name"),
+    supabase.from("projects").select("id, name").is("archived_at", null).order("name"),
   ]);
 
   const deliveredCount = (materials ?? []).filter((m) => m.status === "delivered").length;

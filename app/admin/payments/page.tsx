@@ -16,7 +16,7 @@ export default async function PaymentsPage() {
       .from("payments")
       .select("id, amount, status, payee_type, description, created_at, projects(name), suppliers(name), labourers(name)")
       .order("created_at", { ascending: false }),
-    supabase.from("projects").select("id, name").order("name"),
+    supabase.from("projects").select("id, name").is("archived_at", null).order("name"),
     supabase.from("suppliers").select("id, name").order("name"),
     supabase.from("labourers").select("id, name").order("name"),
   ]);

@@ -55,8 +55,13 @@ fun AdminProjects() {
     var version by remember { mutableStateOf(0) }
     val scope = rememberCoroutineScope()
 
-    LaunchedEffect(version) {
-        safe({ rows = Repo.listProjects(); clients = Repo.listClients() }) { error = it }
+    var showArchived by remember { mutableStateOf(false) }
+
+    LaunchedEffect(version, showArchived) {
+        safe({
+            rows = if (showArchived) Repo.listArchivedProjects() else Repo.listProjects()
+            clients = Repo.listClients()
+        }) { error = it }
     }
 
     var name by remember { mutableStateOf("") }
@@ -68,46 +73,90 @@ fun AdminProjects() {
     var endDate by remember { mutableStateOf("") }
 
     FormColumn {
-        SectionTitle("Create project")
-        TextField(name, { name = it }, "Name")
-        TextField(stage, { stage = it }, "Current stage")
-        NumberField(cost, { cost = it }, "Total cost")
-        NumberField(completion, { completion = it }, "Completion %")
-        Dropdown("Status", listOf("planned","active","on_hold","completed","cancelled"), status,
-            { it }, { status = it })
-        Dropdown("Client", clients, client, { it.name }, { client = it })
-        DateField(endDate, { endDate = it }, "Planned finish date")
-        error?.let { Text(it, color = MaterialTheme.colorScheme.error,
-            modifier = Modifier.padding(16.dp)) }
-        Button(
-            onClick = {
-                scope.launch {
-                    safe({
-                        Repo.createProject(name, client?.id, status,
-                            stage.ifBlank { null },
-                            cost.toDoubleOrNull() ?: 0.0,
-                            completion.toDoubleOrNull() ?: 0.0,
-                            endDate.ifBlank { null })
-                        name = ""; stage = ""; cost = ""; completion = "0"; endDate = ""
-                        version++
-                    }) { error = it }
-                }
-            },
-            modifier = Modifier.padding(16.dp),
-        ) { Text("Create") }
-        Divider()
-        SectionTitle("Projects (${rows.size})")
+        Row(
+            Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                if (showArchived) "Showing archived" else "Showing active",
+                style = MaterialTheme.typography.labelLarge,
+                modifier = Modifier.weight(1f),
+            )
+            TextButton(onClick = { showArchived = !showArchived }) {
+                Text(if (showArchived) "Show active" else "Show archived")
+            }
+        }
+
+        if (!showArchived) {
+            SectionTitle("Create project")
+            TextField(name, { name = it }, "Name")
+            TextField(stage, { stage = it }, "Current stage")
+            NumberField(cost, { cost = it }, "Total cost")
+            NumberField(completion, { completion = it }, "Completion %")
+            Dropdown("Status", listOf("planned","active","on_hold","completed","cancelled"), status,
+                { it }, { status = it })
+            Dropdown("Client", clients, client, { it.name }, { client = it })
+            DateField(endDate, { endDate = it }, "Planned finish date")
+            error?.let { Text(it, color = MaterialTheme.colorScheme.error,
+                modifier = Modifier.padding(16.dp)) }
+            Button(
+                onClick = {
+                    scope.launch {
+                        safe({
+                            Repo.createProject(name, client?.id, status,
+                                stage.ifBlank { null },
+                                cost.toDoubleOrNull() ?: 0.0,
+                                completion.toDoubleOrNull() ?: 0.0,
+                                endDate.ifBlank { null })
+                            name = ""; stage = ""; cost = ""; completion = "0"; endDate = ""
+                            version++
+                        }) { error = it }
+                    }
+                },
+                modifier = Modifier.padding(16.dp),
+            ) { Text("Create") }
+            Divider()
+        }
+
+        if (showArchived) {
+            error?.let { Text(it, color = MaterialTheme.colorScheme.error,
+                modifier = Modifier.padding(16.dp)) }
+        }
+
+        SectionTitle(
+            if (showArchived) "Archived projects (${rows.size})" else "Projects (${rows.size})",
+        )
+        if (rows.isEmpty()) {
+            Text(
+                if (showArchived) "No archived projects." else "No projects yet.",
+                Modifier.padding(16.dp),
+            )
+        }
         rows.forEach { p ->
             key(p.id) {
-                ProjectRowCard(project = p, onExtended = { version++ })
+                ProjectRowCard(
+                    project = p,
+                    clients = clients,
+                    archived = showArchived,
+                    onChanged = { version++ },
+                )
             }
         }
     }
 }
 
 @Composable
-private fun ProjectRowCard(project: ProjectRow, onExtended: () -> Unit) {
+private fun ProjectRowCard(
+    project: ProjectRow,
+    clients: List<ClientRow>,
+    archived: Boolean,
+    onChanged: () -> Unit,
+) {
     var extending by remember { mutableStateOf(false) }
+    var editing by remember { mutableStateOf(false) }
+    var confirmArchive by remember { mutableStateOf(false) }
+    var error by remember { mutableStateOf<String?>(null) }
+    val scope = rememberCoroutineScope()
     val p = project
 
     ItemCard(
@@ -116,24 +165,139 @@ private fun ProjectRowCard(project: ProjectRow, onExtended: () -> Unit) {
             (p.endDate?.let { " · Finish $it" } ?: ""),
         money(p.totalCost),
         actions = {
-            if (p.finishDateExtended) {
-                Text(
-                    "Extended from ${p.originalEndDate}",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.error,
-                )
+            if (archived) {
+                TextButton(onClick = {
+                    scope.launch {
+                        safe({ Repo.unarchiveProject(p.id); onChanged() }) { error = it }
+                    }
+                }) { Text("Restore") }
+            } else {
+                if (p.finishDateExtended) {
+                    Text(
+                        "Extended from ${p.originalEndDate}",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.error,
+                    )
+                }
+                TextButton(onClick = { editing = true }) { Text("Edit") }
+                TextButton(onClick = { extending = true }) { Text("Extend date") }
+                TextButton(onClick = { confirmArchive = true }) { Text("Archive") }
             }
-            TextButton(onClick = { extending = true }) { Text("Extend finish date") }
         },
     )
+    error?.let {
+        Text(it, color = MaterialTheme.colorScheme.error,
+            style = MaterialTheme.typography.labelSmall,
+            modifier = Modifier.padding(horizontal = 28.dp))
+    }
 
     if (extending) {
         ExtendFinishDateDialog(
             project = p,
             onDismiss = { extending = false },
-            onSaved = { extending = false; onExtended() },
+            onSaved = { extending = false; onChanged() },
         )
     }
+    if (editing) {
+        EditProjectDialog(
+            project = p,
+            clients = clients,
+            onDismiss = { editing = false },
+            onSaved = { editing = false; onChanged() },
+        )
+    }
+    if (confirmArchive) {
+        AlertDialog(
+            onDismissRequest = { confirmArchive = false },
+            title = { Text("Archive ${p.name}?") },
+            text = {
+                Text(
+                    "It will be hidden from projects, reports and the client's dashboard. " +
+                        "Its materials, payments and updates are kept, and you can restore it " +
+                        "from \"Show archived\".",
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    confirmArchive = false
+                    scope.launch {
+                        safe({ Repo.archiveProject(p.id); onChanged() }) { error = it }
+                    }
+                }) { Text("Archive") }
+            },
+            dismissButton = {
+                TextButton(onClick = { confirmArchive = false }) { Text("Cancel") }
+            },
+        )
+    }
+}
+
+@Composable
+private fun EditProjectDialog(
+    project: ProjectRow,
+    clients: List<ClientRow>,
+    onDismiss: () -> Unit,
+    onSaved: () -> Unit,
+) {
+    var name by remember { mutableStateOf(project.name) }
+    var stage by remember { mutableStateOf(project.currentStage ?: "") }
+    var cost by remember { mutableStateOf(project.totalCost.toString()) }
+    var completion by remember { mutableStateOf(project.completionPct.toString()) }
+    var status by remember { mutableStateOf(project.status) }
+    var client by remember { mutableStateOf(clients.firstOrNull { it.id == project.clientId }) }
+    var endDate by remember { mutableStateOf(project.endDate ?: "") }
+    var error by remember { mutableStateOf<String?>(null) }
+    var busy by remember { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
+
+    AlertDialog(
+        onDismissRequest = { if (!busy) onDismiss() },
+        title = { Text("Edit project") },
+        text = {
+            Column(
+                Modifier.verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(4.dp),
+            ) {
+                TextField(name, { name = it }, "Name")
+                TextField(stage, { stage = it }, "Current stage")
+                NumberField(cost, { cost = it }, "Total cost")
+                NumberField(completion, { completion = it }, "Completion %")
+                Dropdown("Status", listOf("planned","active","on_hold","completed","cancelled"),
+                    status, { it }, { status = it })
+                Dropdown("Client", clients, client, { it.name }, { client = it })
+                DateField(endDate, { endDate = it }, "Finish date")
+                Text(
+                    "Changing the finish date here is not recorded as an extension. " +
+                        "Use \"Extend date\" so the client sees what changed.",
+                    style = MaterialTheme.typography.labelSmall,
+                    modifier = Modifier.padding(horizontal = 16.dp),
+                )
+                error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+            }
+        },
+        confirmButton = {
+            TextButton(
+                enabled = name.isNotBlank() && !busy,
+                onClick = {
+                    busy = true
+                    scope.launch {
+                        safe({
+                            Repo.updateProject(
+                                project.id, name, client?.id, status,
+                                stage.ifBlank { null },
+                                cost.toDoubleOrNull() ?: 0.0,
+                                completion.toDoubleOrNull() ?: 0.0,
+                                endDate.ifBlank { null },
+                            )
+                            onSaved()
+                        }) { error = it }
+                        busy = false
+                    }
+                },
+            ) { Text(if (busy) "Saving…" else "Save") }
+        },
+        dismissButton = { TextButton(enabled = !busy, onClick = onDismiss) { Text("Cancel") } },
+    )
 }
 
 @Composable

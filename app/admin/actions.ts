@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 function str(fd: FormData, k: string) {
@@ -34,6 +35,67 @@ export async function createProject(fd: FormData) {
   if (error) throw new Error(error.message);
   revalidatePath("/admin/projects");
   revalidatePath("/admin");
+}
+
+export async function updateProject(fd: FormData) {
+  const supabase = createSupabaseServerClient();
+  const id = str(fd, "id");
+  if (!id) throw new Error("project id required");
+  const { error } = await supabase
+    .from("projects")
+    .update({
+      name: str(fd, "name"),
+      client_id: uuidOrNull(fd, "client_id"),
+      address: str(fd, "address"),
+      status: str(fd, "status") ?? "planned",
+      current_stage: str(fd, "current_stage"),
+      start_date: str(fd, "start_date"),
+      end_date: str(fd, "end_date"),
+      total_cost: num(fd, "total_cost") ?? 0,
+      completion_pct: num(fd, "completion_pct") ?? 0,
+    })
+    .eq("id", id);
+  if (error) throw new Error(error.message);
+  revalidateProjectViews();
+  redirect("/admin/projects");
+}
+
+// "Delete" is a reversible archive -- a real DELETE would cascade and destroy
+// this project's materials and progress updates/photos. See supabase/10_archive.sql.
+export async function archiveProject(fd: FormData) {
+  const supabase = createSupabaseServerClient();
+  const id = str(fd, "id");
+  if (!id) throw new Error("project id required");
+  const { error } = await supabase
+    .from("projects")
+    .update({ archived_at: new Date().toISOString() })
+    .eq("id", id);
+  if (error) throw new Error(error.message);
+  revalidateProjectViews();
+}
+
+export async function unarchiveProject(fd: FormData) {
+  const supabase = createSupabaseServerClient();
+  const id = str(fd, "id");
+  if (!id) throw new Error("project id required");
+  const { error } = await supabase
+    .from("projects")
+    .update({ archived_at: null })
+    .eq("id", id);
+  if (error) throw new Error(error.message);
+  revalidateProjectViews();
+}
+
+// Archiving changes what every project-derived view shows, so refresh them together.
+function revalidateProjectViews() {
+  revalidatePath("/admin/projects");
+  revalidatePath("/admin/reports");
+  revalidatePath("/admin/costs");
+  revalidatePath("/admin/materials");
+  revalidatePath("/admin/payments");
+  revalidatePath("/admin/updates");
+  revalidatePath("/admin");
+  revalidatePath("/client");
 }
 
 export async function createClient(fd: FormData) {
