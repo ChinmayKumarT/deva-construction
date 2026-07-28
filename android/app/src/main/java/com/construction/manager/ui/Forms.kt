@@ -3,10 +3,14 @@ package com.construction.manager.ui
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import java.time.Instant
+import java.time.ZoneOffset
 
 @Composable
 fun StatCard(label: String, value: String, modifier: Modifier = Modifier) {
@@ -82,6 +86,43 @@ private fun ExposedDropdownMenuBoxImpl(
         }
     }
 }
+
+/** Picks an ISO yyyy-MM-dd date via Material3's DatePickerDialog. [value] is that same format. */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun DateField(value: String, onChange: (String) -> Unit, label: String, modifier: Modifier = Modifier) {
+    var open by remember { mutableStateOf(false) }
+    OutlinedTextField(
+        value = value, onValueChange = {}, readOnly = true, label = { Text(label) },
+        trailingIcon = {
+            IconButton(onClick = { open = true }) {
+                Icon(Icons.Default.CalendarMonth, contentDescription = "Pick date")
+            }
+        },
+        modifier = modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
+    )
+    if (open) {
+        val state = rememberDatePickerState(
+            initialSelectedDateMillis = value.toLocalDateOrNull()
+                ?.atStartOfDay(ZoneOffset.UTC)?.toInstant()?.toEpochMilli(),
+        )
+        DatePickerDialog(
+            onDismissRequest = { open = false },
+            confirmButton = {
+                TextButton(onClick = {
+                    state.selectedDateMillis?.let { millis ->
+                        onChange(Instant.ofEpochMilli(millis).atZone(ZoneOffset.UTC).toLocalDate().toString())
+                    }
+                    open = false
+                }) { Text("OK") }
+            },
+            dismissButton = { TextButton(onClick = { open = false }) { Text("Cancel") } },
+        ) { DatePicker(state = state) }
+    }
+}
+
+private fun String.toLocalDateOrNull(): java.time.LocalDate? =
+    if (isBlank()) null else runCatching { java.time.LocalDate.parse(this) }.getOrNull()
 
 @Composable
 fun FormColumn(content: @Composable ColumnScope.() -> Unit) {

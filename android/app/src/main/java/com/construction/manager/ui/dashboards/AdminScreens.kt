@@ -5,6 +5,9 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
@@ -62,6 +65,7 @@ fun AdminProjects() {
     var completion by remember { mutableStateOf("0") }
     var status by remember { mutableStateOf("planned") }
     var client by remember { mutableStateOf<ClientRow?>(null) }
+    var endDate by remember { mutableStateOf("") }
 
     FormColumn {
         SectionTitle("Create project")
@@ -72,6 +76,7 @@ fun AdminProjects() {
         Dropdown("Status", listOf("planned","active","on_hold","completed","cancelled"), status,
             { it }, { status = it })
         Dropdown("Client", clients, client, { it.name }, { client = it })
+        DateField(endDate, { endDate = it }, "Planned finish date")
         error?.let { Text(it, color = MaterialTheme.colorScheme.error,
             modifier = Modifier.padding(16.dp)) }
         Button(
@@ -81,8 +86,9 @@ fun AdminProjects() {
                         Repo.createProject(name, client?.id, status,
                             stage.ifBlank { null },
                             cost.toDoubleOrNull() ?: 0.0,
-                            completion.toDoubleOrNull() ?: 0.0)
-                        name = ""; stage = ""; cost = ""; completion = "0"
+                            completion.toDoubleOrNull() ?: 0.0,
+                            endDate.ifBlank { null })
+                        name = ""; stage = ""; cost = ""; completion = "0"; endDate = ""
                         version++
                     }) { error = it }
                 }
@@ -92,11 +98,84 @@ fun AdminProjects() {
         Divider()
         SectionTitle("Projects (${rows.size})")
         rows.forEach { p ->
-            ItemCard(p.name,
-                "${p.status} · ${p.currentStage ?: "—"} · ${"%.1f".format(p.completionPct)}%",
-                money(p.totalCost))
+            key(p.id) {
+                ProjectRowCard(project = p, onExtended = { version++ })
+            }
         }
     }
+}
+
+@Composable
+private fun ProjectRowCard(project: ProjectRow, onExtended: () -> Unit) {
+    var extending by remember { mutableStateOf(false) }
+    val p = project
+
+    ItemCard(
+        p.name,
+        "${p.status} · ${p.currentStage ?: "—"} · ${"%.1f".format(p.completionPct)}%" +
+            (p.endDate?.let { " · Finish $it" } ?: ""),
+        money(p.totalCost),
+        actions = {
+            if (p.finishDateExtended) {
+                Text(
+                    "Extended from ${p.originalEndDate}",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.error,
+                )
+            }
+            TextButton(onClick = { extending = true }) { Text("Extend finish date") }
+        },
+    )
+
+    if (extending) {
+        ExtendFinishDateDialog(
+            project = p,
+            onDismiss = { extending = false },
+            onSaved = { extending = false; onExtended() },
+        )
+    }
+}
+
+@Composable
+private fun ExtendFinishDateDialog(project: ProjectRow, onDismiss: () -> Unit, onSaved: () -> Unit) {
+    var newDate by remember { mutableStateOf(project.endDate ?: "") }
+    var reason by remember { mutableStateOf("") }
+    var error by remember { mutableStateOf<String?>(null) }
+    var busy by remember { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
+
+    AlertDialog(
+        onDismissRequest = { if (!busy) onDismiss() },
+        title = { Text("Extend finish date") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(
+                    "Current: ${project.endDate ?: "not set"}" +
+                        (project.originalEndDate?.let { " (originally $it)" } ?: ""),
+                    style = MaterialTheme.typography.bodySmall,
+                )
+                DateField(newDate, { newDate = it }, "New finish date")
+                TextField(reason, { reason = it }, "Reason (optional)")
+                error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+            }
+        },
+        confirmButton = {
+            TextButton(
+                enabled = newDate.isNotBlank() && !busy,
+                onClick = {
+                    busy = true
+                    scope.launch {
+                        safe({
+                            Repo.extendProjectEndDate(project.id, newDate, reason.ifBlank { null })
+                            onSaved()
+                        }) { error = it }
+                        busy = false
+                    }
+                },
+            ) { Text(if (busy) "Saving…" else "Save") }
+        },
+        dismissButton = { TextButton(enabled = !busy, onClick = onDismiss) { Text("Cancel") } },
+    )
 }
 
 // ---------- Clients ----------
@@ -527,6 +606,190 @@ fun AdminUpdates() {
     }
 }
 
+// ---------- Costs ----------
+// Mirrors app/admin/costs/page.tsx: budget vs spend per project, where spend is
+// materials (excluding returned) plus approved/paid payments split by payee type.
+@Composable
+fun AdminCosts() {
+    var projects by remember { mutableStateOf<List<ProjectRow>>(emptyList()) }
+    var materials by remember { mutableStateOf<List<MaterialRow>>(emptyList()) }
+    var payments by remember { mutableStateOf<List<PaymentRow>>(emptyList()) }
+    var loading by remember { mutableStateOf(true) }
+    var error by remember { mutableStateOf<String?>(null) }
+
+    LaunchedEffect(Unit) {
+        safe({
+            projects = Repo.listProjects()
+            materials = Repo.listMaterials()
+            payments = Repo.listPayments()
+        }) { error = it }
+        loading = false
+    }
+
+    val countedPayments = payments.filter { it.status == "paid" || it.status == "approved" }
+    val breakdown = projects.associate { p ->
+        val mat = materials
+            .filter { it.projectId == p.id && it.status != "returned" }
+            .sumOf { it.quantity * it.unitCost }
+        val labour = countedPayments
+            .filter { it.projectId == p.id && it.payeeType == "labour" }
+            .sumOf { it.amount }
+        val supplierPaid = countedPayments
+            .filter { it.projectId == p.id && it.payeeType != "labour" }
+            .sumOf { it.amount }
+        p.id to Triple(mat, labour, supplierPaid)
+    }
+    // Spend counts materials + labour. Supplier payments are shown separately so a
+    // material and the bill that pays for it are not double-counted.
+    val spentFor: (String) -> Double = { id ->
+        val b = breakdown[id]
+        if (b == null) 0.0 else b.first + b.second
+    }
+    val totalBudget: Double = projects.sumOf { it.totalCost }
+    val totalSpent: Double = projects.sumOf { spentFor(it.id) }
+
+    FormColumn {
+        when {
+            error != null -> Text("Error: $error", color = MaterialTheme.colorScheme.error,
+                modifier = Modifier.padding(16.dp))
+            loading -> Box(Modifier.fillMaxWidth().padding(32.dp),
+                contentAlignment = Alignment.Center) { CircularProgressIndicator() }
+            projects.isEmpty() -> Text("Create a project first.", Modifier.padding(16.dp))
+            else -> {
+                SectionTitle("Cost tracking")
+                Row(Modifier.padding(horizontal = 8.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    StatCard("Total budget", money(totalBudget), Modifier.weight(1f))
+                    StatCard("Total spent", money(totalSpent), Modifier.weight(1f))
+                }
+                Box(Modifier.padding(horizontal = 8.dp, vertical = 8.dp)) {
+                    StatCard("Remaining", money(totalBudget - totalSpent))
+                }
+                Divider()
+                SectionTitle("By project")
+                projects.forEach { p ->
+                    val (mat, labour, supplierPaid) = breakdown[p.id]
+                        ?: Triple(0.0, 0.0, 0.0)
+                    val spent = mat + labour
+                    ItemCard(
+                        p.name,
+                        "${p.status} · Materials ${money(mat)} · Labour ${money(labour)} · " +
+                            "Supplier bills ${money(supplierPaid)}",
+                        "${money(spent)} / ${money(p.totalCost)}",
+                    )
+                }
+                Text(
+                    "Spend includes approved and paid payments; pending payments are not " +
+                        "counted. Materials marked returned are excluded.",
+                    style = MaterialTheme.typography.bodySmall,
+                    modifier = Modifier.padding(16.dp),
+                )
+            }
+        }
+    }
+}
+
+// ---------- Team access (owner only) ----------
+// The set_user_role() RPC re-checks is_owner() server-side, so this screen is a
+// convenience UI, not the security boundary -- a non-owner reaching it (e.g. a
+// stale isOwner flag) still gets rejected by the database on submit.
+@Composable
+fun AdminTeamAccess() {
+    var rows by remember { mutableStateOf<List<Profile>>(emptyList()) }
+    var version by remember { mutableStateOf(0) }
+    var error by remember { mutableStateOf<String?>(null) }
+    var busyId by remember { mutableStateOf<String?>(null) }
+    var query by remember { mutableStateOf("") }
+    val scope = rememberCoroutineScope()
+
+    LaunchedEffect(version) {
+        safe({ rows = Repo.listAllProfiles() }) { error = it }
+    }
+
+    val assignableRoles = listOf(Role.client, Role.supplier, Role.labour, Role.manager, Role.admin)
+    val filtered = remember(rows, query) {
+        val q = query.trim()
+        if (q.isBlank()) rows
+        else rows.filter { p ->
+            (p.fullName?.contains(q, ignoreCase = true) ?: false) ||
+                p.role.contains(q, ignoreCase = true) ||
+                p.id.startsWith(q, ignoreCase = true)
+        }
+    }
+
+    FormColumn {
+        SectionTitle("Team access (${rows.size})")
+        Text(
+            "Only you can grant admin or manager access. Everyone else signs up as " +
+                "client, supplier or labour.",
+            style = MaterialTheme.typography.bodySmall,
+            modifier = Modifier.padding(horizontal = 16.dp),
+        )
+        OutlinedTextField(
+            value = query,
+            onValueChange = { query = it },
+            label = { Text("Search by name or role") },
+            leadingIcon = { Icon(Icons.Default.Search, contentDescription = "Search") },
+            trailingIcon = if (query.isNotEmpty()) {
+                { IconButton(onClick = { query = "" }) {
+                    Icon(Icons.Default.Close, contentDescription = "Clear search")
+                } }
+            } else null,
+            singleLine = true,
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
+        )
+        error?.let { Text(it, color = MaterialTheme.colorScheme.error,
+            modifier = Modifier.padding(16.dp)) }
+        if (filtered.isEmpty()) {
+            Text("No matches.", Modifier.padding(16.dp))
+        }
+        filtered.forEach { p ->
+            key(p.id) {
+                TeamAccessRow(
+                    profile = p,
+                    assignableRoles = assignableRoles,
+                    busy = busyId == p.id,
+                    onSave = { newRole ->
+                        busyId = p.id
+                        scope.launch {
+                            safe({
+                                Repo.setUserRole(p.id, newRole)
+                                version++
+                            }) { error = it }
+                            busyId = null
+                        }
+                    },
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun TeamAccessRow(
+    profile: Profile,
+    assignableRoles: List<Role>,
+    busy: Boolean,
+    onSave: (Role) -> Unit,
+) {
+    var pendingRole by remember { mutableStateOf(Role.fromString(profile.role) ?: Role.client) }
+    ItemCard(
+        profile.fullName?.ifBlank { null } ?: profile.id.take(8),
+        "Current role: ${profile.role}" + if (profile.isOwner) " · owner" else "",
+        actions = {
+            Dropdown(
+                "New role", assignableRoles, pendingRole, { it.name },
+                { pendingRole = it },
+                modifier = Modifier.weight(1f),
+            )
+            TextButton(
+                enabled = !busy && pendingRole.name != profile.role,
+                onClick = { onSave(pendingRole) },
+            ) { Text(if (busy) "Saving…" else "Save") }
+        },
+    )
+}
+
 // ---------- Reports ----------
 @Composable
 fun AdminReports() {
@@ -534,6 +797,7 @@ fun AdminReports() {
     var payments by remember { mutableStateOf<List<PaymentRow>>(emptyList()) }
     var materials by remember { mutableStateOf<List<MaterialRow>>(emptyList()) }
     var error by remember { mutableStateOf<String?>(null) }
+    var selectedProject by remember { mutableStateOf<ProjectRow?>(null) }
     LaunchedEffect(Unit) {
         safe({
             projects = Repo.listProjects()
@@ -549,22 +813,108 @@ fun AdminReports() {
             .sumOf { it.amount }
         p.id to mat + pay
     }
-    val byStatus = listOf("pending","approved","paid","rejected").map { s ->
-        s to payments.filter { it.status == s }
-    }
 
     FormColumn {
         error?.let { Text(it, color = MaterialTheme.colorScheme.error,
             modifier = Modifier.padding(16.dp)) }
-        SectionTitle("Projects: budget vs spend")
-        projects.forEach { p ->
-            val s = spent[p.id] ?: 0.0
-            ItemCard(p.name, "Budget ${money(p.totalCost)} · Spent ${money(s)}",
-                money(p.totalCost - s))
+
+        val sel = selectedProject
+        if (sel == null) {
+            SiteReportList(projects, spent, onSelect = { selectedProject = it })
+        } else {
+            SiteReportDetail(
+                project = sel,
+                spent = spent[sel.id] ?: 0.0,
+                materials = materials.filter { it.projectId == sel.id },
+                payments = payments.filter { it.projectId == sel.id },
+                onBack = { selectedProject = null },
+            )
         }
-        SectionTitle("Payments by status")
-        byStatus.forEach { (s, rows) ->
-            ItemCard(s, "${rows.size} items", money(rows.sumOf { it.amount }))
+    }
+}
+
+@Composable
+private fun SiteReportList(
+    projects: List<ProjectRow>,
+    spent: Map<String, Double>,
+    onSelect: (ProjectRow) -> Unit,
+) {
+    SectionTitle("Reports by site")
+    if (projects.isEmpty()) {
+        Text("Create a project first.", Modifier.padding(16.dp))
+        return
+    }
+    projects.forEach { p ->
+        val s = spent[p.id] ?: 0.0
+        ItemCard(
+            p.name,
+            "${p.status} · ${"%.1f".format(p.completionPct)}% · Budget ${money(p.totalCost)}",
+            money(s),
+            actions = { TextButton(onClick = { onSelect(p) }) { Text("View report") } },
+        )
+    }
+}
+
+private data class Transaction(
+    val date: String?,
+    val type: String,
+    val description: String,
+    val amount: Double,
+    val status: String,
+)
+
+@Composable
+private fun SiteReportDetail(
+    project: ProjectRow,
+    spent: Double,
+    materials: List<MaterialRow>,
+    payments: List<PaymentRow>,
+    onBack: () -> Unit,
+) {
+    TextButton(onClick = onBack) { Text("← Reports") }
+    SectionTitle(project.name)
+
+    CompletionAndSpendPies(
+        project.name, project.completionPct,
+        if (project.totalCost > 0) (spent / project.totalCost * 100)
+        else if (spent > 0) 999.0 else 0.0,
+    )
+    Divider()
+    BudgetPie(project.name, project.totalCost, spent)
+    Divider()
+
+    val transactions = remember(materials, payments) {
+        val materialTx = materials.map {
+            Transaction(
+                date = it.deliveredAt ?: it.orderedAt,
+                type = "Material",
+                description = "${it.name} (${it.quantity} ${it.unit})",
+                amount = it.quantity * it.unitCost,
+                status = it.status,
+            )
+        }
+        val paymentTx = payments.map {
+            Transaction(
+                date = it.createdAt,
+                type = if (it.payeeType == "labour") "Payment · labour" else "Payment · supplier",
+                description = it.description?.ifBlank { null } ?: "—",
+                amount = it.amount,
+                status = it.status,
+            )
+        }
+        (materialTx + paymentTx).sortedByDescending { it.date ?: "" }
+    }
+
+    SectionTitle("Transactions (${transactions.size})")
+    if (transactions.isEmpty()) {
+        Text("No materials or payments recorded for this site yet.", Modifier.padding(16.dp))
+    } else {
+        transactions.forEach { t ->
+            ItemCard(
+                "${t.type} · ${t.description}",
+                "${t.date ?: "no date"} · ${t.status}",
+                money(t.amount),
+            )
         }
     }
 }

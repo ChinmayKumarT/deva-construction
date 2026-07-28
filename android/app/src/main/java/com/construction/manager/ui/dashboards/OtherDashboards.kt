@@ -277,6 +277,29 @@ fun ClientDashboard(vm: AuthViewModel) = RoleScaffold("Client", vm) { padding ->
                         )
                         Text("${"%.1f".format(p.completionPct)}% · Budget ${money(p.totalCost)}",
                             style = MaterialTheme.typography.bodySmall)
+                        p.endDate?.let { end ->
+                            if (p.finishDateExtended) {
+                                Text(
+                                    "Finish date extended: was ${p.originalEndDate}, now $end",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.error,
+                                    modifier = Modifier.padding(top = 4.dp),
+                                )
+                                p.extensionReason?.ifBlank { null }?.let { reason ->
+                                    Text(
+                                        "Reason: $reason",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    )
+                                }
+                            } else {
+                                Text(
+                                    "Expected finish: $end",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    modifier = Modifier.padding(top = 4.dp),
+                                )
+                            }
+                        }
                     }
                 }
             }

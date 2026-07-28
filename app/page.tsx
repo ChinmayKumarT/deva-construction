@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { signIn, signUp } from "./actions/auth";
 import { getSessionAndRole } from "@/lib/supabase/server";
+import { PasswordField } from "@/components/PasswordField";
 
 export default async function LoginPage({
   searchParams,
@@ -70,7 +71,7 @@ export default async function LoginPage({
               <Field label="Full name" name="full_name" type="text" required />
             )}
             <Field label="Email" name="email" type="email" required />
-            <Field label="Password" name="password" type="password" required />
+            <PasswordField />
             {isSignUp && (
               <label className="block text-sm">
                 <span className="mb-1 block font-medium text-slate-700">Role</span>
@@ -79,12 +80,13 @@ export default async function LoginPage({
                   className="w-full rounded-lg border border-[var(--line)] bg-white px-3 py-2 focus:outline-none focus:border-brand focus:ring-2 focus:ring-brand/20"
                   defaultValue="client"
                 >
-                  <option value="admin">Admin</option>
-                  <option value="manager">Manager</option>
                   <option value="client">Client</option>
                   <option value="supplier">Supplier</option>
                   <option value="labour">Labour</option>
                 </select>
+                {/* Admin/manager are never self-serve — the owner grants those
+                    from the app's Team access screen. handle_new_user() also
+                    clamps any other role server-side, so this is UI-only. */}
               </label>
             )}
 

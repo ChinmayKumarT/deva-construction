@@ -1,6 +1,6 @@
 # Publishing to Google Play — checklist
 
-A step-by-step guide for getting Construction Manager from local source to the Play Store.
+A step-by-step guide for getting Deva Construction from local source to the Play Store.
 
 ---
 
@@ -52,7 +52,7 @@ This is what you upload to Play Store. Do NOT upload an APK — the Play Store w
 
 ## 5. Create the app in Play Console
 
-- **App name**: Construction Manager (≤ 30 chars)
+- **App name**: Deva Construction (≤ 30 chars)
 - **Default language**: English (or your choice)
 - **Type**: App
 - **Free or paid**: pick

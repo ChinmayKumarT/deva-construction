@@ -9,6 +9,11 @@ Run these in the Supabase SQL editor **in order**:
 5. `05_profiles_staff_access.sql` — lets admin/manager read all `profiles` (needed for the "Link to login" dropdowns in admin pages).
 6. `06_supplier_deliveries.sql` — lets suppliers self-record material deliveries against any project.
 7. `07_supplier_bills.sql` — lets suppliers submit pending bills (payments) for their own deliveries.
+8. `08_owner_admin_approval.sql` — closes self-serve admin/manager signup. See "Owner model" below.
+   Includes a one-time bootstrap you must run by hand afterwards.
+9. `09_project_date_extension.sql` — adds `original_end_date`/`extension_reason` to `projects`
+   and a trigger that stamps `extension_updated_at` whenever `end_date` changes, so clients can
+   see when a project's finish date has slipped from what was originally planned.
 
 ## Entity map (matches the diagram)
 
@@ -31,6 +36,27 @@ Run these in the Supabase SQL editor **in order**:
 - **client** → own profile, own projects, updates/materials/payments on those projects (read-only).
 - **supplier** → own profile, materials they supply, payments to them (read-only).
 - **labour** → own profile, assignments, attendance (can self-insert), wages, assigned project rows.
+
+## Owner model
+
+Signup can only ever produce `client`, `supplier`, or `labour` — `handle_new_user()`
+(rewritten by `08_owner_admin_approval.sql`) clamps any other requested role to `client`.
+Nobody can self-promote either: column-level `UPDATE` privilege on `profiles.role` and
+`profiles.is_owner` is revoked from `authenticated` entirely, so no RLS policy (present or
+future) can write those columns. The **only** way a row becomes `admin` or `manager` is the
+`set_user_role(target_id, new_role)` RPC, which checks `is_owner()` itself and raises an
+exception for everyone else.
+
+Exactly one profile should have `is_owner = true`. Bootstrap it once, by hand, after that
+person has signed up through the app:
+
+```sql
+update public.profiles set is_owner = true, role = 'admin'
+where id = (select id from auth.users where email = 'the-owner@example.com');
+```
+
+The owner then grants admin/manager to anyone else from the Android app's **Team access**
+screen (visible only to them), which calls `set_user_role`.
 
 ## Linking auth users to entities
 

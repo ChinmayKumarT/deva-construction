@@ -7,7 +7,7 @@
         <item name="postSplashScreenTheme">@style/Theme.App</item>
     </style>
 
-    <!-- App theme: Material 3 dynamic colors are applied in Compose; this is the bare window. -->
+    <!-- App theme: the Compose colour scheme is applied in ui/theme/Theme.kt; this is the bare window. -->
     <style name="Theme.App" parent="android:Theme.Material.Light.NoActionBar">
         <item name="android:statusBarColor">@android:color/transparent</item>
         <item name="android:windowLightStatusBar">true</item>

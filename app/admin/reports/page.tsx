@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { AdminPage, AdminPageHeader, DataTable } from "@/components/admin/Page";
 
@@ -11,21 +12,21 @@ export default async function ReportsPage() {
     { data: attendance },
     { data: labourers },
   ] = await Promise.all([
-    supabase.from("projects").select("id, name, status, total_cost, completion_pct"),
+    supabase.from("projects").select("id, name, status, total_cost, completion_pct").order("name"),
     supabase.from("materials").select("project_id, quantity, unit_cost, status"),
-    supabase.from("payments").select("project_id, amount, status, payee_type"),
+    supabase.from("payments").select("project_id, amount, status"),
     supabase.from("attendance").select("date, status, labourer_id"),
     supabase.from("labourers").select("id, name, daily_wage"),
   ]);
 
-  // ---- Project summary ----
+  // ---- Per-site spend, for the site list ----
   const projectSpent = new Map<string, number>();
-  const materialsByProject = new Map<string, number>();
   for (const m of materials ?? []) {
     if (m.status === "returned" || !m.project_id) continue;
-    const cost = Number(m.quantity) * Number(m.unit_cost);
-    materialsByProject.set(m.project_id, (materialsByProject.get(m.project_id) ?? 0) + cost);
-    projectSpent.set(m.project_id, (projectSpent.get(m.project_id) ?? 0) + cost);
+    projectSpent.set(
+      m.project_id,
+      (projectSpent.get(m.project_id) ?? 0) + Number(m.quantity) * Number(m.unit_cost),
+    );
   }
   for (const p of payments ?? []) {
     if (!p.project_id) continue;
@@ -33,27 +34,7 @@ export default async function ReportsPage() {
     projectSpent.set(p.project_id, (projectSpent.get(p.project_id) ?? 0) + Number(p.amount));
   }
 
-  const projectRows =
-    projects?.map((p) => {
-      const spent = projectSpent.get(p.id) ?? 0;
-      return [
-        p.name,
-        p.status,
-        `${Number(p.completion_pct).toFixed(1)}%`,
-        `₹${Number(p.total_cost).toLocaleString()}`,
-        `₹${spent.toLocaleString()}`,
-        `₹${(Number(p.total_cost) - spent).toLocaleString()}`,
-      ];
-    }) ?? [];
-
-  // ---- Payment summary ----
-  const paymentSummary = (["pending", "approved", "paid", "rejected"] as const).map((s) => {
-    const rows = (payments ?? []).filter((p) => p.status === s);
-    const total = rows.reduce((sum, r) => sum + Number(r.amount), 0);
-    return [s, String(rows.length), `₹${total.toLocaleString()}`];
-  });
-
-  // ---- Attendance last 7 days ----
+  // ---- Attendance last 7 days (web-only extra, no Android equivalent) ----
   const cutoff = new Date();
   cutoff.setDate(cutoff.getDate() - 6);
   const cutoffStr = cutoff.toISOString().slice(0, 10);
@@ -80,21 +61,39 @@ export default async function ReportsPage() {
 
   return (
     <AdminPage>
-      <AdminPageHeader title="Reports" subtitle="Aggregate views across the business." />
+      <AdminPageHeader title="Reports" subtitle="Pick a site to see its own report and transactions." />
 
-      <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-500">Projects: budget vs spend</h2>
-      <DataTable
-        columns={["Project", "Status", "Completion", "Budget", "Spent", "Remaining"]}
-        rows={projectRows}
-        empty="No projects yet."
-      />
-
-      <h2 className="mt-10 mb-3 text-sm font-semibold uppercase tracking-wide text-slate-500">Payments by status</h2>
-      <DataTable
-        columns={["Status", "Count", "Total"]}
-        rows={paymentSummary}
-        empty="No payments yet."
-      />
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        {(projects ?? []).length === 0 && (
+          <p className="col-span-full rounded-xl border border-dashed border-[var(--line)] bg-white p-8 text-center text-sm text-slate-500">
+            No projects yet.
+          </p>
+        )}
+        {(projects ?? []).map((p) => {
+          const spent = projectSpent.get(p.id) ?? 0;
+          return (
+            <Link
+              key={p.id}
+              href={`/admin/reports/${p.id}`}
+              className="rounded-xl border border-[var(--line)] bg-white p-5 hover:border-brand hover:shadow-sm transition"
+            >
+              <div className="flex items-baseline justify-between">
+                <div className="font-semibold">{p.name}</div>
+                <span className="rounded-md border border-slate-200 bg-slate-50 px-2 py-0.5 text-xs text-slate-600">
+                  {p.status}
+                </span>
+              </div>
+              <p className="mt-2 text-sm text-slate-600">
+                {Number(p.completion_pct).toFixed(1)}% complete
+              </p>
+              <p className="mt-1 text-sm text-slate-600">
+                Budget ₹{Number(p.total_cost).toLocaleString()} · Spent ₹{spent.toLocaleString()}
+              </p>
+              <p className="mt-3 text-sm font-medium text-brand-700">View report →</p>
+            </Link>
+          );
+        })}
+      </div>
 
       <h2 className="mt-10 mb-3 text-sm font-semibold uppercase tracking-wide text-slate-500">
         Labour: last 7 days

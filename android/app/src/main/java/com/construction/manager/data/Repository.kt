@@ -30,12 +30,19 @@ object Repo {
         supabase.auth.signOut()
     }
     fun currentUserId(): String? = supabase.auth.currentUserOrNull()?.id
-    suspend fun fetchRole(): Role? {
+    suspend fun fetchMyProfile(): Profile? {
         val uid = currentUserId() ?: return null
-        return Role.fromString(
-            supabase.from("profiles").select { filter { eq("id", uid) } }
-                .decodeSingleOrNull<Profile>()?.role
-        )
+        return supabase.from("profiles").select { filter { eq("id", uid) } }
+            .decodeSingleOrNull<Profile>()
+    }
+
+    // Owner-only; the set_user_role() RPC re-checks is_owner() server-side and
+    // rejects the call outright for anyone else.
+    suspend fun setUserRole(targetId: String, role: Role) {
+        supabase.postgrest.rpc("set_user_role", buildJsonObject {
+            put("target_id", targetId)
+            put("new_role", role.name)
+        })
     }
 
     // ---------- Admin metrics ----------
@@ -83,10 +90,12 @@ object Repo {
         supabase.from("attendance").select { filter { eq("date", date) } }.decodeList<AttendanceRow>()
     suspend fun listProfilesByRole(role: Role) = supabase.from("profiles")
         .select { filter { eq("role", role.name) } }.decodeList<Profile>()
+    suspend fun listAllProfiles() = supabase.from("profiles")
+        .select { order("full_name", Order.ASCENDING) }.decodeList<Profile>()
 
     // ---------- Creates ----------
     suspend fun createProject(name: String, clientId: String?, status: String, stage: String?,
-                              totalCost: Double, completion: Double) {
+                              totalCost: Double, completion: Double, endDate: String?) {
         supabase.from("projects").insert(buildJsonObject {
             put("name", name)
             if (clientId != null) put("client_id", clientId)
@@ -94,7 +103,19 @@ object Repo {
             if (stage != null) put("current_stage", stage)
             put("total_cost", totalCost)
             put("completion_pct", completion)
+            // original_end_date is copied from this by a DB trigger on insert.
+            if (endDate != null) put("end_date", endDate)
         })
+    }
+
+    // Only ever sends end_date/extension_reason -- original_end_date and
+    // extension_updated_at are DB-trigger-managed (see
+    // 09_project_date_extension.sql), so the client can't get them wrong.
+    suspend fun extendProjectEndDate(projectId: String, newEndDate: String, reason: String?) {
+        supabase.from("projects").update(buildJsonObject {
+            put("end_date", newEndDate)
+            if (reason != null) put("extension_reason", reason)
+        }) { filter { eq("id", projectId) } }
     }
     suspend fun createClient(name: String, email: String?, phone: String?, profileId: String?) {
         supabase.from("clients").insert(buildJsonObject {

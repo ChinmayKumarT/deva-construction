@@ -32,11 +32,15 @@ export async function getSessionAndRole() {
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  if (!user) return { user: null, role: null as Role | null };
+  if (!user) return { user: null, role: null as Role | null, isOwner: false };
   const { data: profile } = await supabase
     .from("profiles")
-    .select("role")
+    .select("role, is_owner")
     .eq("id", user.id)
     .single();
-  return { user, role: (profile?.role ?? null) as Role | null };
+  return {
+    user,
+    role: (profile?.role ?? null) as Role | null,
+    isOwner: profile?.is_owner ?? false,
+  };
 }

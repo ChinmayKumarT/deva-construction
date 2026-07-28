@@ -12,7 +12,7 @@ import kotlinx.coroutines.launch
 sealed interface AuthState {
     data object Loading : AuthState
     data object SignedOut : AuthState
-    data class SignedIn(val role: Role) : AuthState
+    data class SignedIn(val role: Role, val isOwner: Boolean) : AuthState
     data class NeedsLink(val message: String) : AuthState
 }
 
@@ -33,8 +33,9 @@ class AuthViewModel : ViewModel() {
                 return@launch
             }
             try {
-                val role = Repo.fetchRole()
-                _state.value = if (role != null) AuthState.SignedIn(role)
+                val profile = Repo.fetchMyProfile()
+                val role = Role.fromString(profile?.role)
+                _state.value = if (role != null) AuthState.SignedIn(role, profile?.isOwner ?: false)
                 else AuthState.NeedsLink("Your profile has no role assigned. Contact admin.")
             } catch (e: Exception) {
                 _error.value = e.message
@@ -70,14 +71,17 @@ class AuthViewModel : ViewModel() {
         }
     }
 
+    /** [onDone] fires whether the delete succeeded or failed; check `error` afterwards. */
     fun deleteAccount(onDone: () -> Unit = {}) {
         viewModelScope.launch {
             _error.value = null
             try {
                 Repo.deleteMyAccount()
                 refresh()
-                onDone()
-            } catch (e: Exception) { _error.value = e.message }
+            } catch (e: Exception) {
+                _error.value = e.message ?: "Delete failed"
+            }
+            onDone()
         }
     }
 }

@@ -26,15 +26,20 @@ enum class AdminSection(val label: String) {
     Payments("Payments"),
     Attendance("Attendance"),
     Updates("Project updates"),
+    Costs("Cost tracking"),
     Reports("Reports"),
+    TeamAccess("Team access"),
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun AdminHome(vm: AuthViewModel, isAdmin: Boolean = true) {
+fun AdminHome(vm: AuthViewModel, isAdmin: Boolean = true, isOwner: Boolean = false) {
     val drawerState = rememberDrawerState(DrawerValue.Closed)
     val scope = rememberCoroutineScope()
     var section by remember { mutableStateOf(AdminSection.Overview) }
+    val visibleSections = remember(isOwner) {
+        AdminSection.entries.filter { it != AdminSection.TeamAccess || isOwner }
+    }
 
     ModalNavigationDrawer(
         drawerState = drawerState,
@@ -44,7 +49,7 @@ fun AdminHome(vm: AuthViewModel, isAdmin: Boolean = true) {
                 Text(if (isAdmin) "Admin" else "Manager",
                     Modifier.padding(16.dp), style = MaterialTheme.typography.titleMedium)
                 Divider()
-                AdminSection.entries.forEach { s ->
+                visibleSections.forEach { s ->
                     NavigationDrawerItem(
                         label = { Text(s.label) },
                         selected = section == s,
@@ -83,7 +88,9 @@ fun AdminHome(vm: AuthViewModel, isAdmin: Boolean = true) {
                     AdminSection.Payments -> AdminPayments()
                     AdminSection.Attendance -> AdminAttendance()
                     AdminSection.Updates -> AdminUpdates()
+                    AdminSection.Costs -> AdminCosts()
                     AdminSection.Reports -> AdminReports()
+                    AdminSection.TeamAccess -> AdminTeamAccess()
                 }
             }
         }

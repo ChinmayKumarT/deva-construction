@@ -4,3 +4,12 @@ node_modules
 .env*.local
 .DS_Store
 *.log
+
+# Per-machine Claude Code config (settings.json is shared, .local.json is personal)
+.claude/settings.local.json
+# launch.json hardcodes an absolute node path, so it is machine-specific
+.claude/launch.json
+
+# Build caches / installer leftovers
+tsconfig.tsbuildinfo
+*.tmp

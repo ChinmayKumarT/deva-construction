@@ -1,14 +1,14 @@
 import Link from "next/link";
 
 export const metadata = {
-  title: "Privacy policy — Construction Manager",
+  title: "Privacy policy — Deva Construction",
   description:
-    "What data Construction Manager collects, how it is used, and how to delete it.",
+    "What data Deva Construction collects, how it is used, and how to delete it.",
 };
 
 const EFFECTIVE_DATE = "2026-06-25";
 const CONTACT_EMAIL = "thedeva.co@gmail.com"; // replace with your support address
-const DEVELOPER_NAME = "Construction Manager"; // replace with your legal name
+const DEVELOPER_NAME = "Deva Construction"; // replace with your legal name
 
 export default function PrivacyPage() {
   return (
@@ -18,7 +18,7 @@ export default function PrivacyPage() {
 
       <p>
         This Privacy Policy describes how {DEVELOPER_NAME} ("we", "us") collects, uses, and
-        protects information when you use the Construction Manager mobile and web applications
+        protects information when you use the Deva Construction mobile and web applications
         ("the App"). This is a template — review with a lawyer before publishing if you handle
         anything sensitive.
       </p>

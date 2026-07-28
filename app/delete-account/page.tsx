@@ -1,8 +1,8 @@
 import Link from "next/link";
 
 export const metadata = {
-  title: "Delete your account — Construction Manager",
-  description: "How to delete your Construction Manager account and what data is removed.",
+  title: "Delete your account — Deva Construction",
+  description: "How to delete your Deva Construction account and what data is removed.",
 };
 
 export default function DeleteAccountPage() {
@@ -10,7 +10,7 @@ export default function DeleteAccountPage() {
     <main className="mx-auto max-w-2xl px-6 py-12">
       <h1 className="text-3xl font-bold">Delete your account</h1>
       <p className="mt-3 text-slate-700">
-        You can delete your Construction Manager account at any time. Deletion is permanent and
+        You can delete your Deva Construction account at any time. Deletion is permanent and
         cannot be undone.
       </p>
 

@@ -1,25 +1,26 @@
 package com.construction.manager.ui
 
-import android.content.Intent
-import android.net.Uri
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import com.construction.manager.data.Role
 
-// TODO: replace with your deployed web app URL before publishing
-private const val PRIVACY_URL = "https://your-domain.example.com/privacy"
-private const val DELETE_URL = "https://your-domain.example.com/delete-account"
+private enum class LegalPage { None, Privacy, DeleteAccount }
 
 @Composable
 fun AuthScreen(vm: AuthViewModel) {
+    // Declared above the branch so the half-filled form survives a trip to the
+    // privacy / delete-account pages and back.
+    var legal by remember { mutableStateOf(LegalPage.None) }
     var mode by remember { mutableStateOf("signin") } // signin | signup
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
@@ -27,32 +28,75 @@ fun AuthScreen(vm: AuthViewModel) {
     var role by remember { mutableStateOf(Role.client) }
     val error by vm.error.collectAsState()
 
+    when (legal) {
+        LegalPage.Privacy -> PrivacyScreen(onBack = { legal = LegalPage.None })
+        LegalPage.DeleteAccount -> DeleteAccountInfoScreen(onBack = { legal = LegalPage.None })
+        LegalPage.None -> AuthForm(
+            vm = vm,
+            mode = mode, onModeChange = { mode = it },
+            email = email, onEmailChange = { email = it },
+            password = password, onPasswordChange = { password = it },
+            fullName = fullName, onFullNameChange = { fullName = it },
+            role = role, onRoleChange = { role = it },
+            error = error,
+            onOpenLegal = { legal = it },
+        )
+    }
+}
+
+@Composable
+private fun AuthForm(
+    vm: AuthViewModel,
+    mode: String, onModeChange: (String) -> Unit,
+    email: String, onEmailChange: (String) -> Unit,
+    password: String, onPasswordChange: (String) -> Unit,
+    fullName: String, onFullNameChange: (String) -> Unit,
+    role: Role, onRoleChange: (Role) -> Unit,
+    error: String?,
+    onOpenLegal: (LegalPage) -> Unit,
+) {
     Column(
         Modifier.fillMaxSize().padding(24.dp).verticalScroll(rememberScrollState()),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         Spacer(Modifier.height(48.dp))
-        Text("Construction Manager", style = MaterialTheme.typography.headlineMedium)
+        Text("Deva Construction", style = MaterialTheme.typography.headlineMedium)
         Text(if (mode == "signin") "Sign in" else "Create an account",
             style = MaterialTheme.typography.titleMedium)
 
         if (mode == "signup") {
-            OutlinedTextField(fullName, { fullName = it }, label = { Text("Full name") },
+            OutlinedTextField(fullName, onFullNameChange, label = { Text("Full name") },
                 modifier = Modifier.fillMaxWidth())
         }
-        OutlinedTextField(email, { email = it }, label = { Text("Email") },
+        OutlinedTextField(email, onEmailChange, label = { Text("Email") },
             modifier = Modifier.fillMaxWidth())
-        OutlinedTextField(password, { password = it }, label = { Text("Password") },
-            visualTransformation = PasswordVisualTransformation(),
-            modifier = Modifier.fillMaxWidth())
+
+        var passwordVisible by remember { mutableStateOf(false) }
+        OutlinedTextField(
+            password, onPasswordChange, label = { Text("Password") },
+            visualTransformation = if (passwordVisible) VisualTransformation.None
+                else PasswordVisualTransformation(),
+            trailingIcon = {
+                IconButton(onClick = { passwordVisible = !passwordVisible }) {
+                    Icon(
+                        if (passwordVisible) Icons.Filled.VisibilityOff else Icons.Filled.Visibility,
+                        contentDescription = if (passwordVisible) "Hide password" else "Show password",
+                    )
+                }
+            },
+            modifier = Modifier.fillMaxWidth(),
+        )
 
         if (mode == "signup") {
             Text("Role", style = MaterialTheme.typography.labelLarge)
+            // Admin/manager are never self-serve — the owner grants those from
+            // the Team access screen. handle_new_user() also enforces this
+            // server-side, so this is UI-only, not the actual security boundary.
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Role.entries.forEach { r ->
+                listOf(Role.client, Role.supplier, Role.labour).forEach { r ->
                     FilterChip(
                         selected = role == r,
-                        onClick = { role = r },
+                        onClick = { onRoleChange(r) },
                         label = { Text(r.name) },
                     )
                 }
@@ -69,19 +113,18 @@ fun AuthScreen(vm: AuthViewModel) {
             modifier = Modifier.fillMaxWidth(),
         ) { Text(if (mode == "signin") "Sign in" else "Create account") }
 
-        TextButton(onClick = { mode = if (mode == "signin") "signup" else "signin" }) {
+        TextButton(onClick = { onModeChange(if (mode == "signin") "signup" else "signin") }) {
             Text(if (mode == "signin") "New here? Create account" else "Have an account? Sign in")
         }
 
-        val context = LocalContext.current
         Row(Modifier.fillMaxWidth().padding(top = 16.dp),
             horizontalArrangement = Arrangement.Center) {
-            TextButton(onClick = {
-                context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(PRIVACY_URL)))
-            }) { Text("Privacy policy", style = MaterialTheme.typography.bodySmall) }
-            TextButton(onClick = {
-                context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(DELETE_URL)))
-            }) { Text("Delete account", style = MaterialTheme.typography.bodySmall) }
+            TextButton(onClick = { onOpenLegal(LegalPage.Privacy) }) {
+                Text("Privacy policy", style = MaterialTheme.typography.bodySmall)
+            }
+            TextButton(onClick = { onOpenLegal(LegalPage.DeleteAccount) }) {
+                Text("Delete account", style = MaterialTheme.typography.bodySmall)
+            }
         }
     }
 }

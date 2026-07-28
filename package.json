@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "cap:init": "cap init \"Construction Manager\" com.construction.manager --web-dir=public",
+    "cap:init": "cap init \"Deva Construction\" com.construction.manager --web-dir=public",
     "cap:add": "cap add android",
     "cap:sync": "cap sync android",
     "cap:open": "cap open android"

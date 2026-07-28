@@ -12,6 +12,7 @@ data class Profile(
     val id: String,
     @SerialName("full_name") val fullName: String? = null,
     val role: String = "client",
+    @SerialName("is_owner") val isOwner: Boolean = false,
 )
 
 @Serializable
@@ -54,7 +55,13 @@ data class ProjectRow(
     @SerialName("total_cost") val totalCost: Double = 0.0,
     @SerialName("start_date") val startDate: String? = null,
     @SerialName("end_date") val endDate: String? = null,
-)
+    @SerialName("original_end_date") val originalEndDate: String? = null,
+    @SerialName("extension_reason") val extensionReason: String? = null,
+) {
+    /** True once end_date has been pushed later than the originally planned date. */
+    val finishDateExtended: Boolean
+        get() = originalEndDate != null && endDate != null && endDate > originalEndDate
+}
 
 @Serializable
 data class MaterialRow(
@@ -66,6 +73,8 @@ data class MaterialRow(
     val quantity: Double = 0.0,
     @SerialName("unit_cost") val unitCost: Double = 0.0,
     val status: String = "ordered",
+    @SerialName("ordered_at") val orderedAt: String? = null,
+    @SerialName("delivered_at") val deliveredAt: String? = null,
 )
 
 @Serializable

@@ -244,6 +244,36 @@ export async function postProjectUpdate(fd: FormData) {
   revalidatePath("/client");
 }
 
+// original_end_date/extension_updated_at are trigger-managed
+// (09_project_date_extension.sql) -- this only ever sends end_date/extension_reason,
+// same discipline as the Android Repo.extendProjectEndDate.
+export async function extendProjectEndDate(fd: FormData) {
+  const supabase = createSupabaseServerClient();
+  const id = str(fd, "id");
+  const end_date = str(fd, "end_date");
+  if (!id || !end_date) throw new Error("project and new date required");
+  const { error } = await supabase
+    .from("projects")
+    .update({ end_date, extension_reason: str(fd, "reason") })
+    .eq("id", id);
+  if (error) throw new Error(error.message);
+  revalidatePath("/admin/projects");
+  revalidatePath("/client");
+}
+
+// The set_user_role RPC re-checks is_owner() server-side (08_owner_admin_approval.sql),
+// so this is a thin wrapper, not the actual security boundary -- a non-owner
+// calling it still gets rejected by the database.
+export async function setUserRole(fd: FormData) {
+  const supabase = createSupabaseServerClient();
+  const target_id = str(fd, "target_id");
+  const new_role = str(fd, "new_role");
+  if (!target_id || !new_role) throw new Error("target and role required");
+  const { error } = await supabase.rpc("set_user_role", { target_id, new_role });
+  if (error) throw new Error(error.message);
+  revalidatePath("/admin/team");
+}
+
 export async function createLabourer(fd: FormData) {
   const supabase = createSupabaseServerClient();
   const { error } = await supabase.from("labourers").insert({

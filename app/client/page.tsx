@@ -31,7 +31,9 @@ export default async function ClientDashboard() {
 
   const { data: projects } = await supabase
     .from("projects")
-    .select("id, name, status, current_stage, completion_pct, total_cost, start_date, end_date")
+    .select(
+      "id, name, status, current_stage, completion_pct, total_cost, start_date, end_date, original_end_date, extension_reason",
+    )
     .eq("client_id", client.id)
     .order("created_at", { ascending: false });
 
@@ -119,6 +121,16 @@ export default async function ClientDashboard() {
                     <p className="mt-3 text-xs text-slate-500">
                       {p.start_date ?? "—"} → {p.end_date ?? "—"}
                     </p>
+                  )}
+                  {p.original_end_date && p.end_date && p.end_date > p.original_end_date && (
+                    <div className="mt-2 text-xs font-medium text-red-600">
+                      Finish date extended: was {p.original_end_date}, now {p.end_date}
+                      {p.extension_reason && (
+                        <div className="mt-0.5 font-normal text-slate-500">
+                          Reason: {p.extension_reason}
+                        </div>
+                      )}
+                    </div>
                   )}
                 </article>
               );

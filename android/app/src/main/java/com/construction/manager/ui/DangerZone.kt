@@ -11,6 +11,8 @@ import androidx.compose.ui.unit.dp
 fun DeleteAccountButton(vm: AuthViewModel, modifier: Modifier = Modifier) {
     var open by remember { mutableStateOf(false) }
     var typed by remember { mutableStateOf("") }
+    var busy by remember { mutableStateOf(false) }
+    val error by vm.error.collectAsState()
 
     TextButton(
         onClick = { open = true },
@@ -20,7 +22,7 @@ fun DeleteAccountButton(vm: AuthViewModel, modifier: Modifier = Modifier) {
 
     if (open) {
         AlertDialog(
-            onDismissRequest = { open = false; typed = "" },
+            onDismissRequest = { if (!busy) { open = false; typed = "" } },
             title = { Text("Delete your account?") },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -29,22 +31,31 @@ fun DeleteAccountButton(vm: AuthViewModel, modifier: Modifier = Modifier) {
                     Text("Type DELETE to confirm:")
                     OutlinedTextField(
                         value = typed, onValueChange = { typed = it },
-                        singleLine = true, modifier = Modifier.fillMaxWidth(),
+                        singleLine = true, enabled = !busy,
+                        modifier = Modifier.fillMaxWidth(),
                     )
+                    error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
                 }
             },
             confirmButton = {
                 TextButton(
-                    enabled = typed == "DELETE",
+                    enabled = typed == "DELETE" && !busy,
                     onClick = {
-                        vm.deleteAccount()
-                        open = false; typed = ""
+                        busy = true
+                        vm.deleteAccount {
+                            busy = false
+                            // vm.error was cleared before the call and is only
+                            // set again on failure -- null here means it
+                            // succeeded (refresh() already flipped auth state
+                            // to SignedOut), so it's safe to close the dialog.
+                            if (vm.error.value == null) { open = false; typed = "" }
+                        }
                     },
                     colors = ButtonDefaults.textButtonColors(contentColor = Color(0xFFB00020)),
-                ) { Text("Delete") }
+                ) { Text(if (busy) "Deleting…" else "Delete") }
             },
             dismissButton = {
-                TextButton(onClick = { open = false; typed = "" }) { Text("Cancel") }
+                TextButton(enabled = !busy, onClick = { open = false; typed = "" }) { Text("Cancel") }
             },
         )
     }
