@@ -37,8 +37,10 @@ export default async function PaymentsPage({
     .order("created_at", { ascending: false });
   if (projectFilter) base = base.eq("project_id", projectFilter);
 
-  const [{ data: payments }, { data: projects }, { data: suppliers }, { data: labourers }, { data: materials }, { count: archivedCount }] =
-    await Promise.all([
+  const [
+    { data: payments }, { data: projects }, { data: suppliers }, { data: labourers },
+    { data: materials }, { data: assignments }, { count: archivedCount },
+  ] = await Promise.all([
       showArchived ? base.not("archived_at", "is", null) : base.is("archived_at", null),
       supabase.from("projects").select("id, name").is("archived_at", null).order("name"),
       supabase.from("suppliers").select("id, name").is("archived_at", null).order("name"),
@@ -49,6 +51,7 @@ export default async function PaymentsPage({
         .is("archived_at", null)
         .neq("status", "returned")
         .order("ordered_at", { ascending: false }),
+      supabase.from("project_labourers").select("labourer_id, project_id").is("unassigned_at", null),
       supabase.from("payments").select("id", { count: "exact", head: true }).not("archived_at", "is", null),
     ]);
 
@@ -85,6 +88,7 @@ export default async function PaymentsPage({
           suppliers={suppliers ?? []}
           labourers={labourers ?? []}
           materials={materials ?? []}
+          assignments={assignments ?? []}
           defaultProjectId={projectFilter ?? "none"}
         />
       )}

@@ -21,6 +21,8 @@ type Material = {
   project_id: string | null;
 };
 
+type Assignment = { labourer_id: string; project_id: string };
+
 type Initial = {
   payeeType: string;
   projectId: string;
@@ -37,6 +39,7 @@ function PaymentFormFields({
   suppliers,
   labourers,
   materials,
+  assignments,
   initial,
   paymentId,
   submitLabel,
@@ -47,6 +50,7 @@ function PaymentFormFields({
   suppliers: { id: string; name: string }[];
   labourers: { id: string; name: string }[];
   materials: Material[];
+  assignments: Assignment[];
   initial: Initial;
   paymentId?: string;
   submitLabel: string;
@@ -66,9 +70,20 @@ function PaymentFormFields({
     [materials, projectId],
   );
 
+  // Only labourers currently assigned to the selected project -- plus
+  // whichever labourer this payment already has, so editing an older
+  // payment doesn't hide its existing value if they've since moved sites.
+  const assignedLabourers = useMemo(() => {
+    const assignedIds = new Set(
+      assignments.filter((a) => a.project_id === projectId).map((a) => a.labourer_id),
+    );
+    return labourers.filter((l) => assignedIds.has(l.id) || l.id === initial.labourerId);
+  }, [labourers, assignments, projectId, initial.labourerId]);
+
   function handleProjectChange(id: string) {
     setProjectId(id);
     setPurchaseId("none");
+    setLabourerId("none");
   }
 
   function handlePurchaseChange(id: string) {
@@ -112,26 +127,87 @@ function PaymentFormFields({
         </select>
       </label>
 
-      <label className="block text-sm">
-        <span className="mb-1 block font-medium text-slate-700">Purchase (optional)</span>
-        <select
-          className={selectClass}
-          value={purchaseId}
-          onChange={(e) => handlePurchaseChange(e.target.value)}
-          disabled={projectId === "none"}
-        >
-          <option value="none">
-            {projectId === "none" ? "— choose a project first —" : "— none —"}
-          </option>
-          {projectMaterials.map((m) => (
-            <option key={m.id} value={m.id}>
-              {m.name} ({Number(m.quantity)} {m.unit}) — ₹{(Number(m.quantity) * Number(m.unit_cost)).toLocaleString()}
+      {payeeType === "labour" ? (
+        <label className="block text-sm">
+          <span className="mb-1 block font-medium text-slate-700">Labourer</span>
+          <select
+            name="labourer_id"
+            className={selectClass}
+            value={labourerId}
+            onChange={(e) => setLabourerId(e.target.value)}
+            disabled={projectId === "none"}
+          >
+            <option value="none">
+              {projectId === "none" ? "— choose a project first —" : "— none —"}
             </option>
-          ))}
+            {assignedLabourers.map((l) => (<option key={l.id} value={l.id}>{l.name}</option>))}
+          </select>
+          <span className="mt-1 block text-xs text-slate-500">
+            Only labourers currently assigned to this project.
+          </span>
+        </label>
+      ) : (
+        <label className="block text-sm">
+          <span className="mb-1 block font-medium text-slate-700">Purchase (optional)</span>
+          <select
+            className={selectClass}
+            value={purchaseId}
+            onChange={(e) => handlePurchaseChange(e.target.value)}
+            disabled={projectId === "none"}
+          >
+            <option value="none">
+              {projectId === "none" ? "— choose a project first —" : "— none —"}
+            </option>
+            {projectMaterials.map((m) => (
+              <option key={m.id} value={m.id}>
+                {m.name} ({Number(m.quantity)} {m.unit}) — ₹{(Number(m.quantity) * Number(m.unit_cost)).toLocaleString()}
+              </option>
+            ))}
+          </select>
+          <span className="mt-1 block text-xs text-slate-500">
+            Selecting a purchase fills in the amount, supplier, description and category below.
+          </span>
+        </label>
+      )}
+
+      {payeeType === "supplier" && (
+        <>
+          <label className="block text-sm">
+            <span className="mb-1 block font-medium text-slate-700">Supplier</span>
+            <select
+              name="supplier_id"
+              className={selectClass}
+              value={supplierId}
+              onChange={(e) => setSupplierId(e.target.value)}
+            >
+              <option value="none">— none —</option>
+              {suppliers.map((s) => (<option key={s.id} value={s.id}>{s.name}</option>))}
+            </select>
+          </label>
+
+          <label className="block text-sm">
+            <span className="mb-1 block font-medium text-slate-700">Description</span>
+            <input
+              name="description"
+              className={inputClass}
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+            />
+          </label>
+        </>
+      )}
+
+      <label className="block text-sm">
+        <span className="mb-1 block font-medium text-slate-700">Work category</span>
+        <select
+          name="work_category"
+          className={selectClass}
+          value={workCategory}
+          onChange={(e) => setWorkCategory(e.target.value)}
+        >
+          <option value="">— none —</option>
+          {WORK_CATEGORIES.map((c) => (<option key={c} value={c}>{c}</option>))}
         </select>
-        <span className="mt-1 block text-xs text-slate-500">
-          Selecting a purchase fills in the amount, supplier, description and category below.
-        </span>
       </label>
 
       <label className="block text-sm">
@@ -145,55 +221,6 @@ function PaymentFormFields({
           value={amount}
           onChange={(e) => setAmount(e.target.value)}
         />
-      </label>
-
-      <label className="block text-sm">
-        <span className="mb-1 block font-medium text-slate-700">Supplier</span>
-        <select
-          name="supplier_id"
-          className={selectClass}
-          value={supplierId}
-          onChange={(e) => setSupplierId(e.target.value)}
-        >
-          <option value="none">— if labour, leave —</option>
-          {suppliers.map((s) => (<option key={s.id} value={s.id}>{s.name}</option>))}
-        </select>
-      </label>
-
-      <label className="block text-sm">
-        <span className="mb-1 block font-medium text-slate-700">Labourer</span>
-        <select
-          name="labourer_id"
-          className={selectClass}
-          value={labourerId}
-          onChange={(e) => setLabourerId(e.target.value)}
-        >
-          <option value="none">— if supplier, leave —</option>
-          {labourers.map((l) => (<option key={l.id} value={l.id}>{l.name}</option>))}
-        </select>
-      </label>
-
-      <label className="block text-sm">
-        <span className="mb-1 block font-medium text-slate-700">Description</span>
-        <input
-          name="description"
-          className={inputClass}
-          value={description}
-          onChange={(e) => setDescription(e.target.value)}
-        />
-      </label>
-
-      <label className="block text-sm">
-        <span className="mb-1 block font-medium text-slate-700">Work category</span>
-        <select
-          name="work_category"
-          className={selectClass}
-          value={workCategory}
-          onChange={(e) => setWorkCategory(e.target.value)}
-        >
-          <option value="">— none —</option>
-          {WORK_CATEGORIES.map((c) => (<option key={c} value={c}>{c}</option>))}
-        </select>
       </label>
 
       <div className="flex items-center gap-3 sm:col-span-2 lg:col-span-3">
@@ -212,6 +239,7 @@ export function CreatePaymentForm({
   suppliers,
   labourers,
   materials,
+  assignments,
   defaultProjectId,
 }: {
   action: (fd: FormData) => Promise<void>;
@@ -219,6 +247,7 @@ export function CreatePaymentForm({
   suppliers: { id: string; name: string }[];
   labourers: { id: string; name: string }[];
   materials: Material[];
+  assignments: Assignment[];
   defaultProjectId: string;
 }) {
   return (
@@ -228,6 +257,7 @@ export function CreatePaymentForm({
       suppliers={suppliers}
       labourers={labourers}
       materials={materials}
+      assignments={assignments}
       initial={{
         payeeType: "supplier",
         projectId: defaultProjectId,
@@ -248,6 +278,7 @@ export function EditPaymentForm({
   suppliers,
   labourers,
   materials,
+  assignments,
   paymentId,
   initial,
   cancelHref,
@@ -257,6 +288,7 @@ export function EditPaymentForm({
   suppliers: { id: string; name: string }[];
   labourers: { id: string; name: string }[];
   materials: Material[];
+  assignments: Assignment[];
   paymentId: string;
   initial: Initial;
   cancelHref: string;
@@ -268,6 +300,7 @@ export function EditPaymentForm({
       suppliers={suppliers}
       labourers={labourers}
       materials={materials}
+      assignments={assignments}
       initial={initial}
       paymentId={paymentId}
       submitLabel="Save changes"

@@ -1152,6 +1152,7 @@ fun AdminPayments(isOwner: Boolean = false, initialProjectFilter: ProjectRow? = 
     var suppliers by remember { mutableStateOf<List<SupplierRow>>(emptyList()) }
     var labourers by remember { mutableStateOf<List<LabourerRow>>(emptyList()) }
     var materials by remember { mutableStateOf<List<MaterialRow>>(emptyList()) }
+    var assignments by remember { mutableStateOf<List<ProjectLabourerRow>>(emptyList()) }
     var version by remember { mutableStateOf(0) }
     var error by remember { mutableStateOf<String?>(null) }
     var showArchived by remember { mutableStateOf(false) }
@@ -1167,6 +1168,7 @@ fun AdminPayments(isOwner: Boolean = false, initialProjectFilter: ProjectRow? = 
             suppliers = Repo.listSuppliers()
             labourers = Repo.listLabourers()
             materials = Repo.listMaterials().filter { it.status != "returned" }
+            assignments = Repo.listActiveAssignments()
         }) { error = it }
     }
     val visibleRows = projectFilter?.let { pf -> rows.filter { it.projectId == pf.id } } ?: rows
@@ -1179,6 +1181,10 @@ fun AdminPayments(isOwner: Boolean = false, initialProjectFilter: ProjectRow? = 
     var workCategory by remember { mutableStateOf("None") }
     var purchase by remember { mutableStateOf<MaterialRow?>(null) }
     val projectMaterials = project?.let { pr -> materials.filter { it.projectId == pr.id } } ?: emptyList()
+    val assignedLabourers = project?.let { pr ->
+        val ids = assignments.filter { it.projectId == pr.id }.map { it.labourerId }.toSet()
+        labourers.filter { it.id in ids }
+    } ?: emptyList()
 
     FormColumn {
         ArchivedSwitch(showArchived) { showArchived = !showArchived }
@@ -1196,27 +1202,39 @@ fun AdminPayments(isOwner: Boolean = false, initialProjectFilter: ProjectRow? = 
         }
         if (!showArchived) {
             SectionTitle("Create payment")
-            Dropdown("Payee type", listOf("supplier","labour"), payeeType, { it }, { payeeType = it })
-            Dropdown("Project", projects, project, { it.name }, { project = it; purchase = null })
             Dropdown(
-                "Purchase (optional)", projectMaterials, purchase,
-                { m -> "${m.name} (${m.quantity} ${m.unit}) — ${money(m.quantity * m.unitCost)}" },
-                { m ->
-                    purchase = m
-                    payeeType = "supplier"
-                    supplier = suppliers.find { it.id == m.supplierId }
-                    amount = (m.quantity * m.unitCost).toString()
-                    desc = "${m.name} (${m.quantity} ${m.unit})"
-                    workCategory = m.workCategory ?: "None"
-                },
+                "Payee type", listOf("supplier","labour"), payeeType, { it },
+                { payeeType = it; supplier = null; labourer = null; desc = ""; purchase = null },
             )
-            if (payeeType == "supplier")
+            Dropdown(
+                "Project", projects, project,
+                { it.name }, { project = it; purchase = null; labourer = null },
+            )
+            if (payeeType == "labour") {
+                Dropdown("Labourer", assignedLabourers, labourer, { it.name }, { labourer = it })
+                Text(
+                    "Only labourers currently assigned to this project.",
+                    style = MaterialTheme.typography.labelSmall,
+                    modifier = Modifier.padding(horizontal = 16.dp),
+                )
+            } else {
+                Dropdown(
+                    "Purchase (optional)", projectMaterials, purchase,
+                    { m -> "${m.name} (${m.quantity} ${m.unit}) — ${money(m.quantity * m.unitCost)}" },
+                    { m ->
+                        purchase = m
+                        payeeType = "supplier"
+                        supplier = suppliers.find { it.id == m.supplierId }
+                        amount = (m.quantity * m.unitCost).toString()
+                        desc = "${m.name} (${m.quantity} ${m.unit})"
+                        workCategory = m.workCategory ?: "None"
+                    },
+                )
                 Dropdown("Supplier", suppliers, supplier, { it.name }, { supplier = it })
-            else
-                Dropdown("Labourer", labourers, labourer, { it.name }, { labourer = it })
-            NumberField(amount, { amount = it }, "Amount")
-            TextField(desc, { desc = it }, "Description")
+                TextField(desc, { desc = it }, "Description")
+            }
             Dropdown("Work category", WorkCategories, workCategory, { it }, { workCategory = it })
+            NumberField(amount, { amount = it }, "Amount")
             Button(onClick = {
                 scope.launch {
                     safe({
@@ -1282,7 +1300,7 @@ fun AdminPayments(isOwner: Boolean = false, initialProjectFilter: ProjectRow? = 
 
     editing?.let { p ->
         EditPaymentDialog(
-            p, projects, suppliers, labourers, materials,
+            p, projects, suppliers, labourers, materials, assignments,
             onDismiss = { editing = null }, onSaved = { editing = null; version++ },
         )
     }
@@ -1316,6 +1334,7 @@ private fun EditPaymentDialog(
     suppliers: List<SupplierRow>,
     labourers: List<LabourerRow>,
     materials: List<MaterialRow>,
+    assignments: List<ProjectLabourerRow>,
     onDismiss: () -> Unit,
     onSaved: () -> Unit,
 ) {
@@ -1331,6 +1350,10 @@ private fun EditPaymentDialog(
     var busy by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
     val projectMaterials = project?.let { pr -> materials.filter { it.projectId == pr.id } } ?: emptyList()
+    val assignedLabourers = project?.let { pr ->
+        val ids = assignments.filter { it.projectId == pr.id }.map { it.labourerId }.toSet()
+        labourers.filter { it.id in ids || it.id == payment.labourerId }
+    } ?: emptyList()
 
     EditDialog(
         title = "Edit payment", busy = busy, error = error,
@@ -1352,30 +1375,35 @@ private fun EditPaymentDialog(
         },
     ) {
         Dropdown("Payee type", listOf("supplier","labour"), payeeType, { it }, { payeeType = it })
-        Dropdown("Project", projects, project, { it.name }, { project = it; purchase = null })
-        Dropdown(
-            "Purchase (optional)", projectMaterials, purchase,
-            { m -> "${m.name} (${m.quantity} ${m.unit}) — ${money(m.quantity * m.unitCost)}" },
-            { m ->
-                purchase = m
-                payeeType = "supplier"
-                supplier = suppliers.find { it.id == m.supplierId }
-                amount = (m.quantity * m.unitCost).toString()
-                desc = "${m.name} (${m.quantity} ${m.unit})"
-                workCategory = m.workCategory ?: "None"
-            },
-        )
-        if (payeeType == "supplier")
+        Dropdown("Project", projects, project, { it.name }, { project = it; purchase = null; labourer = null })
+        if (payeeType == "labour") {
+            Dropdown("Labourer", assignedLabourers, labourer, { it.name }, { labourer = it })
+            Text(
+                "Only labourers currently assigned to this project.",
+                style = MaterialTheme.typography.labelSmall,
+            )
+        } else {
+            Dropdown(
+                "Purchase (optional)", projectMaterials, purchase,
+                { m -> "${m.name} (${m.quantity} ${m.unit}) — ${money(m.quantity * m.unitCost)}" },
+                { m ->
+                    purchase = m
+                    payeeType = "supplier"
+                    supplier = suppliers.find { it.id == m.supplierId }
+                    amount = (m.quantity * m.unitCost).toString()
+                    desc = "${m.name} (${m.quantity} ${m.unit})"
+                    workCategory = m.workCategory ?: "None"
+                },
+            )
             Dropdown("Supplier", suppliers, supplier, { it.name }, { supplier = it })
-        else
-            Dropdown("Labourer", labourers, labourer, { it.name }, { labourer = it })
+            DialogField(desc, { desc = it }, "Description")
+        }
+        Dropdown("Work category", WorkCategories, workCategory, { it }, { workCategory = it })
         OutlinedTextField(
             value = amount,
             onValueChange = { s -> if (s.isEmpty() || s.toDoubleOrNull() != null) amount = s },
             label = { Text("Amount") }, singleLine = true, modifier = Modifier.fillMaxWidth(),
         )
-        DialogField(desc, { desc = it }, "Description")
-        Dropdown("Work category", WorkCategories, workCategory, { it }, { workCategory = it })
         Text(
             "Status (${payment.status}) is changed with the Approve / Paid buttons, not here.",
             style = MaterialTheme.typography.labelSmall,

@@ -7,8 +7,10 @@ import { updatePayment } from "../../../actions";
 
 export default async function EditPaymentPage({ params }: { params: { id: string } }) {
   const supabase = createSupabaseServerClient();
-  const [{ data: payment }, { data: projects }, { data: suppliers }, { data: labourers }, { data: materials }] =
-    await Promise.all([
+  const [
+    { data: payment }, { data: projects }, { data: suppliers }, { data: labourers },
+    { data: materials }, { data: assignments },
+  ] = await Promise.all([
       supabase
         .from("payments")
         .select("id, amount, status, payee_type, description, project_id, supplier_id, labourer_id, work_category")
@@ -23,6 +25,7 @@ export default async function EditPaymentPage({ params }: { params: { id: string
         .is("archived_at", null)
         .neq("status", "returned")
         .order("ordered_at", { ascending: false }),
+      supabase.from("project_labourers").select("labourer_id, project_id").is("unassigned_at", null),
     ]);
   if (!payment) notFound();
 
@@ -39,6 +42,7 @@ export default async function EditPaymentPage({ params }: { params: { id: string
         suppliers={suppliers ?? []}
         labourers={labourers ?? []}
         materials={materials ?? []}
+        assignments={assignments ?? []}
         paymentId={payment.id}
         cancelHref="/admin/payments"
         initial={{
