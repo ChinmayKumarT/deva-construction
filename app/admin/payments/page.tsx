@@ -1,12 +1,12 @@
 import Link from "next/link";
 import { createSupabaseServerClient, getSessionAndRole } from "@/lib/supabase/server";
-import { AdminPage, AdminPageHeader, Field, Select, SubmitButton } from "@/components/admin/Page";
+import { AdminPage, AdminPageHeader } from "@/components/admin/Page";
 import { ArchivedToggle, DeleteForeverButton, RestoreAction } from "@/components/admin/RowActions";
+import { CreatePaymentForm } from "@/components/admin/PaymentForm";
 import {
   approvePayment, createPayment, markPaymentPaid, rejectPayment,
   archivePayment, unarchivePayment, deletePayment,
 } from "../actions";
-import { WORK_CATEGORIES } from "@/lib/workCategories";
 
 // Without this, Next.js can cache the underlying Supabase fetch and serve a
 // stale render when navigating between filtered/unfiltered views of this page
@@ -37,12 +37,18 @@ export default async function PaymentsPage({
     .order("created_at", { ascending: false });
   if (projectFilter) base = base.eq("project_id", projectFilter);
 
-  const [{ data: payments }, { data: projects }, { data: suppliers }, { data: labourers }, { count: archivedCount }] =
+  const [{ data: payments }, { data: projects }, { data: suppliers }, { data: labourers }, { data: materials }, { count: archivedCount }] =
     await Promise.all([
       showArchived ? base.not("archived_at", "is", null) : base.is("archived_at", null),
       supabase.from("projects").select("id, name").is("archived_at", null).order("name"),
       supabase.from("suppliers").select("id, name").is("archived_at", null).order("name"),
       supabase.from("labourers").select("id, name").is("archived_at", null).order("name"),
+      supabase
+        .from("materials")
+        .select("id, name, unit, quantity, unit_cost, work_category, supplier_id, project_id")
+        .is("archived_at", null)
+        .neq("status", "returned")
+        .order("ordered_at", { ascending: false }),
       supabase.from("payments").select("id", { count: "exact", head: true }).not("archived_at", "is", null),
     ]);
 
@@ -73,33 +79,14 @@ export default async function PaymentsPage({
       </div>
 
       {!showArchived && (
-      <form action={createPayment} className="mb-8 grid gap-4 rounded-xl border border-slate-200 bg-white p-6 sm:grid-cols-2 lg:grid-cols-3">
-        <Select label="Payee type" name="payee_type" defaultValue="supplier">
-          <option value="supplier">Supplier (bill)</option>
-          <option value="labour">Labourer (wages)</option>
-        </Select>
-        <Select label="Project" name="project_id" defaultValue={projectFilter ?? "none"}>
-          <option value="none">— none —</option>
-          {projects?.map((p) => (<option key={p.id} value={p.id}>{p.name}</option>))}
-        </Select>
-        <Field label="Amount (₹)" name="amount" type="number" step="0.01" required />
-        <Select label="Supplier" name="supplier_id" defaultValue="none">
-          <option value="none">— if labour, leave —</option>
-          {suppliers?.map((s) => (<option key={s.id} value={s.id}>{s.name}</option>))}
-        </Select>
-        <Select label="Labourer" name="labourer_id" defaultValue="none">
-          <option value="none">— if supplier, leave —</option>
-          {labourers?.map((l) => (<option key={l.id} value={l.id}>{l.name}</option>))}
-        </Select>
-        <Field label="Description" name="description" />
-        <Select label="Work category" name="work_category" defaultValue="">
-          <option value="">— none —</option>
-          {WORK_CATEGORIES.map((c) => (<option key={c} value={c}>{c}</option>))}
-        </Select>
-        <div className="sm:col-span-2 lg:col-span-3">
-          <SubmitButton>Create payment</SubmitButton>
-        </div>
-      </form>
+        <CreatePaymentForm
+          action={createPayment}
+          projects={projects ?? []}
+          suppliers={suppliers ?? []}
+          labourers={labourers ?? []}
+          materials={materials ?? []}
+          defaultProjectId={projectFilter ?? "none"}
+        />
       )}
 
       <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white">

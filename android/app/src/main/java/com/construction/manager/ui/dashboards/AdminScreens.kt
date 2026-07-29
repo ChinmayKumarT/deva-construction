@@ -1151,6 +1151,7 @@ fun AdminPayments(isOwner: Boolean = false, initialProjectFilter: ProjectRow? = 
     var projects by remember { mutableStateOf<List<ProjectRow>>(emptyList()) }
     var suppliers by remember { mutableStateOf<List<SupplierRow>>(emptyList()) }
     var labourers by remember { mutableStateOf<List<LabourerRow>>(emptyList()) }
+    var materials by remember { mutableStateOf<List<MaterialRow>>(emptyList()) }
     var version by remember { mutableStateOf(0) }
     var error by remember { mutableStateOf<String?>(null) }
     var showArchived by remember { mutableStateOf(false) }
@@ -1165,6 +1166,7 @@ fun AdminPayments(isOwner: Boolean = false, initialProjectFilter: ProjectRow? = 
             projects = Repo.listProjects()
             suppliers = Repo.listSuppliers()
             labourers = Repo.listLabourers()
+            materials = Repo.listMaterials().filter { it.status != "returned" }
         }) { error = it }
     }
     val visibleRows = projectFilter?.let { pf -> rows.filter { it.projectId == pf.id } } ?: rows
@@ -1175,6 +1177,8 @@ fun AdminPayments(isOwner: Boolean = false, initialProjectFilter: ProjectRow? = 
     var supplier by remember { mutableStateOf<SupplierRow?>(null) }
     var labourer by remember { mutableStateOf<LabourerRow?>(null) }
     var workCategory by remember { mutableStateOf("None") }
+    var purchase by remember { mutableStateOf<MaterialRow?>(null) }
+    val projectMaterials = project?.let { pr -> materials.filter { it.projectId == pr.id } } ?: emptyList()
 
     FormColumn {
         ArchivedSwitch(showArchived) { showArchived = !showArchived }
@@ -1193,7 +1197,19 @@ fun AdminPayments(isOwner: Boolean = false, initialProjectFilter: ProjectRow? = 
         if (!showArchived) {
             SectionTitle("Create payment")
             Dropdown("Payee type", listOf("supplier","labour"), payeeType, { it }, { payeeType = it })
-            Dropdown("Project", projects, project, { it.name }, { project = it })
+            Dropdown("Project", projects, project, { it.name }, { project = it; purchase = null })
+            Dropdown(
+                "Purchase (optional)", projectMaterials, purchase,
+                { m -> "${m.name} (${m.quantity} ${m.unit}) — ${money(m.quantity * m.unitCost)}" },
+                { m ->
+                    purchase = m
+                    payeeType = "supplier"
+                    supplier = suppliers.find { it.id == m.supplierId }
+                    amount = (m.quantity * m.unitCost).toString()
+                    desc = "${m.name} (${m.quantity} ${m.unit})"
+                    workCategory = m.workCategory ?: "None"
+                },
+            )
             if (payeeType == "supplier")
                 Dropdown("Supplier", suppliers, supplier, { it.name }, { supplier = it })
             else
