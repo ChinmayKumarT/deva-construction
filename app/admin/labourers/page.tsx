@@ -132,6 +132,7 @@ export default async function LabourersPage({
                 <select
                   name="project_id"
                   defaultValue="none"
+                  required
                   className="rounded-lg border border-slate-300 bg-white px-2 py-1.5 text-sm"
                 >
                   <option value="none" disabled>— project —</option>
