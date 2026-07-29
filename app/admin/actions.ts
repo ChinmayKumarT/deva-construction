@@ -111,6 +111,30 @@ function revalidateAll() {
 }
 
 /**
+ * Permanent, owner-only delete -- the one genuinely irreversible action in the
+ * app. Enforcement is in Postgres (owner_delete_row in 12_owner_delete.sql),
+ * not here: this action is a thin wrapper, since a server action is directly
+ * reachable regardless of what button is or isn't shown in the UI. Deleting a
+ * project cascades to its materials/updates; deleting a labourer cascades to
+ * their attendance -- expected once the owner chose delete over archive.
+ */
+async function ownerDeleteRow(table: string, id: string | null) {
+  if (!id) throw new Error("id required");
+  const supabase = createSupabaseServerClient();
+  const { error } = await supabase.rpc("owner_delete_row", { target_table: table, target_id: id });
+  if (error) throw new Error(error.message);
+  revalidateAll();
+}
+
+export async function deleteProject(fd: FormData) { await ownerDeleteRow("projects", str(fd, "id")); }
+export async function deleteClient(fd: FormData) { await ownerDeleteRow("clients", str(fd, "id")); }
+export async function deleteSupplier(fd: FormData) { await ownerDeleteRow("suppliers", str(fd, "id")); }
+export async function deleteLabourer(fd: FormData) { await ownerDeleteRow("labourers", str(fd, "id")); }
+export async function deleteMaterial(fd: FormData) { await ownerDeleteRow("materials", str(fd, "id")); }
+export async function deletePayment(fd: FormData) { await ownerDeleteRow("payments", str(fd, "id")); }
+export async function deleteProjectUpdate(fd: FormData) { await ownerDeleteRow("project_updates", str(fd, "id")); }
+
+/**
  * "Delete" is a reversible archive across every entity -- the foreign keys in
  * 02_domain.sql cascade, so a real DELETE on a project would destroy its
  * materials and progress photos, and on a labourer would wipe their attendance

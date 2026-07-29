@@ -1,7 +1,7 @@
-import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { createSupabaseServerClient, getSessionAndRole } from "@/lib/supabase/server";
 import { AdminPage, AdminPageHeader, DataTable, Field, Select, SubmitButton } from "@/components/admin/Page";
-import { ArchivedToggle, ManageCard, ManageSection, RestoreAction, RowActions } from "@/components/admin/RowActions";
-import { createMaterial, markMaterialDelivered, archiveMaterial, unarchiveMaterial } from "../actions";
+import { ArchivedToggle, DeleteForeverButton, ManageCard, ManageSection, RestoreAction, RowActions } from "@/components/admin/RowActions";
+import { createMaterial, markMaterialDelivered, archiveMaterial, unarchiveMaterial, deleteMaterial } from "../actions";
 
 // Without this, Next.js can cache the underlying Supabase fetch and serve a
 // stale render when navigating between filtered/unfiltered views of this page
@@ -17,6 +17,7 @@ export default async function MaterialsPage({
   const showArchived = searchParams.archived === "1";
   const projectFilter = searchParams.project ?? null;
   const supabase = createSupabaseServerClient();
+  const { isOwner } = await getSessionAndRole();
 
   let base = supabase
     .from("materials")
@@ -107,7 +108,10 @@ export default async function MaterialsPage({
           {materials.map((m) => (
             <ManageCard key={m.id} title={m.name}>
               {showArchived ? (
-                <RestoreAction id={m.id} action={unarchiveMaterial} />
+                <div className="flex items-center gap-2">
+                  <RestoreAction id={m.id} action={unarchiveMaterial} />
+                  {isOwner && <DeleteForeverButton id={m.id} name={m.name} action={deleteMaterial} />}
+                </div>
               ) : (
                 <RowActions
                   editHref={`/admin/materials/${m.id}/edit`}

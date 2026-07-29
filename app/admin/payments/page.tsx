@@ -1,10 +1,10 @@
 import Link from "next/link";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { createSupabaseServerClient, getSessionAndRole } from "@/lib/supabase/server";
 import { AdminPage, AdminPageHeader, Field, Select, SubmitButton } from "@/components/admin/Page";
-import { ArchivedToggle, RestoreAction } from "@/components/admin/RowActions";
+import { ArchivedToggle, DeleteForeverButton, RestoreAction } from "@/components/admin/RowActions";
 import {
   approvePayment, createPayment, markPaymentPaid, rejectPayment,
-  archivePayment, unarchivePayment,
+  archivePayment, unarchivePayment, deletePayment,
 } from "../actions";
 
 // Without this, Next.js can cache the underlying Supabase fetch and serve a
@@ -28,6 +28,7 @@ export default async function PaymentsPage({
   const showArchived = searchParams.archived === "1";
   const projectFilter = searchParams.project ?? null;
   const supabase = createSupabaseServerClient();
+  const { isOwner } = await getSessionAndRole();
 
   let base = supabase
     .from("payments")
@@ -135,7 +136,16 @@ export default async function PaymentsPage({
                   <td className="px-4 py-2">
                     <div className="flex flex-wrap gap-1">
                       {showArchived ? (
-                        <RestoreAction id={p.id} action={unarchivePayment} />
+                        <>
+                          <RestoreAction id={p.id} action={unarchivePayment} />
+                          {isOwner && (
+                            <DeleteForeverButton
+                              id={p.id}
+                              name={`this ${p.payee_type} payment`}
+                              action={deletePayment}
+                            />
+                          )}
+                        </>
                       ) : (
                         <>
                           {p.status === "pending" && (

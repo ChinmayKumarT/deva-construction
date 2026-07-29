@@ -84,16 +84,51 @@ private fun ArchiveConfirmDialog(
     )
 }
 
-/** Edit / Archive (or Restore) buttons for one row. */
+/**
+ * Permanent delete -- only ever offered when the caller has already checked
+ * isOwner, but the real enforcement is server-side (owner_delete_row in
+ * 12_owner_delete.sql rejects non-owners regardless of what this dialog does).
+ */
+@Composable
+private fun DeleteForeverConfirmDialog(
+    name: String,
+    warning: String? = null,
+    onDismiss: () -> Unit,
+    onConfirm: () -> Unit,
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Permanently delete $name?") },
+        text = {
+            Text(
+                "This cannot be undone." + (warning?.let { " $it" } ?: ""),
+            )
+        },
+        confirmButton = {
+            TextButton(onClick = onConfirm) {
+                Text("Delete forever", color = MaterialTheme.colorScheme.error)
+            }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
+    )
+}
+
+/** Edit / Archive (or Restore [/ Delete forever]) buttons for one row. */
 @Composable
 private fun RowScope.EntityActions(
     archived: Boolean,
     onEdit: () -> Unit,
     onArchive: () -> Unit,
     onRestore: () -> Unit,
+    onDeleteForever: (() -> Unit)? = null,
 ) {
     if (archived) {
         TextButton(onClick = onRestore) { Text("Restore") }
+        if (onDeleteForever != null) {
+            TextButton(onClick = onDeleteForever) {
+                Text("Delete forever", color = MaterialTheme.colorScheme.error)
+            }
+        }
     } else {
         TextButton(onClick = onEdit) { Text("Edit") }
         TextButton(onClick = onArchive) { Text("Archive") }
@@ -140,7 +175,7 @@ private fun DialogField(value: String, onChange: (String) -> Unit, label: String
 
 // ---------- Projects ----------
 @Composable
-fun AdminProjects() {
+fun AdminProjects(isOwner: Boolean = false) {
     var rows by remember { mutableStateOf<List<ProjectRow>>(emptyList()) }
     var clients by remember { mutableStateOf<List<ClientRow>>(emptyList()) }
     var error by remember { mutableStateOf<String?>(null) }
@@ -230,6 +265,7 @@ fun AdminProjects() {
                     project = p,
                     clients = clients,
                     archived = showArchived,
+                    isOwner = isOwner,
                     onChanged = { version++ },
                 )
             }
@@ -242,11 +278,13 @@ private fun ProjectRowCard(
     project: ProjectRow,
     clients: List<ClientRow>,
     archived: Boolean,
+    isOwner: Boolean,
     onChanged: () -> Unit,
 ) {
     var extending by remember { mutableStateOf(false) }
     var editing by remember { mutableStateOf(false) }
     var confirmArchive by remember { mutableStateOf(false) }
+    var confirmDelete by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
     val scope = rememberCoroutineScope()
     val p = project
@@ -263,6 +301,11 @@ private fun ProjectRowCard(
                         safe({ Repo.unarchiveProject(p.id); onChanged() }) { error = it }
                     }
                 }) { Text("Restore") }
+                if (isOwner) {
+                    TextButton(onClick = { confirmDelete = true }) {
+                        Text("Delete forever", color = MaterialTheme.colorScheme.error)
+                    }
+                }
             } else {
                 if (p.finishDateExtended) {
                     Text(
@@ -319,6 +362,19 @@ private fun ProjectRowCard(
             },
             dismissButton = {
                 TextButton(onClick = { confirmArchive = false }) { Text("Cancel") }
+            },
+        )
+    }
+    if (confirmDelete) {
+        DeleteForeverConfirmDialog(
+            p.name,
+            warning = "All its materials, payments and progress updates will be deleted too.",
+            onDismiss = { confirmDelete = false },
+            onConfirm = {
+                confirmDelete = false
+                scope.launch {
+                    safe({ Repo.deleteProjectForever(p.id); onChanged() }) { error = it }
+                }
             },
         )
     }
@@ -436,7 +492,7 @@ private fun ExtendFinishDateDialog(project: ProjectRow, onDismiss: () -> Unit, o
 
 // ---------- Clients ----------
 @Composable
-fun AdminClients() {
+fun AdminClients(isOwner: Boolean = false) {
     var rows by remember { mutableStateOf<List<ClientRow>>(emptyList()) }
     var profiles by remember { mutableStateOf<List<Profile>>(emptyList()) }
     var version by remember { mutableStateOf(0) }
@@ -444,6 +500,7 @@ fun AdminClients() {
     var showArchived by remember { mutableStateOf(false) }
     var editing by remember { mutableStateOf<ClientRow?>(null) }
     var archiving by remember { mutableStateOf<ClientRow?>(null) }
+    var deleting by remember { mutableStateOf<ClientRow?>(null) }
     val scope = rememberCoroutineScope()
     LaunchedEffect(version, showArchived) {
         safe({
@@ -502,6 +559,7 @@ fun AdminClients() {
                                 safe({ Repo.unarchiveClient(c.id); version++ }) { error = it }
                             }
                         },
+                        onDeleteForever = if (isOwner) { { deleting = c } } else null,
                     )
                 },
             )
@@ -519,6 +577,16 @@ fun AdminClients() {
             onConfirm = {
                 archiving = null
                 scope.launch { safe({ Repo.archiveClient(c.id); version++ }) { error = it } }
+            },
+        )
+    }
+    deleting?.let { c ->
+        DeleteForeverConfirmDialog(
+            c.name,
+            onDismiss = { deleting = null },
+            onConfirm = {
+                deleting = null
+                scope.launch { safe({ Repo.deleteClientForever(c.id); version++ }) { error = it } }
             },
         )
     }
@@ -555,7 +623,7 @@ private fun EditClientDialog(client: ClientRow, onDismiss: () -> Unit, onSaved: 
 
 // ---------- Suppliers ----------
 @Composable
-fun AdminSuppliers() {
+fun AdminSuppliers(isOwner: Boolean = false) {
     var rows by remember { mutableStateOf<List<SupplierRow>>(emptyList()) }
     var profiles by remember { mutableStateOf<List<Profile>>(emptyList()) }
     var version by remember { mutableStateOf(0) }
@@ -563,6 +631,7 @@ fun AdminSuppliers() {
     var showArchived by remember { mutableStateOf(false) }
     var editing by remember { mutableStateOf<SupplierRow?>(null) }
     var archiving by remember { mutableStateOf<SupplierRow?>(null) }
+    var deleting by remember { mutableStateOf<SupplierRow?>(null) }
     val scope = rememberCoroutineScope()
     LaunchedEffect(version, showArchived) {
         safe({
@@ -620,6 +689,7 @@ fun AdminSuppliers() {
                                 safe({ Repo.unarchiveSupplier(s.id); version++ }) { error = it }
                             }
                         },
+                        onDeleteForever = if (isOwner) { { deleting = s } } else null,
                     )
                 },
             )
@@ -637,6 +707,16 @@ fun AdminSuppliers() {
             onConfirm = {
                 archiving = null
                 scope.launch { safe({ Repo.archiveSupplier(s.id); version++ }) { error = it } }
+            },
+        )
+    }
+    deleting?.let { s ->
+        DeleteForeverConfirmDialog(
+            s.name,
+            onDismiss = { deleting = null },
+            onConfirm = {
+                deleting = null
+                scope.launch { safe({ Repo.deleteSupplierForever(s.id); version++ }) { error = it } }
             },
         )
     }
@@ -673,7 +753,7 @@ private fun EditSupplierDialog(supplier: SupplierRow, onDismiss: () -> Unit, onS
 
 // ---------- Labourers ----------
 @Composable
-fun AdminLabourers() {
+fun AdminLabourers(isOwner: Boolean = false) {
     var rows by remember { mutableStateOf<List<LabourerRow>>(emptyList()) }
     var profiles by remember { mutableStateOf<List<Profile>>(emptyList()) }
     var version by remember { mutableStateOf(0) }
@@ -681,6 +761,7 @@ fun AdminLabourers() {
     var showArchived by remember { mutableStateOf(false) }
     var editing by remember { mutableStateOf<LabourerRow?>(null) }
     var archiving by remember { mutableStateOf<LabourerRow?>(null) }
+    var deleting by remember { mutableStateOf<LabourerRow?>(null) }
     val scope = rememberCoroutineScope()
     LaunchedEffect(version, showArchived) {
         safe({
@@ -743,6 +824,7 @@ fun AdminLabourers() {
                                 safe({ Repo.unarchiveLabourer(l.id); version++ }) { error = it }
                             }
                         },
+                        onDeleteForever = if (isOwner) { { deleting = l } } else null,
                     )
                 },
             )
@@ -761,6 +843,17 @@ fun AdminLabourers() {
             onConfirm = {
                 archiving = null
                 scope.launch { safe({ Repo.archiveLabourer(l.id); version++ }) { error = it } }
+            },
+        )
+    }
+    deleting?.let { l ->
+        DeleteForeverConfirmDialog(
+            l.name,
+            warning = "Their entire attendance and wage history will be deleted too.",
+            onDismiss = { deleting = null },
+            onConfirm = {
+                deleting = null
+                scope.launch { safe({ Repo.deleteLabourerForever(l.id); version++ }) { error = it } }
             },
         )
     }
@@ -809,7 +902,7 @@ private fun EditLabourerDialog(labourer: LabourerRow, onDismiss: () -> Unit, onS
 
 // ---------- Materials ----------
 @Composable
-fun AdminMaterials() {
+fun AdminMaterials(isOwner: Boolean = false) {
     var rows by remember { mutableStateOf<List<MaterialRow>>(emptyList()) }
     var projects by remember { mutableStateOf<List<ProjectRow>>(emptyList()) }
     var suppliers by remember { mutableStateOf<List<SupplierRow>>(emptyList()) }
@@ -818,6 +911,7 @@ fun AdminMaterials() {
     var showArchived by remember { mutableStateOf(false) }
     var editing by remember { mutableStateOf<MaterialRow?>(null) }
     var archiving by remember { mutableStateOf<MaterialRow?>(null) }
+    var deleting by remember { mutableStateOf<MaterialRow?>(null) }
     val scope = rememberCoroutineScope()
     LaunchedEffect(version, showArchived) {
         safe({
@@ -888,6 +982,7 @@ fun AdminMaterials() {
                                 safe({ Repo.unarchiveMaterial(m.id); version++ }) { error = it }
                             }
                         },
+                        onDeleteForever = if (isOwner) { { deleting = m } } else null,
                     )
                 },
             )
@@ -905,6 +1000,16 @@ fun AdminMaterials() {
             onConfirm = {
                 archiving = null
                 scope.launch { safe({ Repo.archiveMaterial(m.id); version++ }) { error = it } }
+            },
+        )
+    }
+    deleting?.let { m ->
+        DeleteForeverConfirmDialog(
+            m.name,
+            onDismiss = { deleting = null },
+            onConfirm = {
+                deleting = null
+                scope.launch { safe({ Repo.deleteMaterialForever(m.id); version++ }) { error = it } }
             },
         )
     }
@@ -956,7 +1061,7 @@ private fun EditMaterialDialog(material: MaterialRow, onDismiss: () -> Unit, onS
 
 // ---------- Payments ----------
 @Composable
-fun AdminPayments() {
+fun AdminPayments(isOwner: Boolean = false) {
     var rows by remember { mutableStateOf<List<PaymentRow>>(emptyList()) }
     var projects by remember { mutableStateOf<List<ProjectRow>>(emptyList()) }
     var suppliers by remember { mutableStateOf<List<SupplierRow>>(emptyList()) }
@@ -966,6 +1071,7 @@ fun AdminPayments() {
     var showArchived by remember { mutableStateOf(false) }
     var editing by remember { mutableStateOf<PaymentRow?>(null) }
     var archiving by remember { mutableStateOf<PaymentRow?>(null) }
+    var deleting by remember { mutableStateOf<PaymentRow?>(null) }
     val scope = rememberCoroutineScope()
     LaunchedEffect(version, showArchived) {
         safe({
@@ -1049,6 +1155,7 @@ fun AdminPayments() {
                                 safe({ Repo.unarchivePayment(p.id); version++ }) { error = it }
                             }
                         },
+                        onDeleteForever = if (isOwner) { { deleting = p } } else null,
                     )
                 },
             )
@@ -1066,6 +1173,16 @@ fun AdminPayments() {
             onConfirm = {
                 archiving = null
                 scope.launch { safe({ Repo.archivePayment(p.id); version++ }) { error = it } }
+            },
+        )
+    }
+    deleting?.let { p ->
+        DeleteForeverConfirmDialog(
+            "this ${p.payeeType} payment",
+            onDismiss = { deleting = null },
+            onConfirm = {
+                deleting = null
+                scope.launch { safe({ Repo.deletePaymentForever(p.id); version++ }) { error = it } }
             },
         )
     }
@@ -1147,7 +1264,7 @@ fun AdminAttendance() {
 
 // ---------- Updates ----------
 @Composable
-fun AdminUpdates() {
+fun AdminUpdates(isOwner: Boolean = false) {
     val context = LocalContext.current
     var rows by remember { mutableStateOf<List<ProjectUpdateRow>>(emptyList()) }
     var projects by remember { mutableStateOf<List<ProjectRow>>(emptyList()) }
@@ -1157,6 +1274,7 @@ fun AdminUpdates() {
     var showArchived by remember { mutableStateOf(false) }
     var editing by remember { mutableStateOf<ProjectUpdateRow?>(null) }
     var archiving by remember { mutableStateOf<ProjectUpdateRow?>(null) }
+    var deleting by remember { mutableStateOf<ProjectUpdateRow?>(null) }
     val scope = rememberCoroutineScope()
     LaunchedEffect(version, showArchived) {
         safe({
@@ -1263,6 +1381,7 @@ fun AdminUpdates() {
                                     safe({ Repo.unarchiveUpdate(id); version++ }) { error = it }
                                 }
                             },
+                            onDeleteForever = if (isOwner) { { deleting = u } } else null,
                         )
                     }
                 }
@@ -1283,6 +1402,19 @@ fun AdminUpdates() {
                 archiving = null
                 if (id != null) {
                     scope.launch { safe({ Repo.archiveUpdate(id); version++ }) { error = it } }
+                }
+            },
+        )
+    }
+    deleting?.let { u ->
+        DeleteForeverConfirmDialog(
+            "this update",
+            onDismiss = { deleting = null },
+            onConfirm = {
+                val id = u.id
+                deleting = null
+                if (id != null) {
+                    scope.launch { safe({ Repo.deleteUpdateForever(id); version++ }) { error = it } }
                 }
             },
         )

@@ -118,6 +118,24 @@ object Repo {
         })
     }
 
+    // Permanent, owner-only delete -- enforcement is in Postgres
+    // (owner_delete_row in 12_owner_delete.sql rejects non-owners regardless
+    // of what the app does), so this is a thin wrapper, same trust model as
+    // setUserRole above.
+    private suspend fun ownerDeleteRow(table: String, id: String) {
+        supabase.postgrest.rpc("owner_delete_row", buildJsonObject {
+            put("target_table", table)
+            put("target_id", id)
+        })
+    }
+    suspend fun deleteProjectForever(id: String) = ownerDeleteRow("projects", id)
+    suspend fun deleteClientForever(id: String) = ownerDeleteRow("clients", id)
+    suspend fun deleteSupplierForever(id: String) = ownerDeleteRow("suppliers", id)
+    suspend fun deleteLabourerForever(id: String) = ownerDeleteRow("labourers", id)
+    suspend fun deleteMaterialForever(id: String) = ownerDeleteRow("materials", id)
+    suspend fun deletePaymentForever(id: String) = ownerDeleteRow("payments", id)
+    suspend fun deleteUpdateForever(id: String) = ownerDeleteRow("project_updates", id)
+
     // ---------- Admin metrics ----------
     data class AdminMetrics(
         val totalProjects: Int, val activeProjects: Int, val totalCost: Double,

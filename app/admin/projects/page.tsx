@@ -1,7 +1,8 @@
 import Link from "next/link";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { createSupabaseServerClient, getSessionAndRole } from "@/lib/supabase/server";
 import { AdminPage, AdminPageHeader, DataTable, Field, Select, SubmitButton } from "@/components/admin/Page";
-import { createProject, extendProjectEndDate, archiveProject, unarchiveProject } from "../actions";
+import { DeleteForeverButton } from "@/components/admin/RowActions";
+import { createProject, extendProjectEndDate, archiveProject, unarchiveProject, deleteProject } from "../actions";
 
 export default async function ProjectsPage({
   searchParams,
@@ -10,6 +11,7 @@ export default async function ProjectsPage({
 }) {
   const showArchived = searchParams.archived === "1";
   const supabase = createSupabaseServerClient();
+  const { isOwner } = await getSessionAndRole();
 
   const projectQuery = supabase
     .from("projects")
@@ -120,15 +122,23 @@ export default async function ProjectsPage({
                       <p className="mb-3 text-xs text-slate-500">
                         Archived {p.archived_at ? new Date(p.archived_at).toLocaleDateString() : ""}
                       </p>
-                      <form action={unarchiveProject}>
-                        <input type="hidden" name="id" value={p.id} />
-                        <button
-                          type="submit"
-                          className="rounded-lg bg-brand px-3 py-1.5 text-xs font-medium text-white hover:bg-brand-700"
-                        >
-                          Restore
-                        </button>
-                      </form>
+                      <div className="flex items-center gap-2">
+                        <form action={unarchiveProject}>
+                          <input type="hidden" name="id" value={p.id} />
+                          <button
+                            type="submit"
+                            className="rounded-lg bg-brand px-3 py-1.5 text-xs font-medium text-white hover:bg-brand-700"
+                          >
+                            Restore
+                          </button>
+                        </form>
+                        {isOwner && (
+                          <DeleteForeverButton
+                            id={p.id} name={p.name} action={deleteProject}
+                            warning="All its materials, payments and progress updates will be deleted too."
+                          />
+                        )}
+                      </div>
                     </>
                   ) : (
                     <>

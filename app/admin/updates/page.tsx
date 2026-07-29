@@ -1,8 +1,8 @@
 import Link from "next/link";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { createSupabaseServerClient, getSessionAndRole } from "@/lib/supabase/server";
 import { AdminPage, AdminPageHeader, Field, Select, SubmitButton } from "@/components/admin/Page";
-import { ArchivedToggle, RestoreAction } from "@/components/admin/RowActions";
-import { postProjectUpdate, archiveProjectUpdate, unarchiveProjectUpdate } from "../actions";
+import { ArchivedToggle, DeleteForeverButton, RestoreAction } from "@/components/admin/RowActions";
+import { postProjectUpdate, archiveProjectUpdate, unarchiveProjectUpdate, deleteProjectUpdate } from "../actions";
 
 export default async function UpdatesPage({
   searchParams,
@@ -11,6 +11,7 @@ export default async function UpdatesPage({
 }) {
   const showArchived = searchParams.archived === "1";
   const supabase = createSupabaseServerClient();
+  const { isOwner } = await getSessionAndRole();
 
   const base = supabase
     .from("project_updates")
@@ -78,11 +79,13 @@ export default async function UpdatesPage({
             {showArchived ? "No archived updates." : "No updates posted yet."}
           </li>
         )}
-        {updates?.map((u) => (
+        {updates?.map((u) => {
+          // @ts-expect-error relation
+          const projectName: string = u.projects?.name ?? "—";
+          return (
           <li key={u.id} className="rounded-xl border border-slate-200 bg-white p-5">
             <div className="flex items-baseline justify-between">
-              {/* @ts-expect-error relation */}
-              <div className="font-medium">{u.projects?.name ?? "—"}</div>
+              <div className="font-medium">{projectName}</div>
               <div className="text-xs text-slate-500">{new Date(u.created_at).toLocaleString()}</div>
             </div>
             {u.stage && <div className="mt-1 text-sm text-slate-600">Stage: <span className="font-medium">{u.stage}</span></div>}
@@ -93,7 +96,12 @@ export default async function UpdatesPage({
             )}
             <div className="mt-4 flex items-center gap-2 border-t border-slate-100 pt-3">
               {showArchived ? (
-                <RestoreAction id={u.id} action={unarchiveProjectUpdate} />
+                <>
+                  <RestoreAction id={u.id} action={unarchiveProjectUpdate} />
+                  {isOwner && (
+                    <DeleteForeverButton id={u.id} name={`this update (${projectName})`} action={deleteProjectUpdate} />
+                  )}
+                </>
               ) : (
                 <>
                   <Link
@@ -116,7 +124,8 @@ export default async function UpdatesPage({
               )}
             </div>
           </li>
-        ))}
+          );
+        })}
       </ul>
     </AdminPage>
   );

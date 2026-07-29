@@ -1,7 +1,7 @@
-import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { createSupabaseServerClient, getSessionAndRole } from "@/lib/supabase/server";
 import { AdminPage, AdminPageHeader, DataTable, Field, Select, SubmitButton } from "@/components/admin/Page";
-import { ArchivedToggle, ManageCard, ManageSection, RestoreAction, RowActions } from "@/components/admin/RowActions";
-import { createClient as createClientAction, archiveClient, unarchiveClient } from "../actions";
+import { ArchivedToggle, DeleteForeverButton, ManageCard, ManageSection, RestoreAction, RowActions } from "@/components/admin/RowActions";
+import { createClient as createClientAction, archiveClient, unarchiveClient, deleteClient } from "../actions";
 
 export default async function ClientsPage({
   searchParams,
@@ -10,6 +10,7 @@ export default async function ClientsPage({
 }) {
   const showArchived = searchParams.archived === "1";
   const supabase = createSupabaseServerClient();
+  const { isOwner } = await getSessionAndRole();
 
   const base = supabase
     .from("clients")
@@ -67,7 +68,10 @@ export default async function ClientsPage({
           {clients.map((c) => (
             <ManageCard key={c.id} title={c.name}>
               {showArchived ? (
-                <RestoreAction id={c.id} action={unarchiveClient} />
+                <div className="flex items-center gap-2">
+                  <RestoreAction id={c.id} action={unarchiveClient} />
+                  {isOwner && <DeleteForeverButton id={c.id} name={c.name} action={deleteClient} />}
+                </div>
               ) : (
                 <RowActions
                   editHref={`/admin/clients/${c.id}/edit`}

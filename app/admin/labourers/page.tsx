@@ -1,7 +1,7 @@
-import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { createSupabaseServerClient, getSessionAndRole } from "@/lib/supabase/server";
 import { AdminPage, AdminPageHeader, DataTable, Field, Select, SubmitButton } from "@/components/admin/Page";
-import { ArchivedToggle, ManageCard, ManageSection, RestoreAction, RowActions } from "@/components/admin/RowActions";
-import { assignLabourer, createLabourer, archiveLabourer, unarchiveLabourer } from "../actions";
+import { ArchivedToggle, DeleteForeverButton, ManageCard, ManageSection, RestoreAction, RowActions } from "@/components/admin/RowActions";
+import { assignLabourer, createLabourer, archiveLabourer, unarchiveLabourer, deleteLabourer } from "../actions";
 
 export default async function LabourersPage({
   searchParams,
@@ -10,6 +10,7 @@ export default async function LabourersPage({
 }) {
   const showArchived = searchParams.archived === "1";
   const supabase = createSupabaseServerClient();
+  const { isOwner } = await getSessionAndRole();
 
   const base = supabase
     .from("labourers")
@@ -95,7 +96,15 @@ export default async function LabourersPage({
           {labourers.map((l) => (
             <ManageCard key={l.id} title={l.name}>
               {showArchived ? (
-                <RestoreAction id={l.id} action={unarchiveLabourer} />
+                <div className="flex items-center gap-2">
+                  <RestoreAction id={l.id} action={unarchiveLabourer} />
+                  {isOwner && (
+                    <DeleteForeverButton
+                      id={l.id} name={l.name} action={deleteLabourer}
+                      warning="Their entire attendance and wage history will be deleted too."
+                    />
+                  )}
+                </div>
               ) : (
                 <RowActions
                   editHref={`/admin/labourers/${l.id}/edit`}

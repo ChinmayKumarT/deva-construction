@@ -1,3 +1,5 @@
+"use client";
+
 import Link from "next/link";
 
 /**
@@ -36,6 +38,42 @@ export function RowActions({
         </button>
       </form>
     </div>
+  );
+}
+
+/**
+ * Permanent delete -- only ever rendered when the caller has already checked
+ * isOwner, but the real enforcement is server-side (owner_delete_row in
+ * 12_owner_delete.sql rejects non-owners regardless of what this button does).
+ * The confirm() here is just a "are you sure" speed bump, not the security boundary.
+ */
+export function DeleteForeverButton({
+  id,
+  name,
+  action,
+  warning,
+}: {
+  id: string;
+  name: string;
+  action: (fd: FormData) => Promise<void>;
+  warning?: string;
+}) {
+  return (
+    <form
+      action={action}
+      onSubmit={(e) => {
+        const msg = `Permanently delete ${name}? This cannot be undone.${warning ? ` ${warning}` : ""}`;
+        if (!window.confirm(msg)) e.preventDefault();
+      }}
+    >
+      <input type="hidden" name="id" value={id} />
+      <button
+        type="submit"
+        className="rounded-lg bg-red-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-red-700"
+      >
+        Delete forever
+      </button>
+    </form>
   );
 }
 
