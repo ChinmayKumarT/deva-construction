@@ -18,7 +18,7 @@ export default async function TeamAccessPage() {
     <AdminPage>
       <AdminPageHeader
         title="Team access"
-        subtitle="Only you can grant admin or manager access. Everyone else signs up as client, supplier or labour."
+        subtitle="Only you can grant admin or manager access. Everyone else signs up as client or supplier."
       />
       <TeamAccessClient profiles={profiles ?? []} />
     </AdminPage>

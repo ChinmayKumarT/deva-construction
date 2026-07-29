@@ -1,17 +1,11 @@
 import { requireRole } from "@/lib/guard";
 import { Sidebar, type NavGroup } from "@/components/Sidebar";
 
+// Labourers don't manage anything in the app -- their site manager records
+// attendance and wages on their behalf -- so there's nothing to navigate to.
 const GROUPS: NavGroup[] = [
   {
-    items: [{ href: "/labour", label: "Dashboard", icon: "home" }],
-  },
-  {
-    title: "My work",
-    items: [
-      { href: "/labour#mark", label: "Mark today", icon: "calendar-check" },
-      { href: "/labour#history", label: "History", icon: "updates" },
-      { href: "/labour#wage", label: "Wage", icon: "wallet" },
-    ],
+    items: [{ href: "/labour", label: "Home", icon: "home" }],
   },
 ];
 

@@ -1,22 +1,17 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { AdminPage, AdminPageHeader, Field, Select, SubmitButton } from "@/components/admin/Page";
+import { AdminPage, AdminPageHeader, Field, SubmitButton } from "@/components/admin/Page";
 import { updateLabourer } from "../../../actions";
 
 export default async function EditLabourerPage({ params }: { params: { id: string } }) {
   const supabase = createSupabaseServerClient();
-  const [{ data: labourer }, { data: profiles }, { data: labourers }] = await Promise.all([
-    supabase.from("labourers").select("id, name, phone, daily_wage, active, profile_id").eq("id", params.id).single(),
-    supabase.from("profiles").select("id, full_name").eq("role", "labour"),
-    supabase.from("labourers").select("id, profile_id"),
-  ]);
+  const { data: labourer } = await supabase
+    .from("labourers")
+    .select("id, name, phone, daily_wage, active")
+    .eq("id", params.id)
+    .single();
   if (!labourer) notFound();
-
-  const takenByOthers = new Set(
-    (labourers ?? []).filter((l) => l.id !== labourer.id).map((l) => l.profile_id).filter(Boolean),
-  );
-  const options = (profiles ?? []).filter((p) => !takenByOthers.has(p.id));
 
   return (
     <AdminPage>
@@ -27,12 +22,6 @@ export default async function EditLabourerPage({ params }: { params: { id: strin
         <Field label="Name" name="name" required defaultValue={labourer.name} />
         <Field label="Phone" name="phone" defaultValue={labourer.phone ?? ""} />
         <Field label="Daily wage (₹)" name="daily_wage" type="number" step="0.01" defaultValue={labourer.daily_wage ?? 0} />
-        <Select label="Link to login (optional)" name="profile_id" defaultValue={labourer.profile_id ?? "none"}>
-          <option value="none">— none —</option>
-          {options.map((p) => (
-            <option key={p.id} value={p.id}>{p.full_name || p.id.slice(0, 8)}</option>
-          ))}
-        </Select>
         <label className="flex items-center gap-2 text-sm text-slate-700">
           <input type="checkbox" name="active" defaultChecked={labourer.active} />
           Active

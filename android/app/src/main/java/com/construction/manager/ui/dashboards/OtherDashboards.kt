@@ -24,9 +24,6 @@ import com.construction.manager.util.PdfTransaction
 import com.construction.manager.util.PdfUpdate
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import java.time.LocalDate
-
-private val WageFactor = mapOf("present" to 1.0, "half_day" to 0.5, "absent" to 0.0)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -46,75 +43,26 @@ private fun RoleScaffold(title: String, vm: AuthViewModel,
 }
 
 // ---------- Labour ----------
+// Deliberately a dead end: labourers are records the site manager maintains,
+// not users of the app. Attendance and wages are recorded for them on the
+// admin Attendance screen, and the matching RLS policies were dropped in
+// supabase/15_retire_labour_self_access.sql -- so this screen reads nothing.
+// Kept (rather than removing Role.labour) so existing accounts still land
+// somewhere sane instead of a dead route.
 @Composable
 fun LabourDashboard(vm: AuthViewModel) = RoleScaffold("Labour", vm) { padding ->
-    var labourer by remember { mutableStateOf<LabourerRow?>(null) }
-    var today by remember { mutableStateOf<String?>(null) }
-    var history by remember { mutableStateOf<List<AttendanceRow>>(emptyList()) }
-    var currentProject by remember { mutableStateOf<String?>(null) }
-    var error by remember { mutableStateOf<String?>(null) }
-    var version by remember { mutableStateOf(0) }
-    val scope = rememberCoroutineScope()
-    val todayDate = remember { LocalDate.now().toString() }
-    val weekAgo = remember { LocalDate.now().minusDays(6).toString() }
-
-    LaunchedEffect(version) {
-        try {
-            labourer = Repo.myLabourer()
-            labourer?.let { l ->
-                history = Repo.labourerAttendance(l.id, weekAgo)
-                today = history.firstOrNull { it.date == todayDate }?.status
-                currentProject = Repo.labourerCurrentProject(l.id)
-            }
-        } catch (e: Exception) { error = e.message }
-    }
-
     Column(Modifier.padding(padding).verticalScroll(rememberScrollState())) {
-        if (labourer == null) {
-            Text("Account not linked to a labourer record yet.",
-                Modifier.padding(16.dp))
-        } else {
-            val l = labourer!!
-            val wage = l.dailyWage
-            val weekly = history.sumOf { (WageFactor[it.status] ?: 0.0) * wage }
-            Row(Modifier.padding(8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                StatCard("Today", today ?: "not marked", Modifier.weight(1f))
-                StatCard("Daily wage", money(wage), Modifier.weight(1f))
-            }
-            Row(Modifier.padding(horizontal = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                StatCard("Site", currentProject?.take(8) ?: "unassigned", Modifier.weight(1f))
-                StatCard("This week", money(weekly), Modifier.weight(1f))
-            }
-            SectionTitle("Mark today")
-            Row(Modifier.padding(horizontal = 16.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                listOf("present","half_day","absent").forEach { s ->
-                    Button(
-                        onClick = {
-                            scope.launch {
-                                try {
-                                    Repo.upsertAttendance(l.id, currentProject, todayDate, s)
-                                    version++
-                                } catch (e: Exception) { error = e.message }
-                            }
-                        },
-                        enabled = today != s,
-                    ) { Text(s.replace("_"," ")) }
-                }
-            }
-            error?.let { Text(it, color = MaterialTheme.colorScheme.error,
-                modifier = Modifier.padding(16.dp)) }
-            SectionTitle("Last 7 days")
-            history.forEach { a ->
-                ElevatedCard(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp)) {
-                    Row(Modifier.padding(12.dp)) {
-                        Text(a.date, Modifier.weight(1f))
-                        Text(a.status.replace("_"," "), Modifier.weight(1f))
-                        Text(money((WageFactor[a.status] ?: 0.0) * wage))
-                    }
-                }
-            }
-        }
+        SectionTitle("You're signed in")
+        Text(
+            "Your attendance and wages are recorded by your site manager — " +
+                "there's nothing for you to fill in here.",
+            Modifier.padding(horizontal = 16.dp),
+        )
+        Text(
+            "To check your days worked or wages owed, please speak to your site manager.",
+            style = MaterialTheme.typography.bodySmall,
+            modifier = Modifier.padding(16.dp),
+        )
     }
 }
 

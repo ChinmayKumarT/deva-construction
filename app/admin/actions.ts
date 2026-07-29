@@ -106,7 +106,7 @@ function revalidateAll() {
     "/admin", "/admin/projects", "/admin/clients", "/admin/suppliers",
     "/admin/labourers", "/admin/materials", "/admin/payments", "/admin/updates",
     "/admin/attendance", "/admin/costs", "/admin/reports",
-    "/client", "/supplier", "/labour",
+    "/client", "/supplier",
   ]) revalidatePath(p);
 }
 
@@ -189,12 +189,15 @@ export async function unarchiveSupplier(fd: FormData) { await setArchived("suppl
 
 // ---------- Labourers ----------
 export async function updateLabourer(fd: FormData) {
+  // profile_id is deliberately not written: labourers don't sign in (the site
+  // manager records their attendance), so there's no "link to login" field on
+  // the form. Leaving it out of the payload preserves any existing value
+  // instead of nulling it on every save.
   await updateRow("labourers", str(fd, "id"), {
     name: str(fd, "name"),
     phone: str(fd, "phone"),
     daily_wage: num(fd, "daily_wage") ?? 0,
     active: fd.get("active") === "on",
-    profile_id: uuidOrNull(fd, "profile_id"),
   });
   redirect("/admin/labourers");
 }
@@ -322,7 +325,6 @@ export async function markAttendance(fd: FormData) {
     .upsert({ labourer_id, project_id, date, status }, { onConflict: "labourer_id,date" });
   if (error) throw new Error(error.message);
   revalidatePath("/admin/attendance");
-  revalidatePath("/labour");
 }
 
 export async function assignLabourer(fd: FormData) {
@@ -509,7 +511,6 @@ export async function createLabourer(fd: FormData) {
     phone: str(fd, "phone"),
     daily_wage: num(fd, "daily_wage") ?? 0,
     active: fd.get("active") === "on",
-    profile_id: uuidOrNull(fd, "profile_id"),
   });
   if (error) throw new Error(error.message);
   revalidatePath("/admin/labourers");

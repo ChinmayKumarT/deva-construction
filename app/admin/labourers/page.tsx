@@ -17,10 +17,9 @@ export default async function LabourersPage({
     .select("id, name, phone, daily_wage, active, profile_id, archived_at")
     .order("created_at", { ascending: false });
 
-  const [{ data: labourers }, { data: profiles }, { data: projects }, { data: assignments }, { count: archivedCount }] =
+  const [{ data: labourers }, { data: projects }, { data: assignments }, { count: archivedCount }] =
     await Promise.all([
       showArchived ? base.not("archived_at", "is", null) : base.is("archived_at", null),
-      supabase.from("profiles").select("id, full_name").eq("role", "labour"),
       supabase.from("projects").select("id, name").is("archived_at", null).order("name"),
       supabase
         .from("project_labourers")
@@ -29,8 +28,6 @@ export default async function LabourersPage({
       supabase.from("labourers").select("id", { count: "exact", head: true }).not("archived_at", "is", null),
     ]);
 
-  const linked = new Set((labourers ?? []).map((l) => l.profile_id).filter(Boolean));
-  const unlinkedProfiles = (profiles ?? []).filter((p) => !linked.has(p.id));
   const currentSite = new Map(
     (assignments ?? []).map((a) => [
       a.labourer_id,
@@ -46,7 +43,6 @@ export default async function LabourersPage({
       `₹${Number(l.daily_wage).toLocaleString()}`,
       currentSite.get(l.id) ?? "—",
       l.active ? "active" : "inactive",
-      l.profile_id ? "linked" : "no login",
     ]) ?? [];
 
   return (
@@ -69,12 +65,6 @@ export default async function LabourersPage({
           <Field label="Name" name="name" required />
           <Field label="Phone" name="phone" />
           <Field label="Daily wage (₹)" name="daily_wage" type="number" step="0.01" />
-          <Select label="Link to login (optional)" name="profile_id" defaultValue="none">
-            <option value="none">— none —</option>
-            {unlinkedProfiles.map((p) => (
-              <option key={p.id} value={p.id}>{p.full_name || p.id.slice(0, 8)}</option>
-            ))}
-          </Select>
           <label className="flex items-center gap-2 text-sm text-slate-700">
             <input type="checkbox" name="active" defaultChecked />
             Active
@@ -86,7 +76,7 @@ export default async function LabourersPage({
       )}
 
       <DataTable
-        columns={["Name", "Phone", "Daily wage", "Current site", "Status", "Login"]}
+        columns={["Name", "Phone", "Daily wage", "Current site", "Status"]}
         rows={rows}
         empty={showArchived ? "No archived labourers." : "No labourers yet."}
       />

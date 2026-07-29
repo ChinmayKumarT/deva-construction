@@ -90,10 +90,12 @@ private fun AuthForm(
         if (mode == "signup") {
             Text("Role", style = MaterialTheme.typography.labelLarge)
             // Admin/manager are never self-serve — the owner grants those from
-            // the Team access screen. handle_new_user() also enforces this
-            // server-side, so this is UI-only, not the actual security boundary.
+            // the Team access screen. No labour either: labourers are records
+            // the site manager maintains, not app users. handle_new_user() also
+            // enforces this server-side, so this is UI-only, not the actual
+            // security boundary.
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                listOf(Role.client, Role.supplier, Role.labour).forEach { r ->
+                listOf(Role.client, Role.supplier).forEach { r ->
                     FilterChip(
                         selected = role == r,
                         onClick = { onRoleChange(r) },

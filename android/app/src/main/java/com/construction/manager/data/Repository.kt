@@ -316,14 +316,15 @@ object Repo {
             if (profileId != null) put("profile_id", profileId)
         })
     }
-    suspend fun createLabourer(name: String, phone: String?, dailyWage: Double,
-                               active: Boolean, profileId: String?) {
+    // No profileId: labourers don't sign in -- the site manager records their
+    // attendance and wages -- so there's no login to link. The profile_id
+    // column stays in the table for future biometric identity linking.
+    suspend fun createLabourer(name: String, phone: String?, dailyWage: Double, active: Boolean) {
         supabase.from("labourers").insert(buildJsonObject {
             put("name", name)
             if (phone != null) put("phone", phone)
             put("daily_wage", dailyWage)
             put("active", active)
-            if (profileId != null) put("profile_id", profileId)
         })
     }
     suspend fun createMaterial(projectId: String, supplierId: String?, name: String,
@@ -413,11 +414,6 @@ object Repo {
     }
 
     // ---------- Role-scoped queries ----------
-    suspend fun myLabourer(): LabourerRow? {
-        val uid = currentUserId() ?: return null
-        return supabase.from("labourers").select { filter { eq("profile_id", uid) } }
-            .decodeSingleOrNull()
-    }
     suspend fun mySupplier(): SupplierRow? {
         val uid = currentUserId() ?: return null
         return supabase.from("suppliers").select { filter { eq("profile_id", uid) } }
@@ -495,22 +491,7 @@ object Repo {
             }
             order("created_at", Order.DESCENDING)
         }.decodeList<PaymentRow>()
-    suspend fun labourerAttendance(labourerId: String, sinceDate: String) =
-        supabase.from("attendance").select {
-            filter { eq("labourer_id", labourerId); gte("date", sinceDate) }
-            order("date", Order.DESCENDING)
-        }.decodeList<AttendanceRow>()
-    suspend fun labourerCurrentProject(labourerId: String): String? {
-        return supabase.from("project_labourers").select {
-            filter {
-                eq("labourer_id", labourerId)
-                filter("unassigned_at", FilterOperator.IS, "null")
-            }
-            order("assigned_at", Order.DESCENDING); limit(1)
-        }.decodeList<ProjectLabourerRow>().firstOrNull()?.projectId
-    }
-    // Bulk version of labourerCurrentProject, for screens (e.g. Attendance) that
-    // need every active labourer's current site in one query rather than N.
+    // Every active labourer's current site in one query, for the Attendance screen.
     suspend fun listActiveAssignments() = supabase.from("project_labourers")
         .select { filter { filter("unassigned_at", FilterOperator.IS, "null") } }
         .decodeList<ProjectLabourerRow>()

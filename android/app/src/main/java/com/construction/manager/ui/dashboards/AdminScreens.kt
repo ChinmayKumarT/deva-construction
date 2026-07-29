@@ -813,7 +813,6 @@ private fun EditSupplierDialog(supplier: SupplierRow, onDismiss: () -> Unit, onS
 @Composable
 fun AdminLabourers(isOwner: Boolean = false) {
     var rows by remember { mutableStateOf<List<LabourerRow>>(emptyList()) }
-    var profiles by remember { mutableStateOf<List<Profile>>(emptyList()) }
     var version by remember { mutableStateOf(0) }
     var error by remember { mutableStateOf<String?>(null) }
     var showArchived by remember { mutableStateOf(false) }
@@ -824,15 +823,11 @@ fun AdminLabourers(isOwner: Boolean = false) {
     LaunchedEffect(version, showArchived) {
         safe({
             rows = if (showArchived) Repo.listArchivedLabourers() else Repo.listLabourers()
-            profiles = Repo.listProfilesByRole(Role.labour)
         }) { error = it }
     }
-    val linked = rows.mapNotNull { it.profileId }.toSet()
-    val unlinked = profiles.filter { it.id !in linked }
     var name by remember { mutableStateOf("") }
     var phone by remember { mutableStateOf("") }
     var wage by remember { mutableStateOf("") }
-    var profile by remember { mutableStateOf<Profile?>(null) }
     var active by remember { mutableStateOf(true) }
 
     FormColumn {
@@ -846,14 +841,12 @@ fun AdminLabourers(isOwner: Boolean = false) {
                 verticalAlignment = Alignment.CenterVertically) {
                 Checkbox(active, { active = it }); Text("Active")
             }
-            Dropdown("Link to login (optional)", unlinked, profile,
-                { it.fullName ?: it.id.take(8) }, { profile = it })
             Button(onClick = {
                 scope.launch {
                     safe({
                         Repo.createLabourer(name, phone.ifBlank { null },
-                            wage.toDoubleOrNull() ?: 0.0, active, profile?.id)
-                        name = ""; phone = ""; wage = ""; profile = null; version++
+                            wage.toDoubleOrNull() ?: 0.0, active)
+                        name = ""; phone = ""; wage = ""; version++
                     }) { error = it }
                 }
             }, modifier = Modifier.padding(16.dp)) { Text("Create") }

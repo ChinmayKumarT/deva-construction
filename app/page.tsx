@@ -33,7 +33,7 @@ export default async function LoginPage({
             Run every site from one screen.
           </h2>
           <p className="mt-4 text-forest-100/80 leading-relaxed">
-            Projects, materials, labour, payments. One platform for admin, manager, client, supplier and labour.
+            Projects, materials, labour, payments. One platform for admin, manager, client and supplier.
           </p>
         </div>
         <div className="text-xs text-forest-100/60">
@@ -82,8 +82,10 @@ export default async function LoginPage({
                 >
                   <option value="client">Client</option>
                   <option value="supplier">Supplier</option>
-                  <option value="labour">Labour</option>
                 </select>
+                {/* No "Labour" option: labourers are records the site manager
+                    maintains, not app users. handle_new_user() maps a requested
+                    'labour' role to 'client' so this can't be bypassed. */}
                 {/* Admin/manager are never self-serve — the owner grants those
                     from the app's Team access screen. handle_new_user() also
                     clamps any other role server-side, so this is UI-only. */}
