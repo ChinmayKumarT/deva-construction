@@ -27,6 +27,7 @@ function buildGroups(isOwner: boolean): NavGroup[] {
       title: "Insights",
       items: [
         { href: "/admin/reports", label: "Reports", icon: "reports" },
+        { href: "/admin/cashflow", label: "Cash flow", icon: "reports" },
         ...(isOwner
           ? [{ href: "/admin/team", label: "Team access", icon: "team" as const }]
           : []),

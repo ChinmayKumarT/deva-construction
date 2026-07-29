@@ -140,3 +140,33 @@ fun BudgetPie(label: String, budget: Double, spent: Double, modifier: Modifier =
         }
     }
 }
+
+data class CashFlowCategory(val label: String, val value: Double, val color: Color)
+
+/** Materials cost, supplier payments and labour payments as three horizontal
+ * bars -- deliberately shown as separate outflow categories rather than
+ * summed into "spent" (which only counts labour payments, to avoid
+ * double-counting against materials cost). */
+@Composable
+fun CashFlowBarChart(categories: List<CashFlowCategory>, modifier: Modifier = Modifier) {
+    val max = (categories.maxOfOrNull { it.value } ?: 0.0).coerceAtLeast(1.0)
+    Column(modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)) {
+        categories.forEach { cat ->
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+            ) {
+                Text(cat.label, Modifier.width(110.dp), style = MaterialTheme.typography.bodySmall)
+                Box(Modifier.weight(1f).height(16.dp)) {
+                    Canvas(Modifier.fillMaxSize()) {
+                        val fraction = (cat.value / max).toFloat().coerceIn(0f, 1f)
+                        val w = (fraction * size.width).coerceAtLeast(4f)
+                        drawRect(cat.color, size = androidx.compose.ui.geometry.Size(w, size.height))
+                    }
+                }
+                Spacer(Modifier.width(8.dp))
+                Text(money(cat.value), style = MaterialTheme.typography.bodySmall)
+            }
+        }
+    }
+}

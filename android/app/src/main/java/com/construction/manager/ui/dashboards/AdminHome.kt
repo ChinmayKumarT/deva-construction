@@ -29,6 +29,7 @@ enum class AdminSection(val label: String) {
     Updates("Project updates"),
     Costs("Cost tracking"),
     Reports("Reports"),
+    CashFlow("Cash flow"),
     TeamAccess("Team access"),
 }
 
@@ -103,6 +104,7 @@ fun AdminHome(vm: AuthViewModel, isAdmin: Boolean = true, isOwner: Boolean = fal
                         onJumpToPayments = { p -> paymentsProjectFilter = p; section = AdminSection.Payments },
                     )
                     AdminSection.Reports -> AdminReports()
+                    AdminSection.CashFlow -> AdminCashFlow()
                     AdminSection.TeamAccess -> AdminTeamAccess()
                 }
             }

@@ -38,6 +38,8 @@ data class PdfSiteDetail(
     val extensionReason: String?,
 )
 data class PdfUpdate(val stage: String?, val note: String?, val date: String, val image: android.graphics.Bitmap?)
+data class PdfCashFlowCategory(val label: String, val value: Double, val color: Int)
+data class PdfCashFlowProject(val name: String, val materials: Double, val supplier: Double, val labour: Double)
 
 object PdfExporter {
 
@@ -344,6 +346,86 @@ object PdfExporter {
                     )
                     w.y += 16f
                 }
+            }
+
+            w.finish()
+            FileOutputStream(file).use { doc.writeTo(it) }
+            doc.close()
+        }
+    }
+
+    fun exportCashFlowReport(
+        context: Context,
+        from: String,
+        to: String,
+        categories: List<PdfCashFlowCategory>,
+        total: Double,
+        projects: List<PdfCashFlowProject>,
+    ): Uri {
+        return sharableUri(context, "cash-flow-$from-to-$to.pdf") { file ->
+            val doc = PdfDocument()
+            val w = PageWriter(doc, "Cash flow")
+            w.newPage()
+
+            val subtitlePaint = Paint().apply { color = Color.GRAY; textSize = 10f }
+            w.canvas.drawText("$from to $to", MARGIN, w.y, subtitlePaint)
+            w.y += 20f
+
+            val labelPaint = Paint().apply { color = TextColor; textSize = 12f; isFakeBoldText = true }
+            w.canvas.drawText("Outflow by category", MARGIN, w.y, labelPaint)
+            w.y += 16f
+
+            val maxVal = (categories.maxOfOrNull { it.value } ?: 0.0).coerceAtLeast(1.0)
+            val barMaxW = PAGE_W - MARGIN * 2 - 150f
+            val barX = MARGIN + 150f
+            val namePaint = Paint().apply { color = TextColor; textSize = 10f }
+
+            categories.forEach { cat ->
+                w.ensureSpace(24f)
+                w.canvas.drawText(cat.label, MARGIN, w.y + 8f, namePaint)
+                val barPaint = Paint().apply { color = cat.color }
+                val bw = (cat.value / maxVal * barMaxW).toFloat().coerceAtLeast(2f)
+                w.canvas.drawRect(barX, w.y - 2f, barX + bw, w.y + 12f, barPaint)
+                w.canvas.drawText(money(cat.value), barX + bw + 8f, w.y + 8f, namePaint)
+                w.y += 24f
+            }
+
+            w.y += 10f
+            val summaryPaint = Paint().apply { color = TextColor; textSize = 11f }
+            w.canvas.drawText("Total outflow: ${money(total)}", MARGIN, w.y, summaryPaint)
+            w.y += 26f
+
+            val cashFlowCols = listOf(160f, 90f, 100f, 90f, 90f)
+            val headBg = Paint().apply { color = BrandColor }
+            w.ensureSpace(24f)
+            w.canvas.drawRect(MARGIN, w.y - 12f, PAGE_W - MARGIN, w.y + 4f, headBg)
+            drawTableRow(
+                w.canvas, w.y,
+                listOf(
+                    "Project" to cashFlowCols[0], "Materials" to cashFlowCols[1],
+                    "Supplier" to cashFlowCols[2], "Labour" to cashFlowCols[3], "Total" to cashFlowCols[4],
+                ),
+                bold = true, color = Color.WHITE,
+            )
+            w.y += 18f
+            projects.forEachIndexed { i, p ->
+                w.ensureSpace(16f)
+                if (i % 2 == 1) {
+                    val stripe = Paint().apply { color = Color.parseColor("#F8FAFC") }
+                    w.canvas.drawRect(MARGIN, w.y - 10f, PAGE_W - MARGIN, w.y + 4f, stripe)
+                }
+                drawTableRow(
+                    w.canvas, w.y,
+                    listOf(
+                        p.name to cashFlowCols[0], money(p.materials) to cashFlowCols[1],
+                        money(p.supplier) to cashFlowCols[2], money(p.labour) to cashFlowCols[3],
+                        money(p.materials + p.supplier + p.labour) to cashFlowCols[4],
+                    ),
+                )
+                w.y += 16f
+            }
+            if (projects.isEmpty()) {
+                w.canvas.drawText("No outflow recorded in this date range.", MARGIN, w.y, summaryPaint)
             }
 
             w.finish()

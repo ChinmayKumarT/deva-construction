@@ -4,14 +4,28 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { AdminPage, AdminPageHeader, DataTable } from "@/components/admin/Page";
 import { PieChart, PieLegend } from "@/components/admin/PieChart";
 import { DownloadSitePdfButton } from "@/components/admin/ReportPdf";
+import { CashFlowBarChart } from "@/components/admin/CashFlowBarChart";
+import { computeCashFlow, defaultCashFlowRange } from "@/lib/cashflow";
 
 const BRAND = "#16a34a";
 const SPEND = "#F59E0B";
 const TRACK = "#E2E8F0";
 const OVER_BUDGET = "#DC2626";
+const MATERIALS_COLOR = "#16a34a";
+const SUPPLIER_COLOR = "#F59E0B";
+const LABOUR_COLOR = "#0EA5E9";
 
-export default async function SiteReportPage({ params }: { params: { id: string } }) {
+export default async function SiteReportPage({
+  params,
+  searchParams,
+}: {
+  params: { id: string };
+  searchParams: { from?: string; to?: string };
+}) {
   const supabase = createSupabaseServerClient();
+  const { fromStr, toStr } = defaultCashFlowRange();
+  const from = searchParams.from || fromStr;
+  const to = searchParams.to || toStr;
 
   const { data: project } = await supabase
     .from("projects")
@@ -22,7 +36,7 @@ export default async function SiteReportPage({ params }: { params: { id: string 
     .single();
   if (!project) notFound();
 
-  const [{ data: materials }, { data: payments }, { data: updates }] = await Promise.all([
+  const [{ data: materials }, { data: payments }, { data: updates }, cashFlow] = await Promise.all([
     supabase
       .from("materials")
       .select("id, name, unit, quantity, unit_cost, status, ordered_at, delivered_at")
@@ -40,6 +54,7 @@ export default async function SiteReportPage({ params }: { params: { id: string 
       .is("archived_at", null)
       .order("created_at", { ascending: false })
       .limit(5),
+    computeCashFlow(supabase, from, to, params.id),
   ]);
 
   const spent =
@@ -198,6 +213,48 @@ export default async function SiteReportPage({ params }: { params: { id: string 
         ])}
         empty="No materials or payments recorded for this site yet."
       />
+
+      <h2 className="mt-10 mb-3 text-sm font-semibold uppercase tracking-wide text-slate-500">Cash flow</h2>
+      <form
+        method="get"
+        className="mb-4 flex flex-wrap items-end gap-4 rounded-xl border border-slate-200 bg-white p-4"
+      >
+        <label className="text-xs">
+          <span className="mb-1 block text-slate-600">From</span>
+          <input
+            type="date" name="from" defaultValue={from}
+            className="rounded-lg border border-[var(--line)] bg-white px-2 py-1 text-sm"
+          />
+        </label>
+        <label className="text-xs">
+          <span className="mb-1 block text-slate-600">To</span>
+          <input
+            type="date" name="to" defaultValue={to}
+            className="rounded-lg border border-[var(--line)] bg-white px-2 py-1 text-sm"
+          />
+        </label>
+        <button
+          type="submit"
+          className="rounded-lg bg-brand px-3 py-1.5 text-xs font-medium text-white hover:bg-brand-700"
+        >
+          Apply
+        </button>
+        <Link href={`/admin/reports/${project.id}`} className="text-sm font-medium text-brand-700 hover:underline">
+          Clear filter
+        </Link>
+      </form>
+      <div className="rounded-xl border border-[var(--line)] bg-white p-5">
+        <CashFlowBarChart
+          bars={[
+            { label: "Materials", value: cashFlow.materialsCost, color: MATERIALS_COLOR },
+            { label: "Supplier payments", value: cashFlow.supplierPayments, color: SUPPLIER_COLOR },
+            { label: "Labour payments", value: cashFlow.labourPayments, color: LABOUR_COLOR },
+          ]}
+        />
+        <p className="mt-3 text-sm text-slate-600">
+          Total outflow {from} to {to}: ₹{cashFlow.total.toLocaleString()}
+        </p>
+      </div>
     </AdminPage>
   );
 }

@@ -388,3 +388,85 @@ export function DownloadSummaryPdfButton({
     </button>
   );
 }
+
+function cashFlowChartImage(bars: { label: string; value: number; color: string }[]) {
+  const rowH = 40;
+  const top = 30;
+  const c = makeCanvas(560, top + rowH * bars.length + 10);
+  const ctx = c.getContext("2d")!;
+  ctx.fillStyle = "#ffffff";
+  ctx.fillRect(0, 0, c.width, c.height);
+
+  ctx.font = "bold 13px Arial";
+  ctx.fillStyle = "#334155";
+  ctx.fillText("Outflow by category", 20, 20);
+
+  const maxVal = Math.max(...bars.map((b) => b.value), 1);
+  const barMaxW = 300;
+  const labelX = 20;
+  const barX = 170;
+
+  bars.forEach((b, i) => {
+    const y = top + i * rowH;
+    ctx.font = "12px Arial";
+    ctx.fillStyle = "#334155";
+    ctx.fillText(b.label, labelX, y + 14);
+    const w = (b.value / maxVal) * barMaxW;
+    ctx.fillStyle = b.color;
+    ctx.fillRect(barX, y, Math.max(w, 2), 16);
+    ctx.fillText(`Rs ${b.value.toLocaleString()}`, barX + w + 8, y + 14);
+  });
+
+  return c.toDataURL("image/png");
+}
+
+export async function downloadCashFlowPdf(data: {
+  from: string;
+  to: string;
+  bars: { label: string; value: number; color: string }[];
+  total: number;
+  projects: { name: string; materials: number; supplier: number; labour: number }[];
+}) {
+  const { doc, autoTable } = await buildPdf();
+  header(doc, "Cash flow", `${data.from} to ${data.to}`);
+
+  const img = cashFlowChartImage(data.bars);
+  const imgHeight = (30 + data.bars.length * 40 + 10) * (500 / 560);
+  doc.addImage(img, "PNG", 40, 75, 500, imgHeight);
+
+  doc.setFontSize(11);
+  doc.text(`Total outflow: Rs ${data.total.toLocaleString()}`, 40, 75 + imgHeight + 20);
+
+  autoTable(doc, {
+    startY: 75 + imgHeight + 35,
+    head: [["Project", "Materials", "Supplier payments", "Labour payments", "Total"]],
+    body: data.projects.map((p) => [
+      p.name,
+      `Rs ${p.materials.toLocaleString()}`,
+      `Rs ${p.supplier.toLocaleString()}`,
+      `Rs ${p.labour.toLocaleString()}`,
+      `Rs ${(p.materials + p.supplier + p.labour).toLocaleString()}`,
+    ]),
+    headStyles: { fillColor: [22, 163, 74] },
+    styles: { fontSize: 9 },
+    margin: { left: 40, right: 40 },
+  });
+
+  doc.save(`cash-flow-${data.from}-to-${data.to}.pdf`);
+}
+
+export function DownloadCashFlowPdfButton({
+  data,
+}: {
+  data: Parameters<typeof downloadCashFlowPdf>[0];
+}) {
+  return (
+    <button
+      type="button"
+      onClick={() => downloadCashFlowPdf(data)}
+      className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-100"
+    >
+      Download PDF
+    </button>
+  );
+}

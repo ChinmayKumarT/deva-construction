@@ -19,6 +19,8 @@ import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
 import com.construction.manager.data.*
 import com.construction.manager.ui.*
+import com.construction.manager.util.PdfCashFlowCategory
+import com.construction.manager.util.PdfCashFlowProject
 import com.construction.manager.util.PdfExporter
 import com.construction.manager.util.PdfLabourRow
 import com.construction.manager.util.PdfSiteDetail
@@ -1862,6 +1864,157 @@ private fun weeklyLabourRows(labourers: List<LabourerRow>, weekAttendance: List<
     }
 }
 
+// ---------- Cash flow ----------
+// Deliberately different from "Spent" elsewhere (which only counts labour
+// payments, to avoid double-counting against materials cost): cash flow asks
+// "what actually left the bank," so materials cost, supplier payments and
+// labour payments are each their own outflow category, not summed into one
+// blended spend figure.
+private data class CashFlowTotals(
+    val materials: Double, val supplier: Double, val labour: Double,
+    val byProjectMaterials: Map<String, Double>,
+    val byProjectSupplier: Map<String, Double>,
+    val byProjectLabour: Map<String, Double>,
+)
+
+private fun computeCashFlow(
+    materials: List<MaterialRow>,
+    payments: List<PaymentRow>,
+    from: String,
+    to: String,
+    projectId: String? = null,
+): CashFlowTotals {
+    val byProjectMaterials = mutableMapOf<String, Double>()
+    val byProjectSupplier = mutableMapOf<String, Double>()
+    val byProjectLabour = mutableMapOf<String, Double>()
+    var materialsTotal = 0.0
+    var supplierTotal = 0.0
+    var labourTotal = 0.0
+
+    materials.forEach { m ->
+        val pid = m.projectId ?: return@forEach
+        if (projectId != null && pid != projectId) return@forEach
+        if (m.status == "returned") return@forEach
+        val date = m.deliveredAt ?: m.orderedAt ?: return@forEach
+        if (date < from || date > to) return@forEach
+        val amount = m.quantity * m.unitCost
+        materialsTotal += amount
+        byProjectMaterials[pid] = (byProjectMaterials[pid] ?: 0.0) + amount
+    }
+    payments.forEach { p ->
+        val pid = p.projectId ?: return@forEach
+        if (projectId != null && pid != projectId) return@forEach
+        if (p.status !in listOf("paid", "approved")) return@forEach
+        val date = (p.createdAt ?: return@forEach).take(10)
+        if (date < from || date > to) return@forEach
+        when (p.payeeType) {
+            "supplier" -> {
+                supplierTotal += p.amount
+                byProjectSupplier[pid] = (byProjectSupplier[pid] ?: 0.0) + p.amount
+            }
+            "labour" -> {
+                labourTotal += p.amount
+                byProjectLabour[pid] = (byProjectLabour[pid] ?: 0.0) + p.amount
+            }
+        }
+    }
+    return CashFlowTotals(materialsTotal, supplierTotal, labourTotal, byProjectMaterials, byProjectSupplier, byProjectLabour)
+}
+
+private val CashFlowMaterialsColor = androidx.compose.ui.graphics.Color(0xFF16A34A)
+private val CashFlowSupplierColor = androidx.compose.ui.graphics.Color(0xFFF59E0B)
+private val CashFlowLabourColor = androidx.compose.ui.graphics.Color(0xFF0EA5E9)
+
+@Composable
+fun AdminCashFlow() {
+    var materials by remember { mutableStateOf<List<MaterialRow>>(emptyList()) }
+    var payments by remember { mutableStateOf<List<PaymentRow>>(emptyList()) }
+    var projects by remember { mutableStateOf<List<ProjectRow>>(emptyList()) }
+    var error by remember { mutableStateOf<String?>(null) }
+    val today = remember { LocalDate.now() }
+    var from by remember { mutableStateOf(today.withDayOfMonth(1).toString()) }
+    var to by remember { mutableStateOf(today.toString()) }
+    val context = LocalContext.current
+
+    LaunchedEffect(Unit) {
+        safe({
+            materials = Repo.listMaterials()
+            payments = Repo.listPayments()
+            projects = Repo.listProjects()
+        }) { error = it }
+    }
+
+    val cashFlow = remember(materials, payments, from, to) {
+        computeCashFlow(materials, payments, from, to)
+    }
+    val projectName = projects.associate { it.id to it.name }
+    val projectIds = (cashFlow.byProjectMaterials.keys + cashFlow.byProjectSupplier.keys + cashFlow.byProjectLabour.keys).distinct()
+
+    FormColumn {
+        error?.let { Text(it, color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(16.dp)) }
+        Row(Modifier.padding(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            DateField(from, { from = it }, "From", Modifier.weight(1f))
+            DateField(to, { to = it }, "To", Modifier.weight(1f))
+        }
+        Row(
+            Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+            horizontalArrangement = Arrangement.End,
+        ) {
+            TextButton(onClick = {
+                val uri = PdfExporter.exportCashFlowReport(
+                    context, from, to,
+                    categories = listOf(
+                        PdfCashFlowCategory("Materials", cashFlow.materials, android.graphics.Color.parseColor("#16A34A")),
+                        PdfCashFlowCategory("Supplier payments", cashFlow.supplier, android.graphics.Color.parseColor("#F59E0B")),
+                        PdfCashFlowCategory("Labour payments", cashFlow.labour, android.graphics.Color.parseColor("#0EA5E9")),
+                    ),
+                    total = cashFlow.materials + cashFlow.supplier + cashFlow.labour,
+                    projects = projectIds.map { id ->
+                        PdfCashFlowProject(
+                            projectName[id] ?: "—",
+                            cashFlow.byProjectMaterials[id] ?: 0.0,
+                            cashFlow.byProjectSupplier[id] ?: 0.0,
+                            cashFlow.byProjectLabour[id] ?: 0.0,
+                        )
+                    },
+                )
+                PdfExporter.share(context, uri)
+            }) { Text("Download PDF") }
+        }
+
+        SectionTitle("Outflow by category")
+        CashFlowBarChart(
+            listOf(
+                CashFlowCategory("Materials", cashFlow.materials, CashFlowMaterialsColor),
+                CashFlowCategory("Supplier", cashFlow.supplier, CashFlowSupplierColor),
+                CashFlowCategory("Labour", cashFlow.labour, CashFlowLabourColor),
+            ),
+        )
+        Text(
+            "Total outflow: ${money(cashFlow.materials + cashFlow.supplier + cashFlow.labour)}",
+            style = MaterialTheme.typography.bodyMedium,
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+        )
+
+        Divider()
+        SectionTitle("By project")
+        if (projectIds.isEmpty()) {
+            Text("No outflow recorded in this date range.", Modifier.padding(16.dp))
+        } else {
+            projectIds.forEach { id ->
+                val mat = cashFlow.byProjectMaterials[id] ?: 0.0
+                val sup = cashFlow.byProjectSupplier[id] ?: 0.0
+                val lab = cashFlow.byProjectLabour[id] ?: 0.0
+                ItemCard(
+                    projectName[id] ?: "—",
+                    "Materials ${money(mat)} · Supplier ${money(sup)} · Labour ${money(lab)}",
+                    money(mat + sup + lab),
+                )
+            }
+        }
+    }
+}
+
 @Composable
 private fun SiteReportList(
     projects: List<ProjectRow>,
@@ -2045,5 +2198,30 @@ private fun SiteReportDetail(
             )
         }
     }
+
+    Divider()
+    SectionTitle("Cash flow")
+    val today = remember { LocalDate.now() }
+    var cfFrom by remember { mutableStateOf(today.withDayOfMonth(1).toString()) }
+    var cfTo by remember { mutableStateOf(today.toString()) }
+    Row(Modifier.padding(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        DateField(cfFrom, { cfFrom = it }, "From", Modifier.weight(1f))
+        DateField(cfTo, { cfTo = it }, "To", Modifier.weight(1f))
+    }
+    val projectCashFlow = remember(materials, payments, cfFrom, cfTo) {
+        computeCashFlow(materials, payments, cfFrom, cfTo, project.id)
+    }
+    CashFlowBarChart(
+        listOf(
+            CashFlowCategory("Materials", projectCashFlow.materials, CashFlowMaterialsColor),
+            CashFlowCategory("Supplier", projectCashFlow.supplier, CashFlowSupplierColor),
+            CashFlowCategory("Labour", projectCashFlow.labour, CashFlowLabourColor),
+        ),
+    )
+    Text(
+        "Total outflow: ${money(projectCashFlow.materials + projectCashFlow.supplier + projectCashFlow.labour)}",
+        style = MaterialTheme.typography.bodyMedium,
+        modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+    )
 }
 
