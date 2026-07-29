@@ -15,12 +15,14 @@ export default async function SiteReportPage({ params }: { params: { id: string 
 
   const { data: project } = await supabase
     .from("projects")
-    .select("id, name, status, completion_pct, total_cost")
+    .select(
+      "id, name, status, completion_pct, total_cost, address, current_stage, start_date, end_date, original_end_date, extension_reason, clients(name)",
+    )
     .eq("id", params.id)
     .single();
   if (!project) notFound();
 
-  const [{ data: materials }, { data: payments }] = await Promise.all([
+  const [{ data: materials }, { data: payments }, { data: updates }] = await Promise.all([
     supabase
       .from("materials")
       .select("id, name, unit, quantity, unit_cost, status, ordered_at, delivered_at")
@@ -31,6 +33,13 @@ export default async function SiteReportPage({ params }: { params: { id: string 
       .select("id, amount, status, description, payee_type, created_at")
       .eq("project_id", params.id)
       .is("archived_at", null),
+    supabase
+      .from("project_updates")
+      .select("id, stage, note, image_url, created_at")
+      .eq("project_id", params.id)
+      .is("archived_at", null)
+      .order("created_at", { ascending: false })
+      .limit(5),
   ]);
 
   const spent =
@@ -64,18 +73,38 @@ export default async function SiteReportPage({ params }: { params: { id: string 
     })),
   ].sort((a, b) => (b.date ?? "").localeCompare(a.date ?? ""));
 
+  const extended =
+    project.original_end_date != null && project.end_date != null && project.end_date > project.original_end_date;
+
   const pdfSite = {
     name: project.name,
     status: project.status,
     completionPct,
     budget,
     spent,
+    detail: {
+      // @ts-expect-error supabase relation
+      client: project.clients?.name ?? null,
+      address: project.address,
+      stage: project.current_stage,
+      startDate: project.start_date,
+      endDate: project.end_date,
+      extended,
+      originalEndDate: project.original_end_date,
+      extensionReason: project.extension_reason,
+    },
     transactions: transactions.map((t) => ({
       date: t.date ? new Date(t.date).toLocaleDateString() : "no date",
       type: t.type,
       description: t.description,
       amount: t.amount,
       status: t.status,
+    })),
+    updates: (updates ?? []).map((u) => ({
+      stage: u.stage,
+      note: u.note,
+      date: u.created_at ? new Date(u.created_at).toLocaleDateString() : "no date",
+      imageUrl: u.image_url,
     })),
   };
 

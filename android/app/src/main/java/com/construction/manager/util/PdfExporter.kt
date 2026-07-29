@@ -28,6 +28,16 @@ private val TextColor = Color.parseColor("#334155")
 data class PdfTransaction(val type: String, val description: String, val date: String, val status: String, val amount: Double)
 data class PdfSiteSummary(val name: String, val status: String, val completionPct: Double, val budget: Double, val spent: Double)
 data class PdfLabourRow(val name: String, val days: String, val earn: String)
+data class PdfSiteDetail(
+    val client: String?,
+    val address: String?,
+    val stage: String?,
+    val endDate: String?,
+    val extended: Boolean,
+    val originalEndDate: String?,
+    val extensionReason: String?,
+)
+data class PdfUpdate(val stage: String?, val note: String?, val date: String, val image: android.graphics.Bitmap?)
 
 object PdfExporter {
 
@@ -116,7 +126,9 @@ object PdfExporter {
         completionPct: Double,
         budget: Double,
         spent: Double,
+        detail: PdfSiteDetail,
         transactions: List<PdfTransaction>,
+        updates: List<PdfUpdate>,
     ): Uri {
         val fileName = "${projectName.replace(Regex("[^A-Za-z0-9]+"), "-")}-report.pdf"
         return sharableUri(context, fileName) { file ->
@@ -126,7 +138,25 @@ object PdfExporter {
 
             val subtitlePaint = Paint().apply { color = Color.GRAY; textSize = 10f }
             w.canvas.drawText("Status: $status", MARGIN, w.y, subtitlePaint)
-            w.y += 20f
+            w.y += 18f
+
+            val detailPaint = Paint().apply { color = TextColor; textSize = 10f }
+            val detailLines = listOfNotNull(
+                detail.client?.let { "Client: $it" },
+                detail.address?.let { "Address: $it" },
+                detail.stage?.let { "Current stage: $it" },
+                detail.endDate?.let {
+                    "Finish date: $it" + if (detail.extended) {
+                        " (extended from ${detail.originalEndDate}" +
+                            (detail.extensionReason?.let { r -> " · $r" } ?: "") + ")"
+                    } else ""
+                },
+            )
+            detailLines.forEach { line ->
+                w.canvas.drawText(line, MARGIN, w.y, detailPaint)
+                w.y += 13f
+            }
+            w.y += 8f
 
             val spendPct = if (budget > 0) spent / budget * 100 else if (spent > 0) 999.0 else 0.0
             val overBudget = budget > 0 && spent > budget
@@ -187,6 +217,47 @@ object PdfExporter {
             }
             if (transactions.isEmpty()) {
                 w.canvas.drawText("No materials or payments recorded for this site yet.", MARGIN, w.y, summaryPaint)
+                w.y += 16f
+            }
+
+            if (updates.isNotEmpty()) {
+                w.y += 14f
+                w.ensureSpace(24f)
+                val sectionPaint = Paint().apply { color = TextColor; textSize = 12f; isFakeBoldText = true }
+                w.canvas.drawText("Recent updates (${updates.size})", MARGIN, w.y, sectionPaint)
+                w.y += 18f
+
+                val updateTextPaint = Paint().apply { color = Color.parseColor("#1E293B"); textSize = 10f }
+                updates.forEach { u ->
+                    val lines = listOfNotNull(
+                        listOfNotNull(u.stage, u.date).joinToString(" · ").ifBlank { null },
+                        u.note?.take(100),
+                    )
+                    w.ensureSpace(lines.size * 13f + 6f)
+                    lines.forEach { line ->
+                        w.canvas.drawText(line, MARGIN, w.y, updateTextPaint)
+                        w.y += 13f
+                    }
+                    w.y += 4f
+
+                    val bmp = u.image
+                    if (bmp != null) {
+                        val maxW = 180f
+                        val maxH = 135f
+                        var dw = maxW
+                        var dh = bmp.height.toFloat() / bmp.width.toFloat() * dw
+                        if (dh > maxH) {
+                            dh = maxH
+                            dw = bmp.width.toFloat() / bmp.height.toFloat() * dh
+                        }
+                        w.ensureSpace(dh + 16f)
+                        val dest = RectF(MARGIN, w.y, MARGIN + dw, w.y + dh)
+                        w.canvas.drawBitmap(bmp, null, dest, null)
+                        w.y += dh + 16f
+                    } else {
+                        w.y += 6f
+                    }
+                }
             }
 
             w.finish()
@@ -280,6 +351,16 @@ object PdfExporter {
             doc.close()
         }
     }
+
+    suspend fun downloadBitmap(url: String): android.graphics.Bitmap? =
+        kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+            try {
+                val options = android.graphics.BitmapFactory.Options().apply { inSampleSize = 2 }
+                java.net.URL(url).openStream().use { android.graphics.BitmapFactory.decodeStream(it, null, options) }
+            } catch (e: Exception) {
+                null
+            }
+        }
 
     fun share(context: Context, uri: Uri) {
         val intent = Intent(Intent.ACTION_SEND).apply {

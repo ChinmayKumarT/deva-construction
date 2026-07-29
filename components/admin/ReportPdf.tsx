@@ -142,6 +142,31 @@ function summaryBarChartImage(
   return c.toDataURL("image/png");
 }
 
+async function fetchImageDataUrl(url: string): Promise<string | null> {
+  try {
+    const res = await fetch(url);
+    if (!res.ok) return null;
+    const blob = await res.blob();
+    return await new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onloadend = () => resolve(reader.result as string);
+      reader.onerror = reject;
+      reader.readAsDataURL(blob);
+    });
+  } catch {
+    return null;
+  }
+}
+
+function imageDims(dataUrl: string): Promise<{ w: number; h: number }> {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.onload = () => resolve({ w: img.naturalWidth || 1, h: img.naturalHeight || 1 });
+    img.onerror = () => resolve({ w: 1, h: 1 });
+    img.src = dataUrl;
+  });
+}
+
 async function buildPdf() {
   const [{ jsPDF }, autoTableModule] = await Promise.all([
     import("jspdf"),
@@ -172,23 +197,50 @@ export async function downloadSitePdf(site: {
   completionPct: number;
   budget: number;
   spent: number;
+  detail: {
+    client: string | null;
+    address: string | null;
+    stage: string | null;
+    startDate: string | null;
+    endDate: string | null;
+    extended: boolean;
+    originalEndDate: string | null;
+    extensionReason: string | null;
+  };
   transactions: { date: string; type: string; description: string; amount: number; status: string }[];
+  updates: { stage: string | null; note: string | null; date: string; imageUrl: string | null }[];
 }) {
   const { doc, autoTable } = await buildPdf();
   header(doc, site.name, `Status: ${site.status}`);
 
+  doc.setFontSize(10);
+  doc.setTextColor(60);
+  const d = site.detail;
+  const detailLines = [
+    d.client ? `Client: ${d.client}` : null,
+    d.address ? `Address: ${d.address}` : null,
+    d.stage ? `Current stage: ${d.stage}` : null,
+    d.endDate ? `Finish date: ${d.endDate}${d.extended ? ` (extended from ${d.originalEndDate}${d.extensionReason ? " · " + d.extensionReason : ""})` : ""}` : null,
+  ].filter(Boolean) as string[];
+  detailLines.forEach((line, i) => doc.text(line, 40, 68 + i * 13));
+  doc.setTextColor(0);
+
+  const chartsY = 68 + detailLines.length * 13 + 12;
   const img = siteChartImage(site.completionPct, site.budget, site.spent);
-  doc.addImage(img, "PNG", 40, 75, 500, 178);
+  doc.addImage(img, "PNG", 40, chartsY, 500, 178);
 
   doc.setFontSize(11);
+  const summaryY = chartsY + 195;
   doc.text(
     `Budget Rs ${site.budget.toLocaleString()}  ·  Spent Rs ${site.spent.toLocaleString()}  ·  Remaining Rs ${Math.max(site.budget - site.spent, 0).toLocaleString()}`,
     40,
-    270,
+    summaryY,
   );
 
+  doc.setFontSize(12);
+  doc.text(`Transactions (${site.transactions.length})`, 40, summaryY + 20);
   autoTable(doc, {
-    startY: 290,
+    startY: summaryY + 28,
     head: [["Type", "Description", "Date", "Status", "Amount"]],
     body: site.transactions.map((t) => [
       t.type,
@@ -201,6 +253,63 @@ export async function downloadSitePdf(site: {
     styles: { fontSize: 9 },
     margin: { left: 40, right: 40 },
   });
+
+  if (site.updates.length > 0) {
+    let y = (doc as any).lastAutoTable.finalY + 24;
+    const pageH = doc.internal.pageSize.getHeight();
+    if (y > pageH - 60) {
+      doc.addPage();
+      y = 50;
+    }
+    doc.setFontSize(12);
+    doc.text(`Recent updates (${site.updates.length})`, 40, y);
+    y += 16;
+
+    for (const u of site.updates) {
+      const textLines = [
+        [u.stage, u.date].filter(Boolean).join(" · "),
+        u.note ? u.note : null,
+      ].filter(Boolean) as string[];
+      const neededForText = textLines.length * 13 + 6;
+
+      if (y + neededForText > pageH - 40) {
+        doc.addPage();
+        y = 50;
+      }
+      doc.setFontSize(10);
+      doc.setTextColor(30);
+      textLines.forEach((line, i) => doc.text(line.slice(0, 100), 40, y + i * 13));
+      doc.setTextColor(0);
+      y += neededForText;
+
+      if (u.imageUrl) {
+        const dataUrl = await fetchImageDataUrl(u.imageUrl);
+        if (dataUrl) {
+          const { w, h } = await imageDims(dataUrl);
+          const maxW = 180;
+          const maxH = 135;
+          let dw = maxW;
+          let dh = (h / w) * dw;
+          if (dh > maxH) {
+            dh = maxH;
+            dw = (w / h) * dh;
+          }
+          if (y + dh > pageH - 40) {
+            doc.addPage();
+            y = 50;
+          }
+          try {
+            doc.addImage(dataUrl, 40, y, dw, dh);
+          } catch {
+            // Unsupported image format (e.g. some HEIC/webp) -- skip silently.
+          }
+          y += dh + 16;
+        }
+      } else {
+        y += 8;
+      }
+    }
+  }
 
   doc.save(`${site.name.replace(/[^a-z0-9]+/gi, "-")}-report.pdf`);
 }

@@ -21,9 +21,12 @@ import com.construction.manager.data.*
 import com.construction.manager.ui.*
 import com.construction.manager.util.PdfExporter
 import com.construction.manager.util.PdfLabourRow
+import com.construction.manager.util.PdfSiteDetail
 import com.construction.manager.util.PdfSiteSummary
 import com.construction.manager.util.PdfTransaction
+import com.construction.manager.util.PdfUpdate
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.time.LocalDate
 
 private suspend fun safe(block: suspend () -> Unit, onError: (String) -> Unit) {
@@ -1727,6 +1730,8 @@ fun AdminReports() {
     var materials by remember { mutableStateOf<List<MaterialRow>>(emptyList()) }
     var labourers by remember { mutableStateOf<List<LabourerRow>>(emptyList()) }
     var weekAttendance by remember { mutableStateOf<List<AttendanceRow>>(emptyList()) }
+    var clients by remember { mutableStateOf<List<ClientRow>>(emptyList()) }
+    var updates by remember { mutableStateOf<List<ProjectUpdateRow>>(emptyList()) }
     var error by remember { mutableStateOf<String?>(null) }
     var selectedProject by remember { mutableStateOf<ProjectRow?>(null) }
     LaunchedEffect(Unit) {
@@ -1736,6 +1741,8 @@ fun AdminReports() {
             materials = Repo.listMaterials()
             labourers = Repo.listLabourers()
             weekAttendance = Repo.listAttendanceSince(LocalDate.now().minusDays(6).toString())
+            clients = Repo.listClients()
+            updates = Repo.listUpdates()
         }) { error = it }
     }
 
@@ -1781,8 +1788,10 @@ fun AdminReports() {
             SiteReportDetail(
                 project = sel,
                 spent = spent[sel.id] ?: 0.0,
+                clientName = clients.firstOrNull { it.id == sel.clientId }?.name,
                 materials = materials.filter { it.projectId == sel.id },
                 payments = payments.filter { it.projectId == sel.id },
+                updates = updates.filter { it.projectId == sel.id }.take(5),
                 onBack = { selectedProject = null },
             )
         }
@@ -1891,25 +1900,56 @@ private fun transactionsForPdf(materials: List<MaterialRow>, payments: List<Paym
 private fun SiteReportDetail(
     project: ProjectRow,
     spent: Double,
+    clientName: String?,
     materials: List<MaterialRow>,
     payments: List<PaymentRow>,
+    updates: List<ProjectUpdateRow>,
     onBack: () -> Unit,
 ) {
     val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    var exporting by remember { mutableStateOf(false) }
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
         TextButton(onClick = onBack) { Text("← Reports") }
-        TextButton(onClick = {
-            val uri = PdfExporter.exportSiteReport(
-                context,
-                projectName = project.name,
-                status = project.status,
-                completionPct = project.completionPct,
-                budget = project.totalCost,
-                spent = spent,
-                transactions = transactionsForPdf(materials, payments),
-            )
-            PdfExporter.share(context, uri)
-        }) { Text("Download PDF") }
+        TextButton(
+            enabled = !exporting,
+            onClick = {
+                exporting = true
+                scope.launch {
+                    val pdfUpdates = updates.map { u ->
+                        PdfUpdate(
+                            stage = u.stage,
+                            note = u.note,
+                            date = u.createdAt ?: "no date",
+                            image = u.imageUrl?.let { PdfExporter.downloadBitmap(it) },
+                        )
+                    }
+                    val uri = withContext(kotlinx.coroutines.Dispatchers.IO) {
+                        PdfExporter.exportSiteReport(
+                            context,
+                            projectName = project.name,
+                            status = project.status,
+                            completionPct = project.completionPct,
+                            budget = project.totalCost,
+                            spent = spent,
+                            detail = PdfSiteDetail(
+                                client = clientName,
+                                address = project.address,
+                                stage = project.currentStage,
+                                endDate = project.endDate,
+                                extended = project.finishDateExtended,
+                                originalEndDate = project.originalEndDate,
+                                extensionReason = project.extensionReason,
+                            ),
+                            transactions = transactionsForPdf(materials, payments),
+                            updates = pdfUpdates,
+                        )
+                    }
+                    PdfExporter.share(context, uri)
+                    exporting = false
+                }
+            },
+        ) { Text(if (exporting) "Preparing…" else "Download PDF") }
     }
     SectionTitle(project.name)
 
