@@ -290,6 +290,7 @@ private fun ProjectRowCard(
 ) {
     var extending by remember { mutableStateOf(false) }
     var editing by remember { mutableStateOf(false) }
+    var settingPayment by remember { mutableStateOf(false) }
     var confirmArchive by remember { mutableStateOf(false) }
     var confirmDelete by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
@@ -299,7 +300,8 @@ private fun ProjectRowCard(
     ItemCard(
         p.name,
         "${p.status} · ${p.currentStage ?: "—"} · ${"%.1f".format(p.completionPct)}%" +
-            (p.endDate?.let { " · Finish $it" } ?: ""),
+            (p.endDate?.let { " · Finish $it" } ?: "") +
+            (p.nextPaymentDate?.let { " · Next payment $it" } ?: ""),
         money(p.totalCost),
         actions = {
             if (archived) {
@@ -323,6 +325,7 @@ private fun ProjectRowCard(
                 }
                 TextButton(onClick = { editing = true }) { Text("Edit") }
                 TextButton(onClick = { extending = true }) { Text("Extend date") }
+                TextButton(onClick = { settingPayment = true }) { Text("Next payment") }
                 TextButton(onClick = { confirmArchive = true }) { Text("Archive") }
             }
         },
@@ -346,6 +349,13 @@ private fun ProjectRowCard(
             clients = clients,
             onDismiss = { editing = false },
             onSaved = { editing = false; onChanged() },
+        )
+    }
+    if (settingPayment) {
+        NextPaymentDateDialog(
+            project = p,
+            onDismiss = { settingPayment = false },
+            onSaved = { settingPayment = false; onChanged() },
         )
     }
     if (confirmArchive) {
@@ -486,6 +496,45 @@ private fun ExtendFinishDateDialog(project: ProjectRow, onDismiss: () -> Unit, o
                     scope.launch {
                         safe({
                             Repo.extendProjectEndDate(project.id, newDate, reason.ifBlank { null })
+                            onSaved()
+                        }) { error = it }
+                        busy = false
+                    }
+                },
+            ) { Text(if (busy) "Saving…" else "Save") }
+        },
+        dismissButton = { TextButton(enabled = !busy, onClick = onDismiss) { Text("Cancel") } },
+    )
+}
+
+@Composable
+private fun NextPaymentDateDialog(project: ProjectRow, onDismiss: () -> Unit, onSaved: () -> Unit) {
+    var date by remember { mutableStateOf(project.nextPaymentDate ?: "") }
+    var error by remember { mutableStateOf<String?>(null) }
+    var busy by remember { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
+
+    AlertDialog(
+        onDismissRequest = { if (!busy) onDismiss() },
+        title = { Text("Next payment date") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(
+                    "Shown to the client on their dashboard so they know when a payment is due.",
+                    style = MaterialTheme.typography.bodySmall,
+                )
+                DateField(date, { date = it }, "Next payment date")
+                error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+            }
+        },
+        confirmButton = {
+            TextButton(
+                enabled = !busy,
+                onClick = {
+                    busy = true
+                    scope.launch {
+                        safe({
+                            Repo.setNextPaymentDate(project.id, date.ifBlank { null })
                             onSaved()
                         }) { error = it }
                         busy = false

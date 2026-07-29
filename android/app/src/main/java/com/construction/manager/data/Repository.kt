@@ -285,6 +285,11 @@ object Repo {
             if (reason != null) put("extension_reason", reason)
         }) { filter { eq("id", projectId) } }
     }
+    suspend fun setNextPaymentDate(projectId: String, date: String?) {
+        supabase.from("projects").update(buildJsonObject {
+            if (date != null) put("next_payment_date", date) else put("next_payment_date", JsonNull)
+        }) { filter { eq("id", projectId) } }
+    }
     suspend fun createClient(name: String, email: String?, phone: String?, profileId: String?) {
         supabase.from("clients").insert(buildJsonObject {
             put("name", name)

@@ -472,6 +472,19 @@ export async function extendProjectEndDate(fd: FormData) {
   revalidatePath("/client");
 }
 
+export async function setNextPaymentDate(fd: FormData) {
+  const supabase = createSupabaseServerClient();
+  const id = str(fd, "id");
+  if (!id) throw new Error("project required");
+  const { error } = await supabase
+    .from("projects")
+    .update({ next_payment_date: str(fd, "next_payment_date") || null })
+    .eq("id", id);
+  if (error) throw new Error(error.message);
+  revalidatePath("/admin/projects");
+  revalidatePath("/client");
+}
+
 // The set_user_role RPC re-checks is_owner() server-side (08_owner_admin_approval.sql),
 // so this is a thin wrapper, not the actual security boundary -- a non-owner
 // calling it still gets rejected by the database.

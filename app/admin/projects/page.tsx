@@ -2,7 +2,7 @@ import Link from "next/link";
 import { createSupabaseServerClient, getSessionAndRole } from "@/lib/supabase/server";
 import { AdminPage, AdminPageHeader, DataTable, Field, Select, SubmitButton } from "@/components/admin/Page";
 import { DeleteForeverButton } from "@/components/admin/RowActions";
-import { createProject, extendProjectEndDate, archiveProject, unarchiveProject, deleteProject } from "../actions";
+import { createProject, extendProjectEndDate, setNextPaymentDate, archiveProject, unarchiveProject, deleteProject } from "../actions";
 
 export default async function ProjectsPage({
   searchParams,
@@ -16,7 +16,7 @@ export default async function ProjectsPage({
   const projectQuery = supabase
     .from("projects")
     .select(
-      "id, name, status, current_stage, completion_pct, total_cost, end_date, original_end_date, extension_reason, archived_at, clients(name)",
+      "id, name, status, current_stage, completion_pct, total_cost, end_date, original_end_date, extension_reason, next_payment_date, archived_at, clients(name)",
     )
     .order("created_at", { ascending: false });
 
@@ -187,6 +187,27 @@ export default async function ProjectsPage({
                           <button
                             type="submit"
                             className="rounded-lg bg-brand px-3 py-1.5 text-xs font-medium text-white hover:bg-brand-700"
+                          >
+                            Save
+                          </button>
+                        </div>
+                      </form>
+
+                      <form action={setNextPaymentDate} className="mt-3 border-t border-slate-100 pt-3">
+                        <input type="hidden" name="id" value={p.id} />
+                        <div className="flex flex-wrap items-end gap-2">
+                          <label className="text-xs">
+                            <span className="mb-1 block text-slate-600">Next payment date</span>
+                            <input
+                              type="date"
+                              name="next_payment_date"
+                              defaultValue={p.next_payment_date ?? ""}
+                              className="rounded-lg border border-[var(--line)] bg-white px-2 py-1 text-sm"
+                            />
+                          </label>
+                          <button
+                            type="submit"
+                            className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-100"
                           >
                             Save
                           </button>

@@ -60,6 +60,7 @@ data class ProjectRow(
     @SerialName("end_date") val endDate: String? = null,
     @SerialName("original_end_date") val originalEndDate: String? = null,
     @SerialName("extension_reason") val extensionReason: String? = null,
+    @SerialName("next_payment_date") val nextPaymentDate: String? = null,
     @SerialName("archived_at") val archivedAt: String? = null,
 ) {
     /** True once end_date has been pushed later than the originally planned date. */
