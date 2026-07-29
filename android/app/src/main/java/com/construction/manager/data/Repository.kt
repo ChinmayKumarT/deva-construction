@@ -433,6 +433,27 @@ object Repo {
                 order("created_at", Order.DESCENDING); limit(20)
             }.decodeList()
     }
+    suspend fun myMaterials(projectIds: List<String>): List<MaterialRow> {
+        if (projectIds.isEmpty()) return emptyList()
+        return supabase.from("materials")
+            .select {
+                filter {
+                    isIn("project_id", projectIds)
+                    filter("archived_at", FilterOperator.IS, "null")
+                }
+            }.decodeList()
+    }
+    suspend fun myPayments(projectIds: List<String>): List<PaymentRow> {
+        if (projectIds.isEmpty()) return emptyList()
+        return supabase.from("payments")
+            .select {
+                filter {
+                    isIn("project_id", projectIds)
+                    filter("archived_at", FilterOperator.IS, "null")
+                }
+                order("created_at", Order.DESCENDING)
+            }.decodeList()
+    }
     suspend fun supplierMaterials(supplierId: String) = supabase.from("materials")
         .select {
             filter {

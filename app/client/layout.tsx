@@ -12,6 +12,10 @@ const GROUPS: NavGroup[] = [
       { href: "/client#payments", label: "Payments", icon: "payments" },
     ],
   },
+  {
+    title: "Insights",
+    items: [{ href: "/client/reports", label: "Reports", icon: "reports" }],
+  },
 ];
 
 export default async function ClientLayout({ children }: { children: React.ReactNode }) {

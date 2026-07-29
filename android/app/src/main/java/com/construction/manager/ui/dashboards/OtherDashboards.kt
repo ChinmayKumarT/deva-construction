@@ -8,14 +8,22 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.platform.LocalContext
 import coil3.compose.AsyncImage
 import com.construction.manager.data.*
 import com.construction.manager.ui.AuthViewModel
+import com.construction.manager.ui.BudgetPie
+import com.construction.manager.ui.CompletionAndSpendPies
 import com.construction.manager.ui.DeleteAccountButton
 import com.construction.manager.ui.SectionTitle
 import com.construction.manager.ui.StatCard
 import com.construction.manager.ui.money
+import com.construction.manager.util.PdfExporter
+import com.construction.manager.util.PdfSiteDetail
+import com.construction.manager.util.PdfTransaction
+import com.construction.manager.util.PdfUpdate
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.time.LocalDate
 
 private val WageFactor = mapOf("present" to 1.0, "half_day" to 0.5, "absent" to 0.0)
@@ -244,16 +252,46 @@ fun ClientDashboard(vm: AuthViewModel) = RoleScaffold("Client", vm) { padding ->
     var client by remember { mutableStateOf<ClientRow?>(null) }
     var projects by remember { mutableStateOf<List<ProjectRow>>(emptyList()) }
     var updates by remember { mutableStateOf<List<ProjectUpdateRow>>(emptyList()) }
+    var materials by remember { mutableStateOf<List<MaterialRow>>(emptyList()) }
+    var payments by remember { mutableStateOf<List<PaymentRow>>(emptyList()) }
     var error by remember { mutableStateOf<String?>(null) }
+    var reportProject by remember { mutableStateOf<ProjectRow?>(null) }
     LaunchedEffect(Unit) {
         try {
             client = Repo.myClient()
             client?.let { c ->
                 projects = Repo.myProjects(c.id)
-                updates = Repo.myUpdates(projects.map { it.id })
+                val ids = projects.map { it.id }
+                updates = Repo.myUpdates(ids)
+                materials = Repo.myMaterials(ids)
+                payments = Repo.myPayments(ids)
             }
         } catch (e: Exception) { error = e.message }
     }
+    val spentByProject = projects.associate { p ->
+        val mat = materials.filter { it.projectId == p.id && it.status != "returned" }
+            .sumOf { it.quantity * it.unitCost }
+        // Labour only: supplier payments settle already-counted material costs.
+        val pay = payments.filter {
+            it.projectId == p.id && it.status in listOf("paid", "approved") &&
+                it.payeeType == "labour"
+        }.sumOf { it.amount }
+        p.id to mat + pay
+    }
+
+    val rp = reportProject
+    if (rp != null) {
+        ClientReportDetail(
+            project = rp,
+            spent = spentByProject[rp.id] ?: 0.0,
+            materials = materials.filter { it.projectId == rp.id },
+            payments = payments.filter { it.projectId == rp.id },
+            updates = updates.filter { it.projectId == rp.id },
+            onBack = { reportProject = null },
+        )
+        return@RoleScaffold
+    }
+
     Column(Modifier.padding(padding).verticalScroll(rememberScrollState())) {
         if (client == null) {
             Text("Account not linked to a client record yet.", Modifier.padding(16.dp))
@@ -308,6 +346,10 @@ fun ClientDashboard(vm: AuthViewModel) = RoleScaffold("Client", vm) { padding ->
                                 modifier = Modifier.padding(top = 4.dp),
                             )
                         }
+                        TextButton(
+                            onClick = { reportProject = p },
+                            modifier = Modifier.padding(top = 4.dp),
+                        ) { Text("View report") }
                     }
                 }
             }
@@ -327,6 +369,121 @@ fun ClientDashboard(vm: AuthViewModel) = RoleScaffold("Client", vm) { padding ->
                                 modifier = Modifier.fillMaxWidth().heightIn(max = 220.dp)
                                     .padding(top = 8.dp))
                         }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ClientReportDetail(
+    project: ProjectRow,
+    spent: Double,
+    materials: List<MaterialRow>,
+    payments: List<PaymentRow>,
+    updates: List<ProjectUpdateRow>,
+    onBack: () -> Unit,
+) {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    var exporting by remember { mutableStateOf(false) }
+
+    val transactions = remember(materials, payments) {
+        val materialTx = materials.map {
+            PdfTransaction(
+                type = "Material",
+                description = "${it.name} (${it.quantity} ${it.unit})",
+                date = it.deliveredAt ?: it.orderedAt ?: "no date",
+                status = it.status,
+                amount = it.quantity * it.unitCost,
+            )
+        }
+        val paymentTx = payments.map {
+            PdfTransaction(
+                type = if (it.payeeType == "labour") "Payment · labour" else "Payment · supplier",
+                description = it.description?.ifBlank { null } ?: "—",
+                date = it.createdAt ?: "no date",
+                status = it.status,
+                amount = it.amount,
+            )
+        }
+        (materialTx + paymentTx).sortedByDescending { it.date }
+    }
+
+    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
+        Row(
+            Modifier.fillMaxWidth().padding(horizontal = 8.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            TextButton(onClick = onBack) { Text("← Reports") }
+            TextButton(
+                enabled = !exporting,
+                onClick = {
+                    exporting = true
+                    scope.launch {
+                        val pdfUpdates = updates.map { u ->
+                            PdfUpdate(
+                                stage = u.stage,
+                                note = u.note,
+                                date = u.createdAt ?: "no date",
+                                image = u.imageUrl?.let { PdfExporter.downloadBitmap(it) },
+                            )
+                        }
+                        val uri = withContext(kotlinx.coroutines.Dispatchers.IO) {
+                            PdfExporter.exportSiteReport(
+                                context,
+                                projectName = project.name,
+                                status = project.status,
+                                completionPct = project.completionPct,
+                                budget = project.totalCost,
+                                spent = spent,
+                                detail = PdfSiteDetail(
+                                    client = null,
+                                    address = project.address,
+                                    stage = project.currentStage,
+                                    endDate = project.endDate,
+                                    extended = project.finishDateExtended,
+                                    originalEndDate = project.originalEndDate,
+                                    extensionReason = project.extensionReason,
+                                ),
+                                transactions = transactions,
+                                updates = pdfUpdates,
+                            )
+                        }
+                        PdfExporter.share(context, uri)
+                        exporting = false
+                    }
+                },
+            ) { Text(if (exporting) "Preparing…" else "Download PDF") }
+        }
+        SectionTitle(project.name)
+
+        CompletionAndSpendPies(
+            project.name, project.completionPct,
+            if (project.totalCost > 0) (spent / project.totalCost * 100)
+            else if (spent > 0) 999.0 else 0.0,
+        )
+        Divider()
+        BudgetPie(project.name, project.totalCost, spent)
+        Divider()
+
+        SectionTitle("Transactions (${transactions.size})")
+        if (transactions.isEmpty()) {
+            Text("No materials or payments recorded for this project yet.", Modifier.padding(16.dp))
+        } else {
+            transactions.forEach { t ->
+                ElevatedCard(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp)) {
+                    Row(
+                        Modifier.padding(12.dp).fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Column(Modifier.weight(1f)) {
+                            Text("${t.type} · ${t.description}", style = MaterialTheme.typography.titleSmall)
+                            Text("${t.date} · ${t.status}", style = MaterialTheme.typography.bodySmall)
+                        }
+                        Text(money(t.amount), style = MaterialTheme.typography.bodyMedium)
                     }
                 }
             }
