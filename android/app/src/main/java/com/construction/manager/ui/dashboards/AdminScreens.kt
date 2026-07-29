@@ -829,12 +829,14 @@ fun AdminLabourers(isOwner: Boolean = false) {
     var phone by remember { mutableStateOf("") }
     var wage by remember { mutableStateOf("") }
     var active by remember { mutableStateOf(true) }
+    var category by remember { mutableStateOf("None") }
 
     FormColumn {
         ArchivedSwitch(showArchived) { showArchived = !showArchived }
         if (!showArchived) {
             SectionTitle("Add labourer")
             TextField(name, { name = it }, "Name")
+            Dropdown("Category", WorkCategories, category, { it }, { category = it })
             TextField(phone, { phone = it }, "Phone")
             NumberField(wage, { wage = it }, "Daily wage")
             Row(Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
@@ -845,8 +847,8 @@ fun AdminLabourers(isOwner: Boolean = false) {
                 scope.launch {
                     safe({
                         Repo.createLabourer(name, phone.ifBlank { null },
-                            wage.toDoubleOrNull() ?: 0.0, active)
-                        name = ""; phone = ""; wage = ""; version++
+                            wage.toDoubleOrNull() ?: 0.0, active, category.takeIf { it != "None" })
+                        name = ""; phone = ""; wage = ""; category = "None"; version++
                     }) { error = it }
                 }
             }, modifier = Modifier.padding(16.dp)) { Text("Create") }
@@ -863,7 +865,9 @@ fun AdminLabourers(isOwner: Boolean = false) {
         }
         rows.forEach { l ->
             ItemCard(
-                l.name, "${l.phone ?: "—"} · ${if (l.active) "active" else "inactive"}",
+                l.name,
+                listOfNotNull(l.category, l.phone ?: "—", if (l.active) "active" else "inactive")
+                    .joinToString(" · "),
                 money(l.dailyWage),
                 actions = {
                     EntityActions(
@@ -916,6 +920,7 @@ private fun EditLabourerDialog(labourer: LabourerRow, onDismiss: () -> Unit, onS
     var phone by remember { mutableStateOf(labourer.phone ?: "") }
     var wage by remember { mutableStateOf(labourer.dailyWage.toString()) }
     var active by remember { mutableStateOf(labourer.active) }
+    var category by remember { mutableStateOf(labourer.category ?: "None") }
     var error by remember { mutableStateOf<String?>(null) }
     var busy by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
@@ -929,7 +934,7 @@ private fun EditLabourerDialog(labourer: LabourerRow, onDismiss: () -> Unit, onS
                 safe({
                     Repo.updateLabourer(
                         labourer.id, name, phone.ifBlank { null },
-                        wage.toDoubleOrNull() ?: 0.0, active,
+                        wage.toDoubleOrNull() ?: 0.0, active, category.takeIf { it != "None" },
                     )
                     onSaved()
                 }) { error = it }
@@ -938,6 +943,7 @@ private fun EditLabourerDialog(labourer: LabourerRow, onDismiss: () -> Unit, onS
         },
     ) {
         DialogField(name, { name = it }, "Name")
+        Dropdown("Category", WorkCategories, category, { it }, { category = it })
         DialogField(phone, { phone = it }, "Phone")
         OutlinedTextField(
             value = wage,

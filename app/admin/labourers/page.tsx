@@ -2,6 +2,7 @@ import { createSupabaseServerClient, getSessionAndRole } from "@/lib/supabase/se
 import { AdminPage, AdminPageHeader, DataTable, Field, Select, SubmitButton } from "@/components/admin/Page";
 import { ArchivedToggle, DeleteForeverButton, ManageCard, ManageSection, RestoreAction, RowActions } from "@/components/admin/RowActions";
 import { assignLabourer, createLabourer, archiveLabourer, unarchiveLabourer, deleteLabourer } from "../actions";
+import { WORK_CATEGORIES } from "@/lib/workCategories";
 
 export default async function LabourersPage({
   searchParams,
@@ -14,7 +15,7 @@ export default async function LabourersPage({
 
   const base = supabase
     .from("labourers")
-    .select("id, name, phone, daily_wage, active, profile_id, archived_at")
+    .select("id, name, phone, daily_wage, active, category, profile_id, archived_at")
     .order("created_at", { ascending: false });
 
   const [{ data: labourers }, { data: projects }, { data: assignments }, { count: archivedCount }] =
@@ -39,6 +40,7 @@ export default async function LabourersPage({
   const rows =
     labourers?.map((l) => [
       l.name,
+      l.category ?? "—",
       l.phone,
       `₹${Number(l.daily_wage).toLocaleString()}`,
       currentSite.get(l.id) ?? "—",
@@ -63,6 +65,10 @@ export default async function LabourersPage({
       {!showArchived && (
         <form action={createLabourer} className="mb-8 grid gap-4 rounded-xl border border-slate-200 bg-white p-6 sm:grid-cols-2 lg:grid-cols-3">
           <Field label="Name" name="name" required />
+          <Select label="Category" name="category" defaultValue="">
+            <option value="">— none —</option>
+            {WORK_CATEGORIES.map((c) => (<option key={c} value={c}>{c}</option>))}
+          </Select>
           <Field label="Phone" name="phone" />
           <Field label="Daily wage (₹)" name="daily_wage" type="number" step="0.01" />
           <label className="flex items-center gap-2 text-sm text-slate-700">
@@ -76,7 +82,7 @@ export default async function LabourersPage({
       )}
 
       <DataTable
-        columns={["Name", "Phone", "Daily wage", "Current site", "Status"]}
+        columns={["Name", "Category", "Phone", "Daily wage", "Current site", "Status"]}
         rows={rows}
         empty={showArchived ? "No archived labourers." : "No labourers yet."}
       />

@@ -198,6 +198,7 @@ export async function updateLabourer(fd: FormData) {
     phone: str(fd, "phone"),
     daily_wage: num(fd, "daily_wage") ?? 0,
     active: fd.get("active") === "on",
+    category: str(fd, "category"),
   });
   redirect("/admin/labourers");
 }
@@ -511,6 +512,7 @@ export async function createLabourer(fd: FormData) {
     phone: str(fd, "phone"),
     daily_wage: num(fd, "daily_wage") ?? 0,
     active: fd.get("active") === "on",
+    category: str(fd, "category"),
   });
   if (error) throw new Error(error.message);
   revalidatePath("/admin/labourers");

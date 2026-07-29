@@ -42,6 +42,7 @@ data class LabourerRow(
     val phone: String? = null,
     @SerialName("daily_wage") val dailyWage: Double = 0.0,
     val active: Boolean = true,
+    val category: String? = null,
     @SerialName("profile_id") val profileId: String? = null,
     @SerialName("archived_at") val archivedAt: String? = null,
 )

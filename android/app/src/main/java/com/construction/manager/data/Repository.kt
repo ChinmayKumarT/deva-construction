@@ -59,10 +59,13 @@ object Repo {
             put("name", name); put("email", email); put("phone", phone)
         }) { filter { eq("id", id) } }
     }
-    suspend fun updateLabourer(id: String, name: String, phone: String?, dailyWage: Double, active: Boolean) {
+    suspend fun updateLabourer(
+        id: String, name: String, phone: String?, dailyWage: Double, active: Boolean, category: String?,
+    ) {
         supabase.from("labourers").update(buildJsonObject {
             put("name", name); put("phone", phone)
             put("daily_wage", dailyWage); put("active", active)
+            put("category", category)
         }) { filter { eq("id", id) } }
     }
     suspend fun updateMaterial(
@@ -319,12 +322,15 @@ object Repo {
     // No profileId: labourers don't sign in -- the site manager records their
     // attendance and wages -- so there's no login to link. The profile_id
     // column stays in the table for future biometric identity linking.
-    suspend fun createLabourer(name: String, phone: String?, dailyWage: Double, active: Boolean) {
+    suspend fun createLabourer(
+        name: String, phone: String?, dailyWage: Double, active: Boolean, category: String?,
+    ) {
         supabase.from("labourers").insert(buildJsonObject {
             put("name", name)
             if (phone != null) put("phone", phone)
             put("daily_wage", dailyWage)
             put("active", active)
+            if (category != null) put("category", category)
         })
     }
     suspend fun createMaterial(projectId: String, supplierId: String?, name: String,
