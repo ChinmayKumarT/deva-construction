@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useMemo, useState } from "react";
 import { SubmitButton } from "@/components/admin/Page";
 import { WORK_CATEGORIES } from "@/lib/workCategories";
@@ -20,29 +21,45 @@ type Material = {
   project_id: string | null;
 };
 
-export function CreatePaymentForm({
+type Initial = {
+  payeeType: string;
+  projectId: string;
+  amount: string;
+  supplierId: string;
+  labourerId: string;
+  description: string;
+  workCategory: string;
+};
+
+function PaymentFormFields({
   action,
   projects,
   suppliers,
   labourers,
   materials,
-  defaultProjectId,
+  initial,
+  paymentId,
+  submitLabel,
+  cancelHref,
 }: {
   action: (fd: FormData) => Promise<void>;
   projects: { id: string; name: string }[];
   suppliers: { id: string; name: string }[];
   labourers: { id: string; name: string }[];
   materials: Material[];
-  defaultProjectId: string;
+  initial: Initial;
+  paymentId?: string;
+  submitLabel: string;
+  cancelHref?: string;
 }) {
-  const [projectId, setProjectId] = useState(defaultProjectId);
+  const [projectId, setProjectId] = useState(initial.projectId);
   const [purchaseId, setPurchaseId] = useState("none");
-  const [payeeType, setPayeeType] = useState("supplier");
-  const [supplierId, setSupplierId] = useState("none");
-  const [labourerId, setLabourerId] = useState("none");
-  const [amount, setAmount] = useState("");
-  const [description, setDescription] = useState("");
-  const [workCategory, setWorkCategory] = useState("");
+  const [payeeType, setPayeeType] = useState(initial.payeeType);
+  const [supplierId, setSupplierId] = useState(initial.supplierId);
+  const [labourerId, setLabourerId] = useState(initial.labourerId);
+  const [amount, setAmount] = useState(initial.amount);
+  const [description, setDescription] = useState(initial.description);
+  const [workCategory, setWorkCategory] = useState(initial.workCategory);
 
   const projectMaterials = useMemo(
     () => materials.filter((m) => projectId !== "none" && m.project_id === projectId),
@@ -68,6 +85,7 @@ export function CreatePaymentForm({
 
   return (
     <form action={action} className="mb-8 grid gap-4 rounded-xl border border-slate-200 bg-white p-6 sm:grid-cols-2 lg:grid-cols-3">
+      {paymentId && <input type="hidden" name="id" value={paymentId} />}
       <label className="block text-sm">
         <span className="mb-1 block font-medium text-slate-700">Payee type</span>
         <select
@@ -178,9 +196,82 @@ export function CreatePaymentForm({
         </select>
       </label>
 
-      <div className="sm:col-span-2 lg:col-span-3">
-        <SubmitButton>Create payment</SubmitButton>
+      <div className="flex items-center gap-3 sm:col-span-2 lg:col-span-3">
+        <SubmitButton>{submitLabel}</SubmitButton>
+        {cancelHref && (
+          <Link href={cancelHref} className="text-sm text-slate-600 hover:underline">Cancel</Link>
+        )}
       </div>
     </form>
+  );
+}
+
+export function CreatePaymentForm({
+  action,
+  projects,
+  suppliers,
+  labourers,
+  materials,
+  defaultProjectId,
+}: {
+  action: (fd: FormData) => Promise<void>;
+  projects: { id: string; name: string }[];
+  suppliers: { id: string; name: string }[];
+  labourers: { id: string; name: string }[];
+  materials: Material[];
+  defaultProjectId: string;
+}) {
+  return (
+    <PaymentFormFields
+      action={action}
+      projects={projects}
+      suppliers={suppliers}
+      labourers={labourers}
+      materials={materials}
+      initial={{
+        payeeType: "supplier",
+        projectId: defaultProjectId,
+        amount: "",
+        supplierId: "none",
+        labourerId: "none",
+        description: "",
+        workCategory: "",
+      }}
+      submitLabel="Create payment"
+    />
+  );
+}
+
+export function EditPaymentForm({
+  action,
+  projects,
+  suppliers,
+  labourers,
+  materials,
+  paymentId,
+  initial,
+  cancelHref,
+}: {
+  action: (fd: FormData) => Promise<void>;
+  projects: { id: string; name: string }[];
+  suppliers: { id: string; name: string }[];
+  labourers: { id: string; name: string }[];
+  materials: Material[];
+  paymentId: string;
+  initial: Initial;
+  cancelHref: string;
+}) {
+  return (
+    <PaymentFormFields
+      action={action}
+      projects={projects}
+      suppliers={suppliers}
+      labourers={labourers}
+      materials={materials}
+      initial={initial}
+      paymentId={paymentId}
+      submitLabel="Save changes"
+      cancelHref={cancelHref}
+    />
   );
 }

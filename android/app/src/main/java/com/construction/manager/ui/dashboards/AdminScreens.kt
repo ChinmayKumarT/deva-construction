@@ -1281,7 +1281,10 @@ fun AdminPayments(isOwner: Boolean = false, initialProjectFilter: ProjectRow? = 
     }
 
     editing?.let { p ->
-        EditPaymentDialog(p, onDismiss = { editing = null }, onSaved = { editing = null; version++ })
+        EditPaymentDialog(
+            p, projects, suppliers, labourers, materials,
+            onDismiss = { editing = null }, onSaved = { editing = null; version++ },
+        )
     }
     archiving?.let { p ->
         ArchiveConfirmDialog(
@@ -1307,13 +1310,27 @@ fun AdminPayments(isOwner: Boolean = false, initialProjectFilter: ProjectRow? = 
 }
 
 @Composable
-private fun EditPaymentDialog(payment: PaymentRow, onDismiss: () -> Unit, onSaved: () -> Unit) {
+private fun EditPaymentDialog(
+    payment: PaymentRow,
+    projects: List<ProjectRow>,
+    suppliers: List<SupplierRow>,
+    labourers: List<LabourerRow>,
+    materials: List<MaterialRow>,
+    onDismiss: () -> Unit,
+    onSaved: () -> Unit,
+) {
+    var payeeType by remember { mutableStateOf(payment.payeeType) }
+    var project by remember { mutableStateOf(projects.find { it.id == payment.projectId }) }
+    var supplier by remember { mutableStateOf(suppliers.find { it.id == payment.supplierId }) }
+    var labourer by remember { mutableStateOf(labourers.find { it.id == payment.labourerId }) }
+    var purchase by remember { mutableStateOf<MaterialRow?>(null) }
     var amount by remember { mutableStateOf(payment.amount.toString()) }
     var desc by remember { mutableStateOf(payment.description ?: "") }
     var workCategory by remember { mutableStateOf(payment.workCategory ?: "None") }
     var error by remember { mutableStateOf<String?>(null) }
     var busy by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
+    val projectMaterials = project?.let { pr -> materials.filter { it.projectId == pr.id } } ?: emptyList()
 
     EditDialog(
         title = "Edit payment", busy = busy, error = error,
@@ -1324,7 +1341,8 @@ private fun EditPaymentDialog(payment: PaymentRow, onDismiss: () -> Unit, onSave
             scope.launch {
                 safe({
                     Repo.updatePayment(
-                        payment.id, amount.toDoubleOrNull() ?: 0.0, desc.ifBlank { null },
+                        payment.id, project?.id, payeeType, supplier?.id, labourer?.id,
+                        amount.toDoubleOrNull() ?: 0.0, desc.ifBlank { null },
                         workCategory.takeIf { it != "None" },
                     )
                     onSaved()
@@ -1333,6 +1351,24 @@ private fun EditPaymentDialog(payment: PaymentRow, onDismiss: () -> Unit, onSave
             }
         },
     ) {
+        Dropdown("Payee type", listOf("supplier","labour"), payeeType, { it }, { payeeType = it })
+        Dropdown("Project", projects, project, { it.name }, { project = it; purchase = null })
+        Dropdown(
+            "Purchase (optional)", projectMaterials, purchase,
+            { m -> "${m.name} (${m.quantity} ${m.unit}) — ${money(m.quantity * m.unitCost)}" },
+            { m ->
+                purchase = m
+                payeeType = "supplier"
+                supplier = suppliers.find { it.id == m.supplierId }
+                amount = (m.quantity * m.unitCost).toString()
+                desc = "${m.name} (${m.quantity} ${m.unit})"
+                workCategory = m.workCategory ?: "None"
+            },
+        )
+        if (payeeType == "supplier")
+            Dropdown("Supplier", suppliers, supplier, { it.name }, { supplier = it })
+        else
+            Dropdown("Labourer", labourers, labourer, { it.name }, { labourer = it })
         OutlinedTextField(
             value = amount,
             onValueChange = { s -> if (s.isEmpty() || s.toDoubleOrNull() != null) amount = s },

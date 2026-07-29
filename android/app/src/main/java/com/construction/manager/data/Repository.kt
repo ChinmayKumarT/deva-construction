@@ -75,8 +75,15 @@ object Repo {
             put("status", status); put("work_category", workCategory)
         }) { filter { eq("id", id) } }
     }
-    suspend fun updatePayment(id: String, amount: Double, description: String?, workCategory: String?) {
+    suspend fun updatePayment(
+        id: String, projectId: String?, payeeType: String, supplierId: String?, labourerId: String?,
+        amount: Double, description: String?, workCategory: String?,
+    ) {
         supabase.from("payments").update(buildJsonObject {
+            put("project_id", projectId)
+            put("payee_type", payeeType)
+            put("supplier_id", if (payeeType == "supplier") supplierId else null)
+            put("labourer_id", if (payeeType == "labour") labourerId else null)
             put("amount", amount); put("description", description)
             put("work_category", workCategory)
         }) { filter { eq("id", id) } }
