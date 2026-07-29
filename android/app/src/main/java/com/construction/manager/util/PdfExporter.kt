@@ -39,7 +39,9 @@ data class PdfSiteDetail(
 )
 data class PdfUpdate(val stage: String?, val note: String?, val date: String, val image: android.graphics.Bitmap?)
 data class PdfCashFlowCategory(val label: String, val value: Double, val color: Int)
-data class PdfCashFlowProject(val name: String, val materials: Double, val supplier: Double, val labour: Double)
+data class PdfCashFlowProject(
+    val name: String, val materials: Double, val supplier: Double, val labour: Double, val wages: Double,
+)
 
 object PdfExporter {
 
@@ -395,7 +397,7 @@ object PdfExporter {
             w.canvas.drawText("Total outflow: ${money(total)}", MARGIN, w.y, summaryPaint)
             w.y += 26f
 
-            val cashFlowCols = listOf(160f, 90f, 100f, 90f, 90f)
+            val cashFlowCols = listOf(130f, 75f, 85f, 75f, 75f, 80f)
             val headBg = Paint().apply { color = BrandColor }
             w.ensureSpace(24f)
             w.canvas.drawRect(MARGIN, w.y - 12f, PAGE_W - MARGIN, w.y + 4f, headBg)
@@ -403,7 +405,8 @@ object PdfExporter {
                 w.canvas, w.y,
                 listOf(
                     "Project" to cashFlowCols[0], "Materials" to cashFlowCols[1],
-                    "Supplier" to cashFlowCols[2], "Labour" to cashFlowCols[3], "Total" to cashFlowCols[4],
+                    "Supplier" to cashFlowCols[2], "Labour" to cashFlowCols[3],
+                    "Wages" to cashFlowCols[4], "Total" to cashFlowCols[5],
                 ),
                 bold = true, color = Color.WHITE,
             )
@@ -419,7 +422,8 @@ object PdfExporter {
                     listOf(
                         p.name to cashFlowCols[0], money(p.materials) to cashFlowCols[1],
                         money(p.supplier) to cashFlowCols[2], money(p.labour) to cashFlowCols[3],
-                        money(p.materials + p.supplier + p.labour) to cashFlowCols[4],
+                        money(p.wages) to cashFlowCols[4],
+                        money(p.materials + p.supplier + p.labour + p.wages) to cashFlowCols[5],
                     ),
                 )
                 w.y += 16f

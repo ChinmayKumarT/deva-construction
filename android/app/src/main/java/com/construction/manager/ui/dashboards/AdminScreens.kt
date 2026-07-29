@@ -1962,15 +1962,18 @@ private fun weeklyLabourRows(labourers: List<LabourerRow>, weekAttendance: List<
 // labour payments are each their own outflow category, not summed into one
 // blended spend figure.
 private data class CashFlowTotals(
-    val materials: Double, val supplier: Double, val labour: Double,
+    val materials: Double, val supplier: Double, val labour: Double, val wages: Double,
     val byProjectMaterials: Map<String, Double>,
     val byProjectSupplier: Map<String, Double>,
     val byProjectLabour: Map<String, Double>,
+    val byProjectWages: Map<String, Double>,
 )
 
 private fun computeCashFlow(
     materials: List<MaterialRow>,
     payments: List<PaymentRow>,
+    attendance: List<AttendanceRow>,
+    labourerWage: Map<String, Double>,
     from: String,
     to: String,
     projectId: String? = null,
@@ -1978,9 +1981,11 @@ private fun computeCashFlow(
     val byProjectMaterials = mutableMapOf<String, Double>()
     val byProjectSupplier = mutableMapOf<String, Double>()
     val byProjectLabour = mutableMapOf<String, Double>()
+    val byProjectWages = mutableMapOf<String, Double>()
     var materialsTotal = 0.0
     var supplierTotal = 0.0
     var labourTotal = 0.0
+    var wagesTotal = 0.0
 
     materials.forEach { m ->
         val pid = m.projectId ?: return@forEach
@@ -2009,17 +2014,32 @@ private fun computeCashFlow(
             }
         }
     }
-    return CashFlowTotals(materialsTotal, supplierTotal, labourTotal, byProjectMaterials, byProjectSupplier, byProjectLabour)
+    attendance.forEach { a ->
+        val pid = a.projectId ?: return@forEach
+        if (projectId != null && pid != projectId) return@forEach
+        if (a.date < from || a.date > to) return@forEach
+        val amount = (ReportWageFactor[a.status] ?: 0.0) * (labourerWage[a.labourerId] ?: 0.0)
+        if (amount <= 0.0) return@forEach
+        wagesTotal += amount
+        byProjectWages[pid] = (byProjectWages[pid] ?: 0.0) + amount
+    }
+    return CashFlowTotals(
+        materialsTotal, supplierTotal, labourTotal, wagesTotal,
+        byProjectMaterials, byProjectSupplier, byProjectLabour, byProjectWages,
+    )
 }
 
 private val CashFlowMaterialsColor = androidx.compose.ui.graphics.Color(0xFF16A34A)
 private val CashFlowSupplierColor = androidx.compose.ui.graphics.Color(0xFFF59E0B)
 private val CashFlowLabourColor = androidx.compose.ui.graphics.Color(0xFF0EA5E9)
+private val CashFlowWagesColor = androidx.compose.ui.graphics.Color(0xFFA855F7)
 
 @Composable
 fun AdminCashFlow() {
     var materials by remember { mutableStateOf<List<MaterialRow>>(emptyList()) }
     var payments by remember { mutableStateOf<List<PaymentRow>>(emptyList()) }
+    var attendance by remember { mutableStateOf<List<AttendanceRow>>(emptyList()) }
+    var labourers by remember { mutableStateOf<List<LabourerRow>>(emptyList()) }
     var projects by remember { mutableStateOf<List<ProjectRow>>(emptyList()) }
     var error by remember { mutableStateOf<String?>(null) }
     val today = remember { LocalDate.now() }
@@ -2031,15 +2051,21 @@ fun AdminCashFlow() {
         safe({
             materials = Repo.listMaterials()
             payments = Repo.listPayments()
+            attendance = Repo.listAllAttendance()
+            labourers = Repo.listLabourers()
             projects = Repo.listProjects()
         }) { error = it }
     }
 
-    val cashFlow = remember(materials, payments, from, to) {
-        computeCashFlow(materials, payments, from, to)
+    val wageById = labourers.associate { it.id to it.dailyWage }
+    val cashFlow = remember(materials, payments, attendance, labourers, from, to) {
+        computeCashFlow(materials, payments, attendance, wageById, from, to)
     }
     val projectName = projects.associate { it.id to it.name }
-    val projectIds = (cashFlow.byProjectMaterials.keys + cashFlow.byProjectSupplier.keys + cashFlow.byProjectLabour.keys).distinct()
+    val projectIds = (
+        cashFlow.byProjectMaterials.keys + cashFlow.byProjectSupplier.keys +
+            cashFlow.byProjectLabour.keys + cashFlow.byProjectWages.keys
+        ).distinct()
 
     FormColumn {
         error?.let { Text(it, color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(16.dp)) }
@@ -2058,14 +2084,16 @@ fun AdminCashFlow() {
                         PdfCashFlowCategory("Materials", cashFlow.materials, android.graphics.Color.parseColor("#16A34A")),
                         PdfCashFlowCategory("Supplier payments", cashFlow.supplier, android.graphics.Color.parseColor("#F59E0B")),
                         PdfCashFlowCategory("Labour payments", cashFlow.labour, android.graphics.Color.parseColor("#0EA5E9")),
+                        PdfCashFlowCategory("Wages (attendance)", cashFlow.wages, android.graphics.Color.parseColor("#A855F7")),
                     ),
-                    total = cashFlow.materials + cashFlow.supplier + cashFlow.labour,
+                    total = cashFlow.materials + cashFlow.supplier + cashFlow.labour + cashFlow.wages,
                     projects = projectIds.map { id ->
                         PdfCashFlowProject(
                             projectName[id] ?: "—",
                             cashFlow.byProjectMaterials[id] ?: 0.0,
                             cashFlow.byProjectSupplier[id] ?: 0.0,
                             cashFlow.byProjectLabour[id] ?: 0.0,
+                            cashFlow.byProjectWages[id] ?: 0.0,
                         )
                     },
                 )
@@ -2079,10 +2107,11 @@ fun AdminCashFlow() {
                 CashFlowCategory("Materials", cashFlow.materials, CashFlowMaterialsColor),
                 CashFlowCategory("Supplier", cashFlow.supplier, CashFlowSupplierColor),
                 CashFlowCategory("Labour", cashFlow.labour, CashFlowLabourColor),
+                CashFlowCategory("Wages", cashFlow.wages, CashFlowWagesColor),
             ),
         )
         Text(
-            "Total outflow: ${money(cashFlow.materials + cashFlow.supplier + cashFlow.labour)}",
+            "Total outflow: ${money(cashFlow.materials + cashFlow.supplier + cashFlow.labour + cashFlow.wages)}",
             style = MaterialTheme.typography.bodyMedium,
             modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
         )
@@ -2096,10 +2125,11 @@ fun AdminCashFlow() {
                 val mat = cashFlow.byProjectMaterials[id] ?: 0.0
                 val sup = cashFlow.byProjectSupplier[id] ?: 0.0
                 val lab = cashFlow.byProjectLabour[id] ?: 0.0
+                val wag = cashFlow.byProjectWages[id] ?: 0.0
                 ItemCard(
                     projectName[id] ?: "—",
-                    "Materials ${money(mat)} · Supplier ${money(sup)} · Labour ${money(lab)}",
-                    money(mat + sup + lab),
+                    "Materials ${money(mat)} · Supplier ${money(sup)} · Labour ${money(lab)} · Wages ${money(wag)}",
+                    money(mat + sup + lab + wag),
                 )
             }
         }
@@ -2326,18 +2356,19 @@ private fun SiteReportDetail(
         DateField(cfFrom, { cfFrom = it }, "From", Modifier.weight(1f))
         DateField(cfTo, { cfTo = it }, "To", Modifier.weight(1f))
     }
-    val projectCashFlow = remember(materials, payments, cfFrom, cfTo) {
-        computeCashFlow(materials, payments, cfFrom, cfTo, project.id)
+    val projectCashFlow = remember(materials, payments, attendance, cfFrom, cfTo) {
+        computeCashFlow(materials, payments, attendance, labourerWage, cfFrom, cfTo, project.id)
     }
     CashFlowBarChart(
         listOf(
             CashFlowCategory("Materials", projectCashFlow.materials, CashFlowMaterialsColor),
             CashFlowCategory("Supplier", projectCashFlow.supplier, CashFlowSupplierColor),
             CashFlowCategory("Labour", projectCashFlow.labour, CashFlowLabourColor),
+            CashFlowCategory("Wages", projectCashFlow.wages, CashFlowWagesColor),
         ),
     )
     Text(
-        "Total outflow: ${money(projectCashFlow.materials + projectCashFlow.supplier + projectCashFlow.labour)}",
+        "Total outflow: ${money(projectCashFlow.materials + projectCashFlow.supplier + projectCashFlow.labour + projectCashFlow.wages)}",
         style = MaterialTheme.typography.bodyMedium,
         modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
     )

@@ -7,6 +7,7 @@ import { computeCashFlow, defaultCashFlowRange } from "@/lib/cashflow";
 const MATERIALS_COLOR = "#16a34a";
 const SUPPLIER_COLOR = "#F59E0B";
 const LABOUR_COLOR = "#0EA5E9";
+const WAGES_COLOR = "#A855F7";
 
 export default async function CashFlowPage({
   searchParams,
@@ -28,18 +29,21 @@ export default async function CashFlowPage({
     ...cashFlow.byProjectMaterials.keys(),
     ...cashFlow.byProjectSupplier.keys(),
     ...cashFlow.byProjectLabour.keys(),
+    ...cashFlow.byProjectWages.keys(),
   ]);
 
   const rows = Array.from(projectIds).map((id) => {
     const materials = cashFlow.byProjectMaterials.get(id) ?? 0;
     const supplier = cashFlow.byProjectSupplier.get(id) ?? 0;
     const labour = cashFlow.byProjectLabour.get(id) ?? 0;
+    const wages = cashFlow.byProjectWages.get(id) ?? 0;
     return [
       projectName.get(id) ?? "—",
       `₹${materials.toLocaleString()}`,
       `₹${supplier.toLocaleString()}`,
       `₹${labour.toLocaleString()}`,
-      `₹${(materials + supplier + labour).toLocaleString()}`,
+      `₹${wages.toLocaleString()}`,
+      `₹${(materials + supplier + labour + wages).toLocaleString()}`,
     ];
   });
 
@@ -47,6 +51,7 @@ export default async function CashFlowPage({
     { label: "Materials", value: cashFlow.materialsCost, color: MATERIALS_COLOR },
     { label: "Supplier payments", value: cashFlow.supplierPayments, color: SUPPLIER_COLOR },
     { label: "Labour payments", value: cashFlow.labourPayments, color: LABOUR_COLOR },
+    { label: "Wages (attendance)", value: cashFlow.wages, color: WAGES_COLOR },
   ];
 
   const pdfData = {
@@ -58,6 +63,7 @@ export default async function CashFlowPage({
       materials: cashFlow.byProjectMaterials.get(id) ?? 0,
       supplier: cashFlow.byProjectSupplier.get(id) ?? 0,
       labour: cashFlow.byProjectLabour.get(id) ?? 0,
+      wages: cashFlow.byProjectWages.get(id) ?? 0,
     })),
   };
 
@@ -65,7 +71,7 @@ export default async function CashFlowPage({
     <AdminPage>
       <AdminPageHeader
         title="Cash flow"
-        subtitle="Money going out over a date range: materials cost, supplier payments and labour payments, shown separately."
+        subtitle="Money going out over a date range: materials cost, supplier payments, labour payments and attendance wages, shown separately."
       />
 
       <form method="get" className="mb-8 flex flex-wrap items-end gap-4 rounded-xl border border-slate-200 bg-white p-6">
@@ -80,10 +86,11 @@ export default async function CashFlowPage({
         </div>
       </form>
 
-      <section className="mb-8 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      <section className="mb-8 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
         <SummaryCard label="Materials cost" value={cashFlow.materialsCost} />
         <SummaryCard label="Supplier payments" value={cashFlow.supplierPayments} />
         <SummaryCard label="Labour payments" value={cashFlow.labourPayments} />
+        <SummaryCard label="Wages (attendance)" value={cashFlow.wages} />
         <SummaryCard label="Total outflow" value={cashFlow.total} accent />
       </section>
 
@@ -94,7 +101,7 @@ export default async function CashFlowPage({
 
       <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-500">By project</h2>
       <DataTable
-        columns={["Project", "Materials", "Supplier payments", "Labour payments", "Total"]}
+        columns={["Project", "Materials", "Supplier payments", "Labour payments", "Wages (attendance)", "Total"]}
         rows={rows}
         empty="No outflow recorded in this date range."
       />

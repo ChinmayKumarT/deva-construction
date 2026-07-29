@@ -425,7 +425,7 @@ export async function downloadCashFlowPdf(data: {
   to: string;
   bars: { label: string; value: number; color: string }[];
   total: number;
-  projects: { name: string; materials: number; supplier: number; labour: number }[];
+  projects: { name: string; materials: number; supplier: number; labour: number; wages: number }[];
 }) {
   const { doc, autoTable } = await buildPdf();
   header(doc, "Cash flow", `${data.from} to ${data.to}`);
@@ -439,13 +439,14 @@ export async function downloadCashFlowPdf(data: {
 
   autoTable(doc, {
     startY: 75 + imgHeight + 35,
-    head: [["Project", "Materials", "Supplier payments", "Labour payments", "Total"]],
+    head: [["Project", "Materials", "Supplier payments", "Labour payments", "Wages (attendance)", "Total"]],
     body: data.projects.map((p) => [
       p.name,
       `Rs ${p.materials.toLocaleString()}`,
       `Rs ${p.supplier.toLocaleString()}`,
       `Rs ${p.labour.toLocaleString()}`,
-      `Rs ${(p.materials + p.supplier + p.labour).toLocaleString()}`,
+      `Rs ${p.wages.toLocaleString()}`,
+      `Rs ${(p.materials + p.supplier + p.labour + p.wages).toLocaleString()}`,
     ]),
     headStyles: { fillColor: [22, 163, 74] },
     styles: { fontSize: 9 },
