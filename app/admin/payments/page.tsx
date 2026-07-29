@@ -7,6 +7,12 @@ import {
   archivePayment, unarchivePayment,
 } from "../actions";
 
+// Without this, Next.js can cache the underlying Supabase fetch and serve a
+// stale render when navigating between filtered/unfiltered views of this page
+// (e.g. "Clear filter" appearing to do nothing).
+export const dynamic = "force-dynamic";
+export const fetchCache = "force-no-store";
+
 const STATUS_STYLE: Record<string, string> = {
   pending: "bg-amber-50 text-amber-700 border-amber-200",
   approved: "bg-blue-50 text-blue-700 border-blue-200",
@@ -56,7 +62,7 @@ export default async function PaymentsPage({
       {filteredProjectName && (
         <div className="mb-4 flex items-center justify-between rounded-lg border border-brand-200 bg-brand-50 px-4 py-2 text-sm text-brand-800">
           <span>Showing payments for <strong>{filteredProjectName}</strong>{showArchived ? " (archived)" : ""}.</span>
-          <a href={showArchived ? "/admin/payments?archived=1" : "/admin/payments"} className="font-medium hover:underline">Clear filter</a>
+          <a href="/admin/payments" className="font-medium hover:underline">Clear filter</a>
         </div>
       )}
 

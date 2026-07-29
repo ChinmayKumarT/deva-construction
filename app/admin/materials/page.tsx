@@ -3,6 +3,12 @@ import { AdminPage, AdminPageHeader, DataTable, Field, Select, SubmitButton } fr
 import { ArchivedToggle, ManageCard, ManageSection, RestoreAction, RowActions } from "@/components/admin/RowActions";
 import { createMaterial, markMaterialDelivered, archiveMaterial, unarchiveMaterial } from "../actions";
 
+// Without this, Next.js can cache the underlying Supabase fetch and serve a
+// stale render when navigating between filtered/unfiltered views of this page
+// (e.g. "Clear filter" appearing to do nothing).
+export const dynamic = "force-dynamic";
+export const fetchCache = "force-no-store";
+
 export default async function MaterialsPage({
   searchParams,
 }: {
@@ -57,7 +63,7 @@ export default async function MaterialsPage({
       {filteredProjectName && (
         <div className="mb-4 flex items-center justify-between rounded-lg border border-brand-200 bg-brand-50 px-4 py-2 text-sm text-brand-800">
           <span>Showing materials for <strong>{filteredProjectName}</strong>{showArchived ? " (archived)" : ""}.</span>
-          <a href={showArchived ? "/admin/materials?archived=1" : "/admin/materials"} className="font-medium hover:underline">Clear filter</a>
+          <a href="/admin/materials" className="font-medium hover:underline">Clear filter</a>
         </div>
       )}
 
