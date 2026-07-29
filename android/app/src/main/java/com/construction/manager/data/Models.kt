@@ -80,6 +80,7 @@ data class MaterialRow(
     val status: String = "ordered",
     @SerialName("ordered_at") val orderedAt: String? = null,
     @SerialName("delivered_at") val deliveredAt: String? = null,
+    @SerialName("work_category") val workCategory: String? = null,
     @SerialName("archived_at") val archivedAt: String? = null,
 )
 
@@ -93,6 +94,7 @@ data class PaymentRow(
     val amount: Double = 0.0,
     val status: String = "pending",
     val description: String? = null,
+    @SerialName("work_category") val workCategory: String? = null,
     @SerialName("created_at") val createdAt: String? = null,
     @SerialName("archived_at") val archivedAt: String? = null,
 )

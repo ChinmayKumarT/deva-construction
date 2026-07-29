@@ -39,12 +39,12 @@ export default async function SiteReportPage({
   const [{ data: materials }, { data: payments }, { data: updates }, cashFlow] = await Promise.all([
     supabase
       .from("materials")
-      .select("id, name, unit, quantity, unit_cost, status, ordered_at, delivered_at")
+      .select("id, name, unit, quantity, unit_cost, status, ordered_at, delivered_at, work_category")
       .eq("project_id", params.id)
       .is("archived_at", null),
     supabase
       .from("payments")
-      .select("id, amount, status, description, payee_type, created_at")
+      .select("id, amount, status, description, payee_type, created_at, work_category")
       .eq("project_id", params.id)
       .is("archived_at", null),
     supabase
@@ -87,6 +87,21 @@ export default async function SiteReportPage({
       status: p.status,
     })),
   ].sort((a, b) => (b.date ?? "").localeCompare(a.date ?? ""));
+
+  const categoryTotals = new Map<string, number>();
+  for (const m of materials ?? []) {
+    if (m.status === "returned") continue;
+    const cat = m.work_category || "Uncategorized";
+    categoryTotals.set(cat, (categoryTotals.get(cat) ?? 0) + Number(m.quantity) * Number(m.unit_cost));
+  }
+  for (const p of payments ?? []) {
+    if (p.status !== "paid" && p.status !== "approved") continue;
+    const cat = p.work_category || "Uncategorized";
+    categoryTotals.set(cat, (categoryTotals.get(cat) ?? 0) + Number(p.amount));
+  }
+  const categoryRows = Array.from(categoryTotals)
+    .sort((a, b) => b[1] - a[1])
+    .map(([category, total]) => [category, `₹${total.toLocaleString()}`]);
 
   const extended =
     project.original_end_date != null && project.end_date != null && project.end_date > project.original_end_date;
@@ -212,6 +227,15 @@ export default async function SiteReportPage({
           `₹${t.amount.toLocaleString()}`,
         ])}
         empty="No materials or payments recorded for this site yet."
+      />
+
+      <h2 className="mt-10 mb-3 text-sm font-semibold uppercase tracking-wide text-slate-500">
+        Spend by work category
+      </h2>
+      <DataTable
+        columns={["Category", "Total"]}
+        rows={categoryRows}
+        empty="No categorized materials or payments for this site yet."
       />
 
       <h2 className="mt-10 mb-3 text-sm font-semibold uppercase tracking-wide text-slate-500">Cash flow</h2>

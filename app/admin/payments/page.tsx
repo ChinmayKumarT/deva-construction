@@ -6,6 +6,7 @@ import {
   approvePayment, createPayment, markPaymentPaid, rejectPayment,
   archivePayment, unarchivePayment, deletePayment,
 } from "../actions";
+import { WORK_CATEGORIES } from "@/lib/workCategories";
 
 // Without this, Next.js can cache the underlying Supabase fetch and serve a
 // stale render when navigating between filtered/unfiltered views of this page
@@ -91,6 +92,10 @@ export default async function PaymentsPage({
           {labourers?.map((l) => (<option key={l.id} value={l.id}>{l.name}</option>))}
         </Select>
         <Field label="Description" name="description" />
+        <Select label="Work category" name="work_category" defaultValue="">
+          <option value="">— none —</option>
+          {WORK_CATEGORIES.map((c) => (<option key={c} value={c}>{c}</option>))}
+        </Select>
         <div className="sm:col-span-2 lg:col-span-3">
           <SubmitButton>Create payment</SubmitButton>
         </div>

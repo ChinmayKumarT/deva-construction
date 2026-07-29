@@ -2,6 +2,7 @@ import { createSupabaseServerClient, getSessionAndRole } from "@/lib/supabase/se
 import { AdminPage, AdminPageHeader, DataTable, Field, Select, SubmitButton } from "@/components/admin/Page";
 import { ArchivedToggle, DeleteForeverButton, ManageCard, ManageSection, RestoreAction, RowActions } from "@/components/admin/RowActions";
 import { createMaterial, markMaterialDelivered, archiveMaterial, unarchiveMaterial, deleteMaterial } from "../actions";
+import { WORK_CATEGORIES } from "@/lib/workCategories";
 
 // Without this, Next.js can cache the underlying Supabase fetch and serve a
 // stale render when navigating between filtered/unfiltered views of this page
@@ -90,6 +91,10 @@ export default async function MaterialsPage({
             <option value="ordered">Ordered</option>
             <option value="delivered">Delivered</option>
             <option value="returned">Returned</option>
+          </Select>
+          <Select label="Work category" name="work_category" defaultValue="">
+            <option value="">— none —</option>
+            {WORK_CATEGORIES.map((c) => (<option key={c} value={c}>{c}</option>))}
           </Select>
           <div className="sm:col-span-2 lg:col-span-3">
             <SubmitButton>Add material</SubmitButton>

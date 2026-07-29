@@ -67,17 +67,18 @@ object Repo {
     }
     suspend fun updateMaterial(
         id: String, name: String, unit: String, quantity: Double,
-        unitCost: Double, status: String,
+        unitCost: Double, status: String, workCategory: String?,
     ) {
         supabase.from("materials").update(buildJsonObject {
             put("name", name); put("unit", unit)
             put("quantity", quantity); put("unit_cost", unitCost)
-            put("status", status)
+            put("status", status); put("work_category", workCategory)
         }) { filter { eq("id", id) } }
     }
-    suspend fun updatePayment(id: String, amount: Double, description: String?) {
+    suspend fun updatePayment(id: String, amount: Double, description: String?, workCategory: String?) {
         supabase.from("payments").update(buildJsonObject {
             put("amount", amount); put("description", description)
+            put("work_category", workCategory)
         }) { filter { eq("id", id) } }
     }
     suspend fun updateProjectUpdate(id: String, stage: String?, note: String?) {
@@ -317,17 +318,20 @@ object Repo {
         })
     }
     suspend fun createMaterial(projectId: String, supplierId: String?, name: String,
-                               unit: String, quantity: Double, unitCost: Double, status: String) {
+                               unit: String, quantity: Double, unitCost: Double, status: String,
+                               workCategory: String?) {
         supabase.from("materials").insert(buildJsonObject {
             put("project_id", projectId)
             if (supplierId != null) put("supplier_id", supplierId)
             put("name", name); put("unit", unit)
             put("quantity", quantity); put("unit_cost", unitCost)
             put("status", status)
+            if (workCategory != null) put("work_category", workCategory)
         })
     }
     suspend fun createPayment(projectId: String?, payeeType: String, supplierId: String?,
-                              labourerId: String?, amount: Double, description: String?) {
+                              labourerId: String?, amount: Double, description: String?,
+                              workCategory: String?) {
         supabase.from("payments").insert(buildJsonObject {
             if (projectId != null) put("project_id", projectId)
             put("payee_type", payeeType)
@@ -335,6 +339,7 @@ object Repo {
             if (payeeType == "labour" && labourerId != null) put("labourer_id", labourerId)
             put("amount", amount); put("status", "pending")
             if (description != null) put("description", description)
+            if (workCategory != null) put("work_category", workCategory)
         })
     }
     suspend fun postProjectUpdate(projectId: String, stage: String?, note: String?,

@@ -958,6 +958,13 @@ private fun EditLabourerDialog(labourer: LabourerRow, onDismiss: () -> Unit, onS
     }
 }
 
+// Fixed list (not freeform text) so the "Spend by work category" breakdown
+// on the report page doesn't fragment into near-duplicate categories from
+// typos. Mirrored on web as WORK_CATEGORIES in lib/workCategories.ts.
+private val WorkCategories = listOf(
+    "None", "Carpenter", "Plumber", "Electrician", "Bar bender", "Civil worker", "Painter", "Tiles",
+)
+
 // ---------- Materials ----------
 @Composable
 fun AdminMaterials(isOwner: Boolean = false, initialProjectFilter: ProjectRow? = null) {
@@ -987,6 +994,7 @@ fun AdminMaterials(isOwner: Boolean = false, initialProjectFilter: ProjectRow? =
     var status by remember { mutableStateOf("ordered") }
     var project by remember { mutableStateOf(initialProjectFilter) }
     var supplier by remember { mutableStateOf<SupplierRow?>(null) }
+    var workCategory by remember { mutableStateOf("None") }
 
     FormColumn {
         ArchivedSwitch(showArchived) { showArchived = !showArchived }
@@ -1011,12 +1019,14 @@ fun AdminMaterials(isOwner: Boolean = false, initialProjectFilter: ProjectRow? =
             Dropdown("Status", listOf("ordered","delivered","returned"), status, { it }, { status = it })
             Dropdown("Project", projects, project, { it.name }, { project = it })
             Dropdown("Supplier", suppliers, supplier, { it.name }, { supplier = it })
+            Dropdown("Work category", WorkCategories, workCategory, { it }, { workCategory = it })
             Button(onClick = {
                 val p = project ?: return@Button
                 scope.launch {
                     safe({
                         Repo.createMaterial(p.id, supplier?.id, name, unit,
-                            qty.toDoubleOrNull() ?: 0.0, unitCost.toDoubleOrNull() ?: 0.0, status)
+                            qty.toDoubleOrNull() ?: 0.0, unitCost.toDoubleOrNull() ?: 0.0, status,
+                            workCategory.takeIf { it != "None" })
                         name = ""; qty = ""; unitCost = ""; version++
                     }) { error = it }
                 }
@@ -1094,6 +1104,7 @@ private fun EditMaterialDialog(material: MaterialRow, onDismiss: () -> Unit, onS
     var qty by remember { mutableStateOf(material.quantity.toString()) }
     var unitCost by remember { mutableStateOf(material.unitCost.toString()) }
     var status by remember { mutableStateOf(material.status) }
+    var workCategory by remember { mutableStateOf(material.workCategory ?: "None") }
     var error by remember { mutableStateOf<String?>(null) }
     var busy by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
@@ -1108,6 +1119,7 @@ private fun EditMaterialDialog(material: MaterialRow, onDismiss: () -> Unit, onS
                     Repo.updateMaterial(
                         material.id, name, unit.ifBlank { "unit" },
                         qty.toDoubleOrNull() ?: 0.0, unitCost.toDoubleOrNull() ?: 0.0, status,
+                        workCategory.takeIf { it != "None" },
                     )
                     onSaved()
                 }) { error = it }
@@ -1128,6 +1140,7 @@ private fun EditMaterialDialog(material: MaterialRow, onDismiss: () -> Unit, onS
             label = { Text("Unit cost") }, singleLine = true, modifier = Modifier.fillMaxWidth(),
         )
         Dropdown("Status", listOf("ordered","delivered","returned"), status, { it }, { status = it })
+        Dropdown("Work category", WorkCategories, workCategory, { it }, { workCategory = it })
     }
 }
 
@@ -1161,6 +1174,7 @@ fun AdminPayments(isOwner: Boolean = false, initialProjectFilter: ProjectRow? = 
     var project by remember { mutableStateOf(initialProjectFilter) }
     var supplier by remember { mutableStateOf<SupplierRow?>(null) }
     var labourer by remember { mutableStateOf<LabourerRow?>(null) }
+    var workCategory by remember { mutableStateOf("None") }
 
     FormColumn {
         ArchivedSwitch(showArchived) { showArchived = !showArchived }
@@ -1186,12 +1200,14 @@ fun AdminPayments(isOwner: Boolean = false, initialProjectFilter: ProjectRow? = 
                 Dropdown("Labourer", labourers, labourer, { it.name }, { labourer = it })
             NumberField(amount, { amount = it }, "Amount")
             TextField(desc, { desc = it }, "Description")
+            Dropdown("Work category", WorkCategories, workCategory, { it }, { workCategory = it })
             Button(onClick = {
                 scope.launch {
                     safe({
                         Repo.createPayment(project?.id, payeeType,
                             supplier?.id, labourer?.id,
-                            amount.toDoubleOrNull() ?: 0.0, desc.ifBlank { null })
+                            amount.toDoubleOrNull() ?: 0.0, desc.ifBlank { null },
+                            workCategory.takeIf { it != "None" })
                         amount = ""; desc = ""; version++
                     }) { error = it }
                 }
@@ -1278,6 +1294,7 @@ fun AdminPayments(isOwner: Boolean = false, initialProjectFilter: ProjectRow? = 
 private fun EditPaymentDialog(payment: PaymentRow, onDismiss: () -> Unit, onSaved: () -> Unit) {
     var amount by remember { mutableStateOf(payment.amount.toString()) }
     var desc by remember { mutableStateOf(payment.description ?: "") }
+    var workCategory by remember { mutableStateOf(payment.workCategory ?: "None") }
     var error by remember { mutableStateOf<String?>(null) }
     var busy by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
@@ -1290,7 +1307,10 @@ private fun EditPaymentDialog(payment: PaymentRow, onDismiss: () -> Unit, onSave
             busy = true
             scope.launch {
                 safe({
-                    Repo.updatePayment(payment.id, amount.toDoubleOrNull() ?: 0.0, desc.ifBlank { null })
+                    Repo.updatePayment(
+                        payment.id, amount.toDoubleOrNull() ?: 0.0, desc.ifBlank { null },
+                        workCategory.takeIf { it != "None" },
+                    )
                     onSaved()
                 }) { error = it }
                 busy = false
@@ -1303,6 +1323,7 @@ private fun EditPaymentDialog(payment: PaymentRow, onDismiss: () -> Unit, onSave
             label = { Text("Amount") }, singleLine = true, modifier = Modifier.fillMaxWidth(),
         )
         DialogField(desc, { desc = it }, "Description")
+        Dropdown("Work category", WorkCategories, workCategory, { it }, { workCategory = it })
         Text(
             "Status (${payment.status}) is changed with the Approve / Paid buttons, not here.",
             style = MaterialTheme.typography.labelSmall,
@@ -2196,6 +2217,30 @@ private fun SiteReportDetail(
                 "${t.date ?: "no date"} · ${t.status}",
                 money(t.amount),
             )
+        }
+    }
+
+    Divider()
+    SectionTitle("Spend by work category")
+    val categoryTotals = remember(materials, payments) {
+        val totals = mutableMapOf<String, Double>()
+        materials.forEach { m ->
+            if (m.status == "returned") return@forEach
+            val cat = m.workCategory ?: "Uncategorized"
+            totals[cat] = (totals[cat] ?: 0.0) + m.quantity * m.unitCost
+        }
+        payments.forEach { p ->
+            if (p.status !in listOf("paid", "approved")) return@forEach
+            val cat = p.workCategory ?: "Uncategorized"
+            totals[cat] = (totals[cat] ?: 0.0) + p.amount
+        }
+        totals.toList().sortedByDescending { it.second }
+    }
+    if (categoryTotals.isEmpty()) {
+        Text("No categorized materials or payments for this site yet.", Modifier.padding(16.dp))
+    } else {
+        categoryTotals.forEach { (category, total) ->
+            ItemCard(category, "", money(total))
         }
     }
 

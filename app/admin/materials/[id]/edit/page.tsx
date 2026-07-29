@@ -3,13 +3,14 @@ import { notFound } from "next/navigation";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { AdminPage, AdminPageHeader, Field, Select, SubmitButton } from "@/components/admin/Page";
 import { updateMaterial } from "../../../actions";
+import { WORK_CATEGORIES } from "@/lib/workCategories";
 
 export default async function EditMaterialPage({ params }: { params: { id: string } }) {
   const supabase = createSupabaseServerClient();
   const [{ data: material }, { data: projects }, { data: suppliers }] = await Promise.all([
     supabase
       .from("materials")
-      .select("id, name, unit, quantity, unit_cost, status, project_id, supplier_id")
+      .select("id, name, unit, quantity, unit_cost, status, project_id, supplier_id, work_category")
       .eq("id", params.id)
       .single(),
     supabase.from("projects").select("id, name").is("archived_at", null).order("name"),
@@ -39,6 +40,10 @@ export default async function EditMaterialPage({ params }: { params: { id: strin
           <option value="ordered">Ordered</option>
           <option value="delivered">Delivered</option>
           <option value="returned">Returned</option>
+        </Select>
+        <Select label="Work category" name="work_category" defaultValue={material.work_category ?? ""}>
+          <option value="">— none —</option>
+          {WORK_CATEGORIES.map((c) => (<option key={c} value={c}>{c}</option>))}
         </Select>
         <div className="flex items-center gap-3 sm:col-span-2 lg:col-span-3">
           <SubmitButton>Save changes</SubmitButton>

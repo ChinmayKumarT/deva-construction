@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { AdminPage, AdminPageHeader, Field, Select, SubmitButton } from "@/components/admin/Page";
 import { updatePayment } from "../../../actions";
+import { WORK_CATEGORIES } from "@/lib/workCategories";
 
 export default async function EditPaymentPage({ params }: { params: { id: string } }) {
   const supabase = createSupabaseServerClient();
@@ -10,7 +11,7 @@ export default async function EditPaymentPage({ params }: { params: { id: string
     await Promise.all([
       supabase
         .from("payments")
-        .select("id, amount, status, payee_type, description, project_id, supplier_id, labourer_id")
+        .select("id, amount, status, payee_type, description, project_id, supplier_id, labourer_id, work_category")
         .eq("id", params.id)
         .single(),
       supabase.from("projects").select("id, name").is("archived_at", null).order("name"),
@@ -46,6 +47,10 @@ export default async function EditPaymentPage({ params }: { params: { id: string
           {labourers?.map((l) => (<option key={l.id} value={l.id}>{l.name}</option>))}
         </Select>
         <Field label="Description" name="description" defaultValue={payment.description ?? ""} />
+        <Select label="Work category" name="work_category" defaultValue={payment.work_category ?? ""}>
+          <option value="">— none —</option>
+          {WORK_CATEGORIES.map((c) => (<option key={c} value={c}>{c}</option>))}
+        </Select>
         <div className="flex items-center gap-3 sm:col-span-2 lg:col-span-3">
           <SubmitButton>Save changes</SubmitButton>
           <Link href="/admin/payments" className="text-sm text-slate-600 hover:underline">Cancel</Link>

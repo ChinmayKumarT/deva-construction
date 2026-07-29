@@ -212,6 +212,7 @@ export async function updateMaterial(fd: FormData) {
     quantity: num(fd, "quantity") ?? 0,
     unit_cost: num(fd, "unit_cost") ?? 0,
     status,
+    work_category: str(fd, "work_category"),
   });
   redirect("/admin/materials");
 }
@@ -230,6 +231,7 @@ export async function updatePayment(fd: FormData) {
     labourer_id: payee_type === "labour" ? uuidOrNull(fd, "labourer_id") : null,
     amount: num(fd, "amount") ?? 0,
     description: str(fd, "description"),
+    work_category: str(fd, "work_category"),
   });
   redirect("/admin/payments");
 }
@@ -285,6 +287,7 @@ export async function createMaterial(fd: FormData) {
     unit_cost: num(fd, "unit_cost") ?? 0,
     status,
     delivered_at: status === "delivered" ? new Date().toISOString() : null,
+    work_category: str(fd, "work_category"),
   });
   if (error) throw new Error(error.message);
   revalidatePath("/admin/materials");
@@ -357,6 +360,7 @@ export async function createPayment(fd: FormData) {
     payee_type,
     amount: num(fd, "amount") ?? 0,
     description: str(fd, "description"),
+    work_category: str(fd, "work_category"),
     status: "pending",
   };
   if (payee_type === "supplier") {
