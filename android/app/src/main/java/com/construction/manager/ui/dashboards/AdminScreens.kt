@@ -1648,6 +1648,8 @@ fun AdminCosts(
     var clients by remember { mutableStateOf<List<ClientRow>>(emptyList()) }
     var materials by remember { mutableStateOf<List<MaterialRow>>(emptyList()) }
     var payments by remember { mutableStateOf<List<PaymentRow>>(emptyList()) }
+    var labourers by remember { mutableStateOf<List<LabourerRow>>(emptyList()) }
+    var attendance by remember { mutableStateOf<List<AttendanceRow>>(emptyList()) }
     var loading by remember { mutableStateOf(true) }
     var error by remember { mutableStateOf<String?>(null) }
     var version by remember { mutableStateOf(0) }
@@ -1659,11 +1661,14 @@ fun AdminCosts(
             clients = Repo.listClients()
             materials = Repo.listMaterials()
             payments = Repo.listPayments()
+            labourers = Repo.listLabourers()
+            attendance = Repo.listAllAttendance()
         }) { error = it }
         loading = false
     }
 
     val countedPayments = payments.filter { it.status == "paid" || it.status == "approved" }
+    val wageById = labourers.associate { it.id to it.dailyWage }
     val breakdown = projects.associate { p ->
         val mat = materials
             .filter { it.projectId == p.id && it.status != "returned" }
@@ -1674,13 +1679,17 @@ fun AdminCosts(
         val supplierPaid = countedPayments
             .filter { it.projectId == p.id && it.payeeType != "labour" }
             .sumOf { it.amount }
-        p.id to Triple(mat, labour, supplierPaid)
+        val wages = attendance
+            .filter { it.projectId == p.id }
+            .sumOf { (ReportWageFactor[it.status] ?: 0.0) * (wageById[it.labourerId] ?: 0.0) }
+        p.id to listOf(mat, labour, supplierPaid, wages)
     }
-    // Spend counts materials + labour. Supplier payments are shown separately so a
-    // material and the bill that pays for it are not double-counted.
+    // Spend counts materials + labour payments + wages accrued from attendance.
+    // Supplier payments are shown separately so a material and the bill that
+    // pays for it are not double-counted.
     val spentFor: (String) -> Double = { id ->
         val b = breakdown[id]
-        if (b == null) 0.0 else b.first + b.second
+        if (b == null) 0.0 else b[0] + b[1] + b[3]
     }
     val totalBudget: Double = projects.sumOf { it.totalCost }
     val totalSpent: Double = projects.sumOf { spentFor(it.id) }
@@ -1705,15 +1714,15 @@ fun AdminCosts(
                 Divider()
                 SectionTitle("By project")
                 projects.forEach { p ->
-                    val (mat, labour, supplierPaid) = breakdown[p.id]
-                        ?: Triple(0.0, 0.0, 0.0)
-                    val spent = mat + labour
+                    val (mat, labour, supplierPaid, wages) = breakdown[p.id]
+                        ?: listOf(0.0, 0.0, 0.0, 0.0)
+                    val spent = mat + labour + wages
                     val materialCount = materials.count { it.projectId == p.id }
                     val paymentCount = payments.count { it.projectId == p.id }
                     ItemCard(
                         p.name,
                         "${p.status} · Materials ${money(mat)} · Labour ${money(labour)} · " +
-                            "Supplier bills ${money(supplierPaid)}",
+                            "Supplier bills ${money(supplierPaid)} · Wages ${money(wages)}",
                         "${money(spent)} / ${money(p.totalCost)}",
                         actions = {
                             TextButton(onClick = { editingBudget = p }) { Text("Edit budget") }
@@ -1727,8 +1736,9 @@ fun AdminCosts(
                     )
                 }
                 Text(
-                    "Spend includes approved and paid payments; pending payments are not " +
-                        "counted. Materials marked returned are excluded.",
+                    "Spend includes approved and paid payments, plus wages accrued from marked " +
+                        "attendance (present = full daily wage, half day = 50%). Pending payments " +
+                        "are not counted. Materials marked returned are excluded.",
                     style = MaterialTheme.typography.bodySmall,
                     modifier = Modifier.padding(16.dp),
                 )
@@ -1854,6 +1864,7 @@ fun AdminReports() {
     var materials by remember { mutableStateOf<List<MaterialRow>>(emptyList()) }
     var labourers by remember { mutableStateOf<List<LabourerRow>>(emptyList()) }
     var weekAttendance by remember { mutableStateOf<List<AttendanceRow>>(emptyList()) }
+    var attendance by remember { mutableStateOf<List<AttendanceRow>>(emptyList()) }
     var clients by remember { mutableStateOf<List<ClientRow>>(emptyList()) }
     var updates by remember { mutableStateOf<List<ProjectUpdateRow>>(emptyList()) }
     var error by remember { mutableStateOf<String?>(null) }
@@ -1865,11 +1876,13 @@ fun AdminReports() {
             materials = Repo.listMaterials()
             labourers = Repo.listLabourers()
             weekAttendance = Repo.listAttendanceSince(LocalDate.now().minusDays(6).toString())
+            attendance = Repo.listAllAttendance()
             clients = Repo.listClients()
             updates = Repo.listUpdates()
         }) { error = it }
     }
 
+    val wageById = labourers.associate { it.id to it.dailyWage }
     val spent = projects.associate { p ->
         val mat = materials.filter { it.projectId == p.id && it.status != "returned" }
             .sumOf { it.quantity * it.unitCost }
@@ -1879,7 +1892,9 @@ fun AdminReports() {
             it.projectId == p.id && it.status in listOf("paid", "approved") &&
                 it.payeeType == "labour"
         }.sumOf { it.amount }
-        p.id to mat + pay
+        val wages = attendance.filter { it.projectId == p.id }
+            .sumOf { (ReportWageFactor[it.status] ?: 0.0) * (wageById[it.labourerId] ?: 0.0) }
+        p.id to mat + pay + wages
     }
 
     val context = LocalContext.current
@@ -1915,6 +1930,9 @@ fun AdminReports() {
                 clientName = clients.firstOrNull { it.id == sel.clientId }?.name,
                 materials = materials.filter { it.projectId == sel.id },
                 payments = payments.filter { it.projectId == sel.id },
+                attendance = attendance.filter { it.projectId == sel.id },
+                labourerWage = wageById,
+                labourerName = labourers.associate { it.id to it.name },
                 updates = updates.filter { it.projectId == sel.id }.take(5),
                 onBack = { selectedProject = null },
             )
@@ -2149,28 +2167,6 @@ private data class Transaction(
     val status: String,
 )
 
-private fun transactionsForPdf(materials: List<MaterialRow>, payments: List<PaymentRow>): List<PdfTransaction> {
-    val materialTx = materials.map {
-        PdfTransaction(
-            type = "Material",
-            description = "${it.name} (${it.quantity} ${it.unit})",
-            date = it.deliveredAt ?: it.orderedAt ?: "no date",
-            status = it.status,
-            amount = it.quantity * it.unitCost,
-        )
-    }
-    val paymentTx = payments.map {
-        PdfTransaction(
-            type = if (it.payeeType == "labour") "Payment · labour" else "Payment · supplier",
-            description = it.description?.ifBlank { null } ?: "—",
-            date = it.createdAt ?: "no date",
-            status = it.status,
-            amount = it.amount,
-        )
-    }
-    return (materialTx + paymentTx).sortedByDescending { it.date }
-}
-
 @Composable
 private fun SiteReportDetail(
     project: ProjectRow,
@@ -2178,12 +2174,49 @@ private fun SiteReportDetail(
     clientName: String?,
     materials: List<MaterialRow>,
     payments: List<PaymentRow>,
+    attendance: List<AttendanceRow>,
+    labourerWage: Map<String, Double>,
+    labourerName: Map<String, String>,
     updates: List<ProjectUpdateRow>,
     onBack: () -> Unit,
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     var exporting by remember { mutableStateOf(false) }
+
+    val transactions = remember(materials, payments, attendance) {
+        val materialTx = materials.map {
+            Transaction(
+                date = it.deliveredAt ?: it.orderedAt,
+                type = "Material",
+                description = "${it.name} (${it.quantity} ${it.unit})",
+                amount = it.quantity * it.unitCost,
+                status = it.status,
+            )
+        }
+        val paymentTx = payments.map {
+            Transaction(
+                date = it.createdAt,
+                type = if (it.payeeType == "labour") "Payment · labour" else "Payment · supplier",
+                description = it.description?.ifBlank { null } ?: "—",
+                amount = it.amount,
+                status = it.status,
+            )
+        }
+        val wageTx = attendance.mapNotNull { a ->
+            val amount = (ReportWageFactor[a.status] ?: 0.0) * (labourerWage[a.labourerId] ?: 0.0)
+            if (amount <= 0.0) return@mapNotNull null
+            Transaction(
+                date = a.date,
+                type = "Wage · attendance",
+                description = "${labourerName[a.labourerId] ?: "—"} (${a.status.replace("_", " ")})",
+                amount = amount,
+                status = a.status,
+            )
+        }
+        (materialTx + paymentTx + wageTx).sortedByDescending { it.date ?: "" }
+    }
+
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
         TextButton(onClick = onBack) { Text("← Reports") }
         TextButton(
@@ -2197,6 +2230,12 @@ private fun SiteReportDetail(
                             note = u.note,
                             date = u.createdAt ?: "no date",
                             image = u.imageUrl?.let { PdfExporter.downloadBitmap(it) },
+                        )
+                    }
+                    val pdfTransactions = transactions.map {
+                        PdfTransaction(
+                            type = it.type, description = it.description,
+                            date = it.date ?: "no date", status = it.status, amount = it.amount,
                         )
                     }
                     val uri = withContext(kotlinx.coroutines.Dispatchers.IO) {
@@ -2216,7 +2255,7 @@ private fun SiteReportDetail(
                                 originalEndDate = project.originalEndDate,
                                 extensionReason = project.extensionReason,
                             ),
-                            transactions = transactionsForPdf(materials, payments),
+                            transactions = pdfTransactions,
                             updates = pdfUpdates,
                         )
                     }
@@ -2237,28 +2276,6 @@ private fun SiteReportDetail(
     BudgetPie(project.name, project.totalCost, spent)
     Divider()
 
-    val transactions = remember(materials, payments) {
-        val materialTx = materials.map {
-            Transaction(
-                date = it.deliveredAt ?: it.orderedAt,
-                type = "Material",
-                description = "${it.name} (${it.quantity} ${it.unit})",
-                amount = it.quantity * it.unitCost,
-                status = it.status,
-            )
-        }
-        val paymentTx = payments.map {
-            Transaction(
-                date = it.createdAt,
-                type = if (it.payeeType == "labour") "Payment · labour" else "Payment · supplier",
-                description = it.description?.ifBlank { null } ?: "—",
-                amount = it.amount,
-                status = it.status,
-            )
-        }
-        (materialTx + paymentTx).sortedByDescending { it.date ?: "" }
-    }
-
     SectionTitle("Transactions (${transactions.size})")
     if (transactions.isEmpty()) {
         Text("No materials or payments recorded for this site yet.", Modifier.padding(16.dp))
@@ -2274,7 +2291,7 @@ private fun SiteReportDetail(
 
     Divider()
     SectionTitle("Spend by work category")
-    val categoryTotals = remember(materials, payments) {
+    val categoryTotals = remember(materials, payments, attendance) {
         val totals = mutableMapOf<String, Double>()
         materials.forEach { m ->
             if (m.status == "returned") return@forEach
@@ -2286,6 +2303,10 @@ private fun SiteReportDetail(
             val cat = p.workCategory ?: "Uncategorized"
             totals[cat] = (totals[cat] ?: 0.0) + p.amount
         }
+        val wages = attendance.sumOf { a ->
+            (ReportWageFactor[a.status] ?: 0.0) * (labourerWage[a.labourerId] ?: 0.0)
+        }
+        if (wages > 0.0) totals["Wages (attendance)"] = (totals["Wages (attendance)"] ?: 0.0) + wages
         totals.toList().sortedByDescending { it.second }
     }
     if (categoryTotals.isEmpty()) {

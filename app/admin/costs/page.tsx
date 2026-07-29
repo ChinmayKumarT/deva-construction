@@ -1,22 +1,28 @@
 import Link from "next/link";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { AdminPage, AdminPageHeader, DataTable } from "@/components/admin/Page";
+import { wageForStatus } from "@/lib/wages";
 
 export default async function CostsPage() {
   const supabase = createSupabaseServerClient();
 
-  const [{ data: projects }, { data: materials }, { data: payments }] = await Promise.all([
-    supabase.from("projects").select("id, name, total_cost, status").is("archived_at", null).order("name"),
-    supabase.from("materials").select("project_id, quantity, unit_cost, status").is("archived_at", null),
-    supabase.from("payments").select("project_id, amount, status, payee_type").is("archived_at", null),
-  ]);
+  const [{ data: projects }, { data: materials }, { data: payments }, { data: attendance }, { data: labourers }] =
+    await Promise.all([
+      supabase.from("projects").select("id, name, total_cost, status").is("archived_at", null).order("name"),
+      supabase.from("materials").select("project_id, quantity, unit_cost, status").is("archived_at", null),
+      supabase.from("payments").select("project_id, amount, status, payee_type").is("archived_at", null),
+      supabase.from("attendance").select("project_id, status, labourer_id"),
+      supabase.from("labourers").select("id, daily_wage"),
+    ]);
+
+  const labourerWage = new Map((labourers ?? []).map((l) => [l.id, Number(l.daily_wage)]));
 
   const byProject = new Map<
     string,
-    { materials: number; labour: number; supplierPaid: number; materialCount: number; paymentCount: number }
+    { materials: number; labour: number; supplierPaid: number; wages: number; materialCount: number; paymentCount: number }
   >();
   for (const p of projects ?? [])
-    byProject.set(p.id, { materials: 0, labour: 0, supplierPaid: 0, materialCount: 0, paymentCount: 0 });
+    byProject.set(p.id, { materials: 0, labour: 0, supplierPaid: 0, wages: 0, materialCount: 0, paymentCount: 0 });
 
   for (const m of materials ?? []) {
     if (!m.project_id) continue;
@@ -37,13 +43,20 @@ export default async function CostsPage() {
     else row.supplierPaid += Number(pay.amount);
   }
 
+  for (const a of attendance ?? []) {
+    if (!a.project_id) continue;
+    const row = byProject.get(a.project_id);
+    if (!row) continue;
+    row.wages += wageForStatus(a.status, labourerWage.get(a.labourer_id) ?? 0);
+  }
+
   let totalBudget = 0;
   let totalSpent = 0;
 
   const rows =
     projects?.map((p) => {
       const c = byProject.get(p.id)!;
-      const spent = c.materials + c.labour;
+      const spent = c.materials + c.labour + c.wages;
       const budget = Number(p.total_cost);
       totalBudget += budget;
       totalSpent += spent;
@@ -54,6 +67,7 @@ export default async function CostsPage() {
         `₹${budget.toLocaleString()}`,
         `₹${c.materials.toLocaleString()}`,
         `₹${c.labour.toLocaleString()}`,
+        `₹${c.wages.toLocaleString()}`,
         `₹${spent.toLocaleString()}`,
         `₹${remaining.toLocaleString()}`,
       ];
@@ -70,14 +84,15 @@ export default async function CostsPage() {
       </section>
 
       <DataTable
-        columns={["Project", "Status", "Budget", "Materials", "Labour", "Spent", "Remaining"]}
+        columns={["Project", "Status", "Budget", "Materials", "Labour payments", "Wages (attendance)", "Spent", "Remaining"]}
         rows={rows}
         empty="Create a project first."
       />
 
       <p className="mt-4 text-xs text-slate-500">
-        Spend includes <strong>approved</strong> and <strong>paid</strong> payments. Pending payments are not counted.
-        Materials marked <strong>returned</strong> are excluded.
+        Spend includes <strong>approved</strong> and <strong>paid</strong> payments, plus wages accrued from marked
+        attendance (present = full daily wage, half day = 50%). Pending payments are not counted. Materials marked{" "}
+        <strong>returned</strong> are excluded.
       </p>
 
       {projects && projects.length > 0 && (

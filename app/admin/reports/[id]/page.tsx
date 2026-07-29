@@ -6,6 +6,7 @@ import { PieChart, PieLegend } from "@/components/admin/PieChart";
 import { DownloadSitePdfButton } from "@/components/admin/ReportPdf";
 import { CashFlowBarChart } from "@/components/admin/CashFlowBarChart";
 import { computeCashFlow, defaultCashFlowRange } from "@/lib/cashflow";
+import { wageForStatus } from "@/lib/wages";
 
 const BRAND = "#16a34a";
 const SPEND = "#F59E0B";
@@ -27,34 +28,49 @@ export default async function SiteReportPage({
   const from = searchParams.from || fromStr;
   const to = searchParams.to || toStr;
 
-  const [{ data: project }, { data: materials }, { data: payments }, { data: updates }, cashFlow] = await Promise.all([
-    supabase
-      .from("projects")
-      .select(
-        "id, name, status, completion_pct, total_cost, address, current_stage, start_date, end_date, original_end_date, extension_reason, clients(name)",
-      )
-      .eq("id", params.id)
-      .single(),
-    supabase
-      .from("materials")
-      .select("id, name, unit, quantity, unit_cost, status, ordered_at, delivered_at, work_category")
-      .eq("project_id", params.id)
-      .is("archived_at", null),
-    supabase
-      .from("payments")
-      .select("id, amount, status, description, payee_type, created_at, work_category")
-      .eq("project_id", params.id)
-      .is("archived_at", null),
-    supabase
-      .from("project_updates")
-      .select("id, stage, note, image_url, created_at")
-      .eq("project_id", params.id)
-      .is("archived_at", null)
-      .order("created_at", { ascending: false })
-      .limit(5),
-    computeCashFlow(supabase, from, to, params.id),
-  ]);
+  const [{ data: project }, { data: materials }, { data: payments }, { data: updates }, { data: attendance }, cashFlow] =
+    await Promise.all([
+      supabase
+        .from("projects")
+        .select(
+          "id, name, status, completion_pct, total_cost, address, current_stage, start_date, end_date, original_end_date, extension_reason, clients(name)",
+        )
+        .eq("id", params.id)
+        .single(),
+      supabase
+        .from("materials")
+        .select("id, name, unit, quantity, unit_cost, status, ordered_at, delivered_at, work_category")
+        .eq("project_id", params.id)
+        .is("archived_at", null),
+      supabase
+        .from("payments")
+        .select("id, amount, status, description, payee_type, created_at, work_category")
+        .eq("project_id", params.id)
+        .is("archived_at", null),
+      supabase
+        .from("project_updates")
+        .select("id, stage, note, image_url, created_at")
+        .eq("project_id", params.id)
+        .is("archived_at", null)
+        .order("created_at", { ascending: false })
+        .limit(5),
+      supabase
+        .from("attendance")
+        .select("date, status, labourer_id, labourers(name, daily_wage)")
+        .eq("project_id", params.id),
+      computeCashFlow(supabase, from, to, params.id),
+    ]);
   if (!project) notFound();
+
+  const wageRows = (attendance ?? []).map((a) => ({
+    date: a.date,
+    status: a.status,
+    // @ts-expect-error relation
+    labourerName: a.labourers?.name ?? "—",
+    // @ts-expect-error relation
+    amount: wageForStatus(a.status, Number(a.labourers?.daily_wage ?? 0)),
+  }));
+  const totalWages = wageRows.reduce((sum, w) => sum + w.amount, 0);
 
   const spent =
     (materials ?? [])
@@ -63,7 +79,8 @@ export default async function SiteReportPage({
     (payments ?? [])
       // Labour only: supplier payments settle already-counted material costs.
       .filter((p) => (p.status === "paid" || p.status === "approved") && p.payee_type === "labour")
-      .reduce((sum, p) => sum + Number(p.amount), 0);
+      .reduce((sum, p) => sum + Number(p.amount), 0) +
+    totalWages;
 
   const budget = Number(project.total_cost);
   const completionPct = Number(project.completion_pct);
@@ -85,6 +102,15 @@ export default async function SiteReportPage({
       amount: Number(p.amount),
       status: p.status,
     })),
+    ...wageRows
+      .filter((w) => w.amount > 0)
+      .map((w) => ({
+        date: w.date,
+        type: "Wage · attendance",
+        description: `${w.labourerName} (${w.status.replace("_", " ")})`,
+        amount: w.amount,
+        status: w.status,
+      })),
   ].sort((a, b) => (b.date ?? "").localeCompare(a.date ?? ""));
 
   const categoryTotals = new Map<string, number>();
@@ -97,6 +123,9 @@ export default async function SiteReportPage({
     if (p.status !== "paid" && p.status !== "approved") continue;
     const cat = p.work_category || "Uncategorized";
     categoryTotals.set(cat, (categoryTotals.get(cat) ?? 0) + Number(p.amount));
+  }
+  if (totalWages > 0) {
+    categoryTotals.set("Wages (attendance)", (categoryTotals.get("Wages (attendance)") ?? 0) + totalWages);
   }
   const categoryRows = Array.from(categoryTotals)
     .sort((a, b) => b[1] - a[1])

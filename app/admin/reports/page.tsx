@@ -2,6 +2,7 @@ import Link from "next/link";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { AdminPage, AdminPageHeader, DataTable } from "@/components/admin/Page";
 import { DownloadSummaryPdfButton } from "@/components/admin/ReportPdf";
+import { WAGE_FACTOR, wageForStatus } from "@/lib/wages";
 
 export default async function ReportsPage() {
   const supabase = createSupabaseServerClient();
@@ -16,9 +17,12 @@ export default async function ReportsPage() {
     supabase.from("projects").select("id, name, status, total_cost, completion_pct").is("archived_at", null).order("name"),
     supabase.from("materials").select("project_id, quantity, unit_cost, status").is("archived_at", null),
     supabase.from("payments").select("project_id, amount, status, payee_type").is("archived_at", null),
-    supabase.from("attendance").select("date, status, labourer_id"),
+    supabase.from("attendance").select("date, status, labourer_id, project_id"),
     supabase.from("labourers").select("id, name, daily_wage").is("archived_at", null),
   ]);
+
+  const labourerWage = new Map((labourers ?? []).map((l) => [l.id, Number(l.daily_wage)]));
+  const labourerName = new Map((labourers ?? []).map((l) => [l.id, l.name]));
 
   // ---- Per-site spend, for the site list ----
   const projectSpent = new Map<string, number>();
@@ -36,20 +40,22 @@ export default async function ReportsPage() {
     if (p.payee_type !== "labour") continue;
     projectSpent.set(p.project_id, (projectSpent.get(p.project_id) ?? 0) + Number(p.amount));
   }
+  for (const a of attendance ?? []) {
+    if (!a.project_id) continue;
+    const wage = wageForStatus(a.status, labourerWage.get(a.labourer_id) ?? 0);
+    projectSpent.set(a.project_id, (projectSpent.get(a.project_id) ?? 0) + wage);
+  }
 
   // ---- Attendance last 7 days (web-only extra, no Android equivalent) ----
   const cutoff = new Date();
   cutoff.setDate(cutoff.getDate() - 6);
   const cutoffStr = cutoff.toISOString().slice(0, 10);
 
-  const wageFactor = { present: 1, half_day: 0.5, absent: 0 } as const;
-  const labourerWage = new Map((labourers ?? []).map((l) => [l.id, Number(l.daily_wage)]));
-  const labourerName = new Map((labourers ?? []).map((l) => [l.id, l.name]));
   const weeklyDays = new Map<string, number>();
   const weeklyEarn = new Map<string, number>();
   for (const a of attendance ?? []) {
     if (a.date < cutoffStr) continue;
-    const factor = wageFactor[a.status as keyof typeof wageFactor] ?? 0;
+    const factor = WAGE_FACTOR[a.status] ?? 0;
     weeklyDays.set(a.labourer_id, (weeklyDays.get(a.labourer_id) ?? 0) + factor);
     weeklyEarn.set(
       a.labourer_id,
