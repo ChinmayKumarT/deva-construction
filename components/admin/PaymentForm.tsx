@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useMemo, useState } from "react";
 import { SubmitButton } from "@/components/admin/Page";
 import { WORK_CATEGORIES } from "@/lib/workCategories";
+import { wageDueKey } from "@/lib/wages";
 
 const inputClass =
   "w-full rounded-lg border border-[var(--line)] bg-white px-3 py-2 outline-none focus:border-brand focus:ring-2 focus:ring-brand/20";
@@ -40,6 +41,7 @@ function PaymentFormFields({
   labourers,
   materials,
   assignments,
+  wageDue,
   initial,
   paymentId,
   submitLabel,
@@ -51,6 +53,7 @@ function PaymentFormFields({
   labourers: { id: string; name: string }[];
   materials: Material[];
   assignments: Assignment[];
+  wageDue: Record<string, number>;
   initial: Initial;
   paymentId?: string;
   submitLabel: string;
@@ -84,6 +87,12 @@ function PaymentFormFields({
     setProjectId(id);
     setPurchaseId("none");
     setLabourerId("none");
+  }
+
+  function handleLabourerChange(id: string) {
+    setLabourerId(id);
+    if (id === "none" || projectId === "none") return;
+    setAmount(String(wageDue[wageDueKey(projectId, id)] ?? 0));
   }
 
   function handlePurchaseChange(id: string) {
@@ -134,7 +143,7 @@ function PaymentFormFields({
             name="labourer_id"
             className={selectClass}
             value={labourerId}
-            onChange={(e) => setLabourerId(e.target.value)}
+            onChange={(e) => handleLabourerChange(e.target.value)}
             disabled={projectId === "none"}
           >
             <option value="none">
@@ -143,7 +152,8 @@ function PaymentFormFields({
             {assignedLabourers.map((l) => (<option key={l.id} value={l.id}>{l.name}</option>))}
           </select>
           <span className="mt-1 block text-xs text-slate-500">
-            Only labourers currently assigned to this project.
+            Only labourers currently assigned to this project. Selecting one fills in the
+            wages owed based on their attendance.
           </span>
         </label>
       ) : (
@@ -240,6 +250,7 @@ export function CreatePaymentForm({
   labourers,
   materials,
   assignments,
+  wageDue,
   defaultProjectId,
 }: {
   action: (fd: FormData) => Promise<void>;
@@ -248,6 +259,7 @@ export function CreatePaymentForm({
   labourers: { id: string; name: string }[];
   materials: Material[];
   assignments: Assignment[];
+  wageDue: Record<string, number>;
   defaultProjectId: string;
 }) {
   return (
@@ -258,6 +270,7 @@ export function CreatePaymentForm({
       labourers={labourers}
       materials={materials}
       assignments={assignments}
+      wageDue={wageDue}
       initial={{
         payeeType: "supplier",
         projectId: defaultProjectId,
@@ -279,6 +292,7 @@ export function EditPaymentForm({
   labourers,
   materials,
   assignments,
+  wageDue,
   paymentId,
   initial,
   cancelHref,
@@ -289,6 +303,7 @@ export function EditPaymentForm({
   labourers: { id: string; name: string }[];
   materials: Material[];
   assignments: Assignment[];
+  wageDue: Record<string, number>;
   paymentId: string;
   initial: Initial;
   cancelHref: string;
@@ -301,6 +316,7 @@ export function EditPaymentForm({
       labourers={labourers}
       materials={materials}
       assignments={assignments}
+      wageDue={wageDue}
       initial={initial}
       paymentId={paymentId}
       submitLabel="Save changes"

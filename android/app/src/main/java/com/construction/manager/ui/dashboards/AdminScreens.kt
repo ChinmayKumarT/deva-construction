@@ -1153,6 +1153,7 @@ fun AdminPayments(isOwner: Boolean = false, initialProjectFilter: ProjectRow? = 
     var labourers by remember { mutableStateOf<List<LabourerRow>>(emptyList()) }
     var materials by remember { mutableStateOf<List<MaterialRow>>(emptyList()) }
     var assignments by remember { mutableStateOf<List<ProjectLabourerRow>>(emptyList()) }
+    var attendance by remember { mutableStateOf<List<AttendanceRow>>(emptyList()) }
     var version by remember { mutableStateOf(0) }
     var error by remember { mutableStateOf<String?>(null) }
     var showArchived by remember { mutableStateOf(false) }
@@ -1169,6 +1170,7 @@ fun AdminPayments(isOwner: Boolean = false, initialProjectFilter: ProjectRow? = 
             labourers = Repo.listLabourers()
             materials = Repo.listMaterials().filter { it.status != "returned" }
             assignments = Repo.listActiveAssignments()
+            attendance = Repo.listAllAttendance()
         }) { error = it }
     }
     val visibleRows = projectFilter?.let { pf -> rows.filter { it.projectId == pf.id } } ?: rows
@@ -1185,6 +1187,8 @@ fun AdminPayments(isOwner: Boolean = false, initialProjectFilter: ProjectRow? = 
         val ids = assignments.filter { it.projectId == pr.id }.map { it.labourerId }.toSet()
         labourers.filter { it.id in ids }
     } ?: emptyList()
+    val wageById = labourers.associate { it.id to it.dailyWage }
+    val wageDue = remember(attendance, rows, wageById) { computeWagesDue(attendance, rows, wageById) }
 
     FormColumn {
         ArchivedSwitch(showArchived) { showArchived = !showArchived }
@@ -1211,9 +1215,17 @@ fun AdminPayments(isOwner: Boolean = false, initialProjectFilter: ProjectRow? = 
                 { it.name }, { project = it; purchase = null; labourer = null },
             )
             if (payeeType == "labour") {
-                Dropdown("Labourer", assignedLabourers, labourer, { it.name }, { labourer = it })
+                Dropdown(
+                    "Labourer", assignedLabourers, labourer, { it.name },
+                    { l ->
+                        labourer = l
+                        val pid = project?.id
+                        if (pid != null) amount = (wageDue[wageDueKey(pid, l.id)] ?: 0.0).toString()
+                    },
+                )
                 Text(
-                    "Only labourers currently assigned to this project.",
+                    "Only labourers currently assigned to this project. Selecting one fills in " +
+                        "the wages owed based on their attendance.",
                     style = MaterialTheme.typography.labelSmall,
                     modifier = Modifier.padding(horizontal = 16.dp),
                 )
@@ -1300,7 +1312,7 @@ fun AdminPayments(isOwner: Boolean = false, initialProjectFilter: ProjectRow? = 
 
     editing?.let { p ->
         EditPaymentDialog(
-            p, projects, suppliers, labourers, materials, assignments,
+            p, projects, suppliers, labourers, materials, assignments, attendance, rows,
             onDismiss = { editing = null }, onSaved = { editing = null; version++ },
         )
     }
@@ -1335,6 +1347,8 @@ private fun EditPaymentDialog(
     labourers: List<LabourerRow>,
     materials: List<MaterialRow>,
     assignments: List<ProjectLabourerRow>,
+    attendance: List<AttendanceRow>,
+    payments: List<PaymentRow>,
     onDismiss: () -> Unit,
     onSaved: () -> Unit,
 ) {
@@ -1354,6 +1368,13 @@ private fun EditPaymentDialog(
         val ids = assignments.filter { it.projectId == pr.id }.map { it.labourerId }.toSet()
         labourers.filter { it.id in ids || it.id == payment.labourerId }
     } ?: emptyList()
+    val wageById = labourers.associate { it.id to it.dailyWage }
+    // Exclude this payment itself from "already claimed" -- otherwise
+    // re-selecting the same labourer would subtract its own amount and
+    // always show 0 due.
+    val wageDue = remember(attendance, payments, wageById) {
+        computeWagesDue(attendance, payments, wageById, excludePaymentId = payment.id)
+    }
 
     EditDialog(
         title = "Edit payment", busy = busy, error = error,
@@ -1377,9 +1398,17 @@ private fun EditPaymentDialog(
         Dropdown("Payee type", listOf("supplier","labour"), payeeType, { it }, { payeeType = it })
         Dropdown("Project", projects, project, { it.name }, { project = it; purchase = null; labourer = null })
         if (payeeType == "labour") {
-            Dropdown("Labourer", assignedLabourers, labourer, { it.name }, { labourer = it })
+            Dropdown(
+                "Labourer", assignedLabourers, labourer, { it.name },
+                { l ->
+                    labourer = l
+                    val pid = project?.id
+                    if (pid != null) amount = (wageDue[wageDueKey(pid, l.id)] ?: 0.0).toString()
+                },
+            )
             Text(
-                "Only labourers currently assigned to this project.",
+                "Only labourers currently assigned to this project. Selecting one fills in the " +
+                    "wages owed based on their attendance.",
                 style = MaterialTheme.typography.labelSmall,
             )
         } else {
@@ -2055,6 +2084,36 @@ private fun computeCashFlow(
         materialsTotal, supplierTotal, labourTotal, wagesTotal,
         byProjectMaterials, byProjectSupplier, byProjectLabour, byProjectWages,
     )
+}
+
+private fun wageDueKey(projectId: String, labourerId: String) = "$projectId|$labourerId"
+
+// How much is still owed to a labourer for a project: wage accrued from
+// attendance minus whatever labour payments already exist for that pair
+// (any non-rejected status counts as claimed, so a pending payment isn't
+// double-suggested). Mirrors lib/wages.ts's computeWagesDue.
+private fun computeWagesDue(
+    attendance: List<AttendanceRow>,
+    payments: List<PaymentRow>,
+    labourerWage: Map<String, Double>,
+    excludePaymentId: String? = null,
+): Map<String, Double> {
+    val due = mutableMapOf<String, Double>()
+    attendance.forEach { a ->
+        val pid = a.projectId ?: return@forEach
+        val wage = (ReportWageFactor[a.status] ?: 0.0) * (labourerWage[a.labourerId] ?: 0.0)
+        if (wage <= 0.0) return@forEach
+        val key = wageDueKey(pid, a.labourerId)
+        due[key] = (due[key] ?: 0.0) + wage
+    }
+    payments.forEach { p ->
+        val pid = p.projectId ?: return@forEach
+        val labourerId = p.labourerId ?: return@forEach
+        if (p.id == excludePaymentId || p.payeeType != "labour" || p.status == "rejected") return@forEach
+        val key = wageDueKey(pid, labourerId)
+        due[key] = (due[key] ?: 0.0) - p.amount
+    }
+    return due.mapValues { (_, v) -> v.coerceAtLeast(0.0) }
 }
 
 private val CashFlowMaterialsColor = androidx.compose.ui.graphics.Color(0xFF16A34A)

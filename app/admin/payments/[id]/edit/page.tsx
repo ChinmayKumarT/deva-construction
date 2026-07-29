@@ -3,13 +3,14 @@ import { notFound } from "next/navigation";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { AdminPage, AdminPageHeader } from "@/components/admin/Page";
 import { EditPaymentForm } from "@/components/admin/PaymentForm";
+import { computeWagesDue } from "@/lib/wages";
 import { updatePayment } from "../../../actions";
 
 export default async function EditPaymentPage({ params }: { params: { id: string } }) {
   const supabase = createSupabaseServerClient();
   const [
     { data: payment }, { data: projects }, { data: suppliers }, { data: labourers },
-    { data: materials }, { data: assignments },
+    { data: materials }, { data: assignments }, { data: allLabourPayments }, { data: attendance },
   ] = await Promise.all([
       supabase
         .from("payments")
@@ -18,7 +19,7 @@ export default async function EditPaymentPage({ params }: { params: { id: string
         .single(),
       supabase.from("projects").select("id, name").is("archived_at", null).order("name"),
       supabase.from("suppliers").select("id, name").is("archived_at", null).order("name"),
-      supabase.from("labourers").select("id, name").is("archived_at", null).order("name"),
+      supabase.from("labourers").select("id, name, daily_wage").is("archived_at", null).order("name"),
       supabase
         .from("materials")
         .select("id, name, unit, quantity, unit_cost, work_category, supplier_id, project_id")
@@ -26,8 +27,23 @@ export default async function EditPaymentPage({ params }: { params: { id: string
         .neq("status", "returned")
         .order("ordered_at", { ascending: false }),
       supabase.from("project_labourers").select("labourer_id, project_id").is("unassigned_at", null),
+      supabase
+        .from("payments")
+        .select("id, project_id, payee_type, labourer_id, amount, status")
+        .is("archived_at", null)
+        .eq("payee_type", "labour"),
+      supabase.from("attendance").select("project_id, labourer_id, status"),
     ]);
   if (!payment) notFound();
+
+  const labourerWage = new Map((labourers ?? []).map((l) => [l.id, Number(l.daily_wage)]));
+  // Exclude this payment itself from "already claimed" -- otherwise editing
+  // it would subtract its own amount and always show 0 due.
+  const wageDue = computeWagesDue(
+    attendance ?? [],
+    (allLabourPayments ?? []).filter((p) => p.id !== payment.id),
+    labourerWage,
+  );
 
   return (
     <AdminPage>
@@ -43,6 +59,7 @@ export default async function EditPaymentPage({ params }: { params: { id: string
         labourers={labourers ?? []}
         materials={materials ?? []}
         assignments={assignments ?? []}
+        wageDue={wageDue}
         paymentId={payment.id}
         cancelHref="/admin/payments"
         initial={{

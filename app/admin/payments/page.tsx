@@ -3,6 +3,7 @@ import { createSupabaseServerClient, getSessionAndRole } from "@/lib/supabase/se
 import { AdminPage, AdminPageHeader } from "@/components/admin/Page";
 import { ArchivedToggle, DeleteForeverButton, RestoreAction } from "@/components/admin/RowActions";
 import { CreatePaymentForm } from "@/components/admin/PaymentForm";
+import { computeWagesDue } from "@/lib/wages";
 import {
   approvePayment, createPayment, markPaymentPaid, rejectPayment,
   archivePayment, unarchivePayment, deletePayment,
@@ -39,12 +40,13 @@ export default async function PaymentsPage({
 
   const [
     { data: payments }, { data: projects }, { data: suppliers }, { data: labourers },
-    { data: materials }, { data: assignments }, { count: archivedCount },
+    { data: materials }, { data: assignments }, { data: allLabourPayments }, { data: attendance },
+    { count: archivedCount },
   ] = await Promise.all([
       showArchived ? base.not("archived_at", "is", null) : base.is("archived_at", null),
       supabase.from("projects").select("id, name").is("archived_at", null).order("name"),
       supabase.from("suppliers").select("id, name").is("archived_at", null).order("name"),
-      supabase.from("labourers").select("id, name").is("archived_at", null).order("name"),
+      supabase.from("labourers").select("id, name, daily_wage").is("archived_at", null).order("name"),
       supabase
         .from("materials")
         .select("id, name, unit, quantity, unit_cost, work_category, supplier_id, project_id")
@@ -52,12 +54,21 @@ export default async function PaymentsPage({
         .neq("status", "returned")
         .order("ordered_at", { ascending: false }),
       supabase.from("project_labourers").select("labourer_id, project_id").is("unassigned_at", null),
+      supabase
+        .from("payments")
+        .select("project_id, payee_type, labourer_id, amount, status")
+        .is("archived_at", null)
+        .eq("payee_type", "labour"),
+      supabase.from("attendance").select("project_id, labourer_id, status"),
       supabase.from("payments").select("id", { count: "exact", head: true }).not("archived_at", "is", null),
     ]);
 
   const filteredProjectName = projectFilter
     ? projects?.find((p) => p.id === projectFilter)?.name ?? "selected project"
     : null;
+
+  const labourerWage = new Map((labourers ?? []).map((l) => [l.id, Number(l.daily_wage)]));
+  const wageDue = computeWagesDue(attendance ?? [], allLabourPayments ?? [], labourerWage);
 
   return (
     <AdminPage>
@@ -89,6 +100,7 @@ export default async function PaymentsPage({
           labourers={labourers ?? []}
           materials={materials ?? []}
           assignments={assignments ?? []}
+          wageDue={wageDue}
           defaultProjectId={projectFilter ?? "none"}
         />
       )}
