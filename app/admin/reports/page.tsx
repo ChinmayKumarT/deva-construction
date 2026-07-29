@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { AdminPage, AdminPageHeader, DataTable } from "@/components/admin/Page";
+import { DownloadSummaryPdfButton } from "@/components/admin/ReportPdf";
 
 export default async function ReportsPage() {
   const supabase = createSupabaseServerClient();
@@ -61,9 +62,23 @@ export default async function ReportsPage() {
     `₹${(weeklyEarn.get(id) ?? 0).toLocaleString()}`,
   ]);
 
+  const pdfData = {
+    sites: (projects ?? []).map((p) => ({
+      name: p.name,
+      status: p.status,
+      completionPct: Number(p.completion_pct),
+      budget: Number(p.total_cost),
+      spent: projectSpent.get(p.id) ?? 0,
+    })),
+    labour: attendanceRows.map(([name, days, earn]) => ({ name, days, earn })),
+  };
+
   return (
     <AdminPage>
-      <AdminPageHeader title="Reports" subtitle="Pick a site to see its own report and transactions." />
+      <div className="mb-2 flex items-start justify-between gap-4">
+        <AdminPageHeader title="Reports" subtitle="Pick a site to see its own report and transactions." />
+        <DownloadSummaryPdfButton data={pdfData} />
+      </div>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {(projects ?? []).length === 0 && (

@@ -19,6 +19,10 @@ import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
 import com.construction.manager.data.*
 import com.construction.manager.ui.*
+import com.construction.manager.util.PdfExporter
+import com.construction.manager.util.PdfLabourRow
+import com.construction.manager.util.PdfSiteSummary
+import com.construction.manager.util.PdfTransaction
 import kotlinx.coroutines.launch
 import java.time.LocalDate
 
@@ -1747,12 +1751,29 @@ fun AdminReports() {
         p.id to mat + pay
     }
 
+    val context = LocalContext.current
+
     FormColumn {
         error?.let { Text(it, color = MaterialTheme.colorScheme.error,
             modifier = Modifier.padding(16.dp)) }
 
         val sel = selectedProject
         if (sel == null) {
+            Row(
+                Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+                horizontalArrangement = Arrangement.End,
+            ) {
+                TextButton(onClick = {
+                    val uri = PdfExporter.exportSummaryReport(
+                        context,
+                        sites = projects.map {
+                            PdfSiteSummary(it.name, it.status, it.completionPct, it.totalCost, spent[it.id] ?: 0.0)
+                        },
+                        labour = weeklyLabourRows(labourers, weekAttendance),
+                    )
+                    PdfExporter.share(context, uri)
+                }) { Text("Download PDF") }
+            }
             SiteReportList(projects, spent, onSelect = { selectedProject = it })
             Divider()
             WeeklyLabourSection(labourers, weekAttendance)
@@ -1765,6 +1786,21 @@ fun AdminReports() {
                 onBack = { selectedProject = null },
             )
         }
+    }
+}
+
+private fun weeklyLabourRows(labourers: List<LabourerRow>, weekAttendance: List<AttendanceRow>): List<PdfLabourRow> {
+    val wageById = labourers.associate { it.id to it.dailyWage }
+    val nameById = labourers.associate { it.id to it.name }
+    val daysById = mutableMapOf<String, Double>()
+    val earnById = mutableMapOf<String, Double>()
+    for (a in weekAttendance) {
+        val factor = ReportWageFactor[a.status] ?: 0.0
+        daysById[a.labourerId] = (daysById[a.labourerId] ?: 0.0) + factor
+        earnById[a.labourerId] = (earnById[a.labourerId] ?: 0.0) + factor * (wageById[a.labourerId] ?: 0.0)
+    }
+    return daysById.map { (id, days) ->
+        PdfLabourRow(nameById[id] ?: "—", "%.1f".format(days), money(earnById[id] ?: 0.0))
     }
 }
 
@@ -1829,6 +1865,28 @@ private data class Transaction(
     val status: String,
 )
 
+private fun transactionsForPdf(materials: List<MaterialRow>, payments: List<PaymentRow>): List<PdfTransaction> {
+    val materialTx = materials.map {
+        PdfTransaction(
+            type = "Material",
+            description = "${it.name} (${it.quantity} ${it.unit})",
+            date = it.deliveredAt ?: it.orderedAt ?: "no date",
+            status = it.status,
+            amount = it.quantity * it.unitCost,
+        )
+    }
+    val paymentTx = payments.map {
+        PdfTransaction(
+            type = if (it.payeeType == "labour") "Payment · labour" else "Payment · supplier",
+            description = it.description?.ifBlank { null } ?: "—",
+            date = it.createdAt ?: "no date",
+            status = it.status,
+            amount = it.amount,
+        )
+    }
+    return (materialTx + paymentTx).sortedByDescending { it.date }
+}
+
 @Composable
 private fun SiteReportDetail(
     project: ProjectRow,
@@ -1837,7 +1895,22 @@ private fun SiteReportDetail(
     payments: List<PaymentRow>,
     onBack: () -> Unit,
 ) {
-    TextButton(onClick = onBack) { Text("← Reports") }
+    val context = LocalContext.current
+    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+        TextButton(onClick = onBack) { Text("← Reports") }
+        TextButton(onClick = {
+            val uri = PdfExporter.exportSiteReport(
+                context,
+                projectName = project.name,
+                status = project.status,
+                completionPct = project.completionPct,
+                budget = project.totalCost,
+                spent = spent,
+                transactions = transactionsForPdf(materials, payments),
+            )
+            PdfExporter.share(context, uri)
+        }) { Text("Download PDF") }
+    }
     SectionTitle(project.name)
 
     CompletionAndSpendPies(

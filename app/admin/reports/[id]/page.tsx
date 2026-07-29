@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { AdminPage, AdminPageHeader, DataTable } from "@/components/admin/Page";
 import { PieChart, PieLegend } from "@/components/admin/PieChart";
+import { DownloadSitePdfButton } from "@/components/admin/ReportPdf";
 
 const BRAND = "#16a34a";
 const SPEND = "#F59E0B";
@@ -63,10 +64,28 @@ export default async function SiteReportPage({ params }: { params: { id: string 
     })),
   ].sort((a, b) => (b.date ?? "").localeCompare(a.date ?? ""));
 
+  const pdfSite = {
+    name: project.name,
+    status: project.status,
+    completionPct,
+    budget,
+    spent,
+    transactions: transactions.map((t) => ({
+      date: t.date ? new Date(t.date).toLocaleDateString() : "no date",
+      type: t.type,
+      description: t.description,
+      amount: t.amount,
+      status: t.status,
+    })),
+  };
+
   return (
     <AdminPage>
       <Link href="/admin/reports" className="text-sm text-slate-600 hover:underline">← Reports</Link>
-      <AdminPageHeader title={project.name} subtitle={`Status: ${project.status}`} />
+      <div className="flex items-start justify-between gap-4">
+        <AdminPageHeader title={project.name} subtitle={`Status: ${project.status}`} />
+        <DownloadSitePdfButton site={pdfSite} />
+      </div>
 
       <div className="grid gap-6 sm:grid-cols-2">
         <div className="rounded-xl border border-[var(--line)] bg-white p-5">
