@@ -1721,6 +1721,8 @@ fun AdminReports() {
     var projects by remember { mutableStateOf<List<ProjectRow>>(emptyList()) }
     var payments by remember { mutableStateOf<List<PaymentRow>>(emptyList()) }
     var materials by remember { mutableStateOf<List<MaterialRow>>(emptyList()) }
+    var labourers by remember { mutableStateOf<List<LabourerRow>>(emptyList()) }
+    var weekAttendance by remember { mutableStateOf<List<AttendanceRow>>(emptyList()) }
     var error by remember { mutableStateOf<String?>(null) }
     var selectedProject by remember { mutableStateOf<ProjectRow?>(null) }
     LaunchedEffect(Unit) {
@@ -1728,6 +1730,8 @@ fun AdminReports() {
             projects = Repo.listProjects()
             payments = Repo.listPayments()
             materials = Repo.listMaterials()
+            labourers = Repo.listLabourers()
+            weekAttendance = Repo.listAttendanceSince(LocalDate.now().minusDays(6).toString())
         }) { error = it }
     }
 
@@ -1750,6 +1754,8 @@ fun AdminReports() {
         val sel = selectedProject
         if (sel == null) {
             SiteReportList(projects, spent, onSelect = { selectedProject = it })
+            Divider()
+            WeeklyLabourSection(labourers, weekAttendance)
         } else {
             SiteReportDetail(
                 project = sel,
@@ -1780,6 +1786,37 @@ private fun SiteReportList(
             "${p.status} · ${"%.1f".format(p.completionPct)}% · Budget ${money(p.totalCost)}",
             money(s),
             actions = { TextButton(onClick = { onSelect(p) }) { Text("View report") } },
+        )
+    }
+}
+
+// Mirrors app/admin/reports/page.tsx's "Labour: last 7 days" table -- days
+// worked and wages earned per labourer over the last week, weighted by
+// present/half_day/absent the same way the labour dashboard does.
+private val ReportWageFactor = mapOf("present" to 1.0, "half_day" to 0.5, "absent" to 0.0)
+
+@Composable
+private fun WeeklyLabourSection(labourers: List<LabourerRow>, weekAttendance: List<AttendanceRow>) {
+    val wageById = labourers.associate { it.id to it.dailyWage }
+    val nameById = labourers.associate { it.id to it.name }
+    val daysById = mutableMapOf<String, Double>()
+    val earnById = mutableMapOf<String, Double>()
+    for (a in weekAttendance) {
+        val factor = ReportWageFactor[a.status] ?: 0.0
+        daysById[a.labourerId] = (daysById[a.labourerId] ?: 0.0) + factor
+        earnById[a.labourerId] = (earnById[a.labourerId] ?: 0.0) + factor * (wageById[a.labourerId] ?: 0.0)
+    }
+
+    SectionTitle("Labour: last 7 days")
+    if (daysById.isEmpty()) {
+        Text("No attendance recorded in the last 7 days.", Modifier.padding(16.dp))
+        return
+    }
+    daysById.forEach { (labourerId, days) ->
+        ItemCard(
+            nameById[labourerId] ?: "—",
+            "%.1f days worked".format(days),
+            money(earnById[labourerId] ?: 0.0),
         )
     }
 }

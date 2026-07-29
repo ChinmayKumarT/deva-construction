@@ -221,6 +221,8 @@ object Repo {
         .decodeList<ProjectUpdateRow>()
     suspend fun listAttendance(date: String) =
         supabase.from("attendance").select { filter { eq("date", date) } }.decodeList<AttendanceRow>()
+    suspend fun listAttendanceSince(sinceDate: String) =
+        supabase.from("attendance").select { filter { gte("date", sinceDate) } }.decodeList<AttendanceRow>()
     suspend fun listProfilesByRole(role: Role) = supabase.from("profiles")
         .select { filter { eq("role", role.name) } }.decodeList<Profile>()
     suspend fun listAllProfiles() = supabase.from("profiles")
