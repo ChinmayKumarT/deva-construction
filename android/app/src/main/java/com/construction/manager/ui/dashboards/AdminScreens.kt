@@ -902,7 +902,7 @@ private fun EditLabourerDialog(labourer: LabourerRow, onDismiss: () -> Unit, onS
 
 // ---------- Materials ----------
 @Composable
-fun AdminMaterials(isOwner: Boolean = false) {
+fun AdminMaterials(isOwner: Boolean = false, initialProjectFilter: ProjectRow? = null) {
     var rows by remember { mutableStateOf<List<MaterialRow>>(emptyList()) }
     var projects by remember { mutableStateOf<List<ProjectRow>>(emptyList()) }
     var suppliers by remember { mutableStateOf<List<SupplierRow>>(emptyList()) }
@@ -912,6 +912,7 @@ fun AdminMaterials(isOwner: Boolean = false) {
     var editing by remember { mutableStateOf<MaterialRow?>(null) }
     var archiving by remember { mutableStateOf<MaterialRow?>(null) }
     var deleting by remember { mutableStateOf<MaterialRow?>(null) }
+    var projectFilter by remember { mutableStateOf(initialProjectFilter) }
     val scope = rememberCoroutineScope()
     LaunchedEffect(version, showArchived) {
         safe({
@@ -920,16 +921,29 @@ fun AdminMaterials(isOwner: Boolean = false) {
             suppliers = Repo.listSuppliers()
         }) { error = it }
     }
+    val visibleRows = projectFilter?.let { pf -> rows.filter { it.projectId == pf.id } } ?: rows
     var name by remember { mutableStateOf("") }
     var unit by remember { mutableStateOf("unit") }
     var qty by remember { mutableStateOf("") }
     var unitCost by remember { mutableStateOf("") }
     var status by remember { mutableStateOf("ordered") }
-    var project by remember { mutableStateOf<ProjectRow?>(null) }
+    var project by remember { mutableStateOf(initialProjectFilter) }
     var supplier by remember { mutableStateOf<SupplierRow?>(null) }
 
     FormColumn {
         ArchivedSwitch(showArchived) { showArchived = !showArchived }
+        projectFilter?.let { pf ->
+            Row(
+                Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    "Showing materials for ${pf.name}", style = MaterialTheme.typography.bodySmall,
+                    modifier = Modifier.weight(1f),
+                )
+                TextButton(onClick = { projectFilter = null }) { Text("Clear filter") }
+            }
+        }
         if (!showArchived) {
             SectionTitle("Add material")
             TextField(name, { name = it }, "Name")
@@ -954,13 +968,13 @@ fun AdminMaterials(isOwner: Boolean = false) {
             modifier = Modifier.padding(16.dp)) }
         Divider()
         SectionTitle(
-            if (showArchived) "Archived materials (${rows.size})" else "Materials (${rows.size})",
+            if (showArchived) "Archived materials (${visibleRows.size})" else "Materials (${visibleRows.size})",
         )
-        if (rows.isEmpty()) {
+        if (visibleRows.isEmpty()) {
             Text(if (showArchived) "No archived materials." else "No materials yet.",
                 Modifier.padding(16.dp))
         }
-        rows.forEach { m ->
+        visibleRows.forEach { m ->
             ItemCard(
                 m.name,
                 "${m.quantity} ${m.unit} · ${m.status}",
@@ -1061,7 +1075,7 @@ private fun EditMaterialDialog(material: MaterialRow, onDismiss: () -> Unit, onS
 
 // ---------- Payments ----------
 @Composable
-fun AdminPayments(isOwner: Boolean = false) {
+fun AdminPayments(isOwner: Boolean = false, initialProjectFilter: ProjectRow? = null) {
     var rows by remember { mutableStateOf<List<PaymentRow>>(emptyList()) }
     var projects by remember { mutableStateOf<List<ProjectRow>>(emptyList()) }
     var suppliers by remember { mutableStateOf<List<SupplierRow>>(emptyList()) }
@@ -1072,6 +1086,7 @@ fun AdminPayments(isOwner: Boolean = false) {
     var editing by remember { mutableStateOf<PaymentRow?>(null) }
     var archiving by remember { mutableStateOf<PaymentRow?>(null) }
     var deleting by remember { mutableStateOf<PaymentRow?>(null) }
+    var projectFilter by remember { mutableStateOf(initialProjectFilter) }
     val scope = rememberCoroutineScope()
     LaunchedEffect(version, showArchived) {
         safe({
@@ -1081,15 +1096,28 @@ fun AdminPayments(isOwner: Boolean = false) {
             labourers = Repo.listLabourers()
         }) { error = it }
     }
+    val visibleRows = projectFilter?.let { pf -> rows.filter { it.projectId == pf.id } } ?: rows
     var payeeType by remember { mutableStateOf("supplier") }
     var amount by remember { mutableStateOf("") }
     var desc by remember { mutableStateOf("") }
-    var project by remember { mutableStateOf<ProjectRow?>(null) }
+    var project by remember { mutableStateOf(initialProjectFilter) }
     var supplier by remember { mutableStateOf<SupplierRow?>(null) }
     var labourer by remember { mutableStateOf<LabourerRow?>(null) }
 
     FormColumn {
         ArchivedSwitch(showArchived) { showArchived = !showArchived }
+        projectFilter?.let { pf ->
+            Row(
+                Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    "Showing payments for ${pf.name}", style = MaterialTheme.typography.bodySmall,
+                    modifier = Modifier.weight(1f),
+                )
+                TextButton(onClick = { projectFilter = null }) { Text("Clear filter") }
+            }
+        }
         if (!showArchived) {
             SectionTitle("Create payment")
             Dropdown("Payee type", listOf("supplier","labour"), payeeType, { it }, { payeeType = it })
@@ -1115,13 +1143,13 @@ fun AdminPayments(isOwner: Boolean = false) {
             modifier = Modifier.padding(16.dp)) }
         Divider()
         SectionTitle(
-            if (showArchived) "Archived payments (${rows.size})" else "Payments (${rows.size})",
+            if (showArchived) "Archived payments (${visibleRows.size})" else "Payments (${visibleRows.size})",
         )
-        if (rows.isEmpty()) {
+        if (visibleRows.isEmpty()) {
             Text(if (showArchived) "No archived payments." else "No payments yet.",
                 Modifier.padding(16.dp))
         }
-        rows.forEach { p ->
+        visibleRows.forEach { p ->
             ItemCard("${p.payeeType} · ${p.description ?: "—"}",
                 p.status, money(p.amount),
                 actions = {
@@ -1227,31 +1255,54 @@ private fun EditPaymentDialog(payment: PaymentRow, onDismiss: () -> Unit, onSave
 // ---------- Attendance ----------
 @Composable
 fun AdminAttendance() {
-    val today = remember { LocalDate.now().toString() }
+    val todayStr = remember { LocalDate.now().toString() }
+    var date by remember { mutableStateOf(todayStr) }
     var labourers by remember { mutableStateOf<List<LabourerRow>>(emptyList()) }
+    var projects by remember { mutableStateOf<List<ProjectRow>>(emptyList()) }
+    var assignments by remember { mutableStateOf<List<ProjectLabourerRow>>(emptyList()) }
     var marks by remember { mutableStateOf<Map<String, String>>(emptyMap()) }
     var error by remember { mutableStateOf<String?>(null) }
     var version by remember { mutableStateOf(0) }
     val scope = rememberCoroutineScope()
-    LaunchedEffect(version) {
+    LaunchedEffect(version, date) {
         safe({
             labourers = Repo.listLabourers().filter { it.active }
-            marks = Repo.listAttendance(today).associate { it.labourerId to it.status }
+            projects = Repo.listProjects()
+            assignments = Repo.listActiveAssignments()
+            marks = Repo.listAttendance(date).associate { it.labourerId to it.status }
         }) { error = it }
     }
+    val projectName = projects.associate { it.id to it.name }
+    val currentSite = assignments.associate { it.labourerId to it.projectId }
 
     FormColumn {
-        SectionTitle("Attendance — $today")
+        SectionTitle("Attendance")
+        Row(
+            Modifier.padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            DateField(date, { date = it }, "Date", modifier = Modifier.weight(1f))
+            if (date != todayStr) {
+                TextButton(onClick = { date = todayStr }) { Text("Today") }
+            }
+        }
         error?.let { Text(it, color = MaterialTheme.colorScheme.error,
             modifier = Modifier.padding(16.dp)) }
+        if (labourers.isEmpty()) {
+            Text("No active labourers. Add one in Labourers.", Modifier.padding(16.dp))
+        }
         labourers.forEach { l ->
-            ItemCard(l.name, marks[l.id] ?: "not marked",
+            val siteId = currentSite[l.id]
+            ItemCard(
+                l.name,
+                "${siteId?.let { projectName[it] } ?: "unassigned"} · ${money(l.dailyWage)} · " +
+                    (marks[l.id]?.replace("_", " ") ?: "not marked"),
                 actions = {
                     listOf("present","half_day","absent").forEach { s ->
                         TextButton(onClick = {
                             scope.launch {
                                 safe({
-                                    Repo.upsertAttendance(l.id, null, today, s); version++
+                                    Repo.upsertAttendance(l.id, siteId, date, s); version++
                                 }) { error = it }
                             }
                         }) { Text(s.replace("_"," ")) }
@@ -1458,16 +1509,23 @@ private fun EditUpdateDialog(update: ProjectUpdateRow, onDismiss: () -> Unit, on
 // Mirrors app/admin/costs/page.tsx: budget vs spend per project, where spend is
 // materials (excluding returned) plus approved/paid payments split by payee type.
 @Composable
-fun AdminCosts() {
+fun AdminCosts(
+    onJumpToMaterials: (ProjectRow) -> Unit = {},
+    onJumpToPayments: (ProjectRow) -> Unit = {},
+) {
     var projects by remember { mutableStateOf<List<ProjectRow>>(emptyList()) }
+    var clients by remember { mutableStateOf<List<ClientRow>>(emptyList()) }
     var materials by remember { mutableStateOf<List<MaterialRow>>(emptyList()) }
     var payments by remember { mutableStateOf<List<PaymentRow>>(emptyList()) }
     var loading by remember { mutableStateOf(true) }
     var error by remember { mutableStateOf<String?>(null) }
+    var version by remember { mutableStateOf(0) }
+    var editingBudget by remember { mutableStateOf<ProjectRow?>(null) }
 
-    LaunchedEffect(Unit) {
+    LaunchedEffect(version) {
         safe({
             projects = Repo.listProjects()
+            clients = Repo.listClients()
             materials = Repo.listMaterials()
             payments = Repo.listPayments()
         }) { error = it }
@@ -1519,11 +1577,22 @@ fun AdminCosts() {
                     val (mat, labour, supplierPaid) = breakdown[p.id]
                         ?: Triple(0.0, 0.0, 0.0)
                     val spent = mat + labour
+                    val materialCount = materials.count { it.projectId == p.id }
+                    val paymentCount = payments.count { it.projectId == p.id }
                     ItemCard(
                         p.name,
                         "${p.status} · Materials ${money(mat)} · Labour ${money(labour)} · " +
                             "Supplier bills ${money(supplierPaid)}",
                         "${money(spent)} / ${money(p.totalCost)}",
+                        actions = {
+                            TextButton(onClick = { editingBudget = p }) { Text("Edit budget") }
+                            TextButton(onClick = { onJumpToMaterials(p) }) {
+                                Text("Materials ($materialCount)")
+                            }
+                            TextButton(onClick = { onJumpToPayments(p) }) {
+                                Text("Payments ($paymentCount)")
+                            }
+                        },
                     )
                 }
                 Text(
@@ -1534,6 +1603,14 @@ fun AdminCosts() {
                 )
             }
         }
+    }
+
+    editingBudget?.let { p ->
+        EditProjectDialog(
+            project = p, clients = clients,
+            onDismiss = { editingBudget = null },
+            onSaved = { editingBudget = null; version++ },
+        )
     }
 }
 

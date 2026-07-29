@@ -9,6 +9,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import com.construction.manager.data.ProjectRow
 import com.construction.manager.data.Repo
 import com.construction.manager.ui.AuthViewModel
 import com.construction.manager.ui.DeleteAccountButton
@@ -37,6 +38,8 @@ fun AdminHome(vm: AuthViewModel, isAdmin: Boolean = true, isOwner: Boolean = fal
     val drawerState = rememberDrawerState(DrawerValue.Closed)
     val scope = rememberCoroutineScope()
     var section by remember { mutableStateOf(AdminSection.Overview) }
+    var materialsProjectFilter by remember { mutableStateOf<ProjectRow?>(null) }
+    var paymentsProjectFilter by remember { mutableStateOf<ProjectRow?>(null) }
     val visibleSections = remember(isOwner) {
         AdminSection.entries.filter { it != AdminSection.TeamAccess || isOwner }
     }
@@ -53,7 +56,14 @@ fun AdminHome(vm: AuthViewModel, isAdmin: Boolean = true, isOwner: Boolean = fal
                     NavigationDrawerItem(
                         label = { Text(s.label) },
                         selected = section == s,
-                        onClick = { section = s; scope.launch { drawerState.close() } },
+                        onClick = {
+                            section = s
+                            // Jumping from Costs sets a project filter deliberately; a manual
+                            // drawer pick means the user wants the unfiltered list.
+                            materialsProjectFilter = null
+                            paymentsProjectFilter = null
+                            scope.launch { drawerState.close() }
+                        },
                         modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
                     )
                 }
@@ -84,11 +94,14 @@ fun AdminHome(vm: AuthViewModel, isAdmin: Boolean = true, isOwner: Boolean = fal
                     AdminSection.Clients -> AdminClients(isOwner)
                     AdminSection.Suppliers -> AdminSuppliers(isOwner)
                     AdminSection.Labourers -> AdminLabourers(isOwner)
-                    AdminSection.Materials -> AdminMaterials(isOwner)
-                    AdminSection.Payments -> AdminPayments(isOwner)
+                    AdminSection.Materials -> AdminMaterials(isOwner, materialsProjectFilter)
+                    AdminSection.Payments -> AdminPayments(isOwner, paymentsProjectFilter)
                     AdminSection.Attendance -> AdminAttendance()
                     AdminSection.Updates -> AdminUpdates(isOwner)
-                    AdminSection.Costs -> AdminCosts()
+                    AdminSection.Costs -> AdminCosts(
+                        onJumpToMaterials = { p -> materialsProjectFilter = p; section = AdminSection.Materials },
+                        onJumpToPayments = { p -> paymentsProjectFilter = p; section = AdminSection.Payments },
+                    )
                     AdminSection.Reports -> AdminReports()
                     AdminSection.TeamAccess -> AdminTeamAccess()
                 }
@@ -114,6 +127,7 @@ fun AdminOverview() {
                 StatCard("Active Projects", m!!.activeProjects.toString())
                 StatCard("Total Cost", money(m!!.totalCost))
                 StatCard("Pending Payments", money(m!!.pendingPayments))
+                StatCard("Material Stock", "%,.0f".format(m!!.materialStock))
                 StatCard("Labour Count", m!!.labourCount.toString())
                 StatCard("Completion %", "%.1f%%".format(m!!.completion))
             }

@@ -139,11 +139,12 @@ object Repo {
     // ---------- Admin metrics ----------
     data class AdminMetrics(
         val totalProjects: Int, val activeProjects: Int, val totalCost: Double,
-        val pendingPayments: Double, val labourCount: Int, val completion: Double,
+        val pendingPayments: Double, val materialStock: Double,
+        val labourCount: Int, val completion: Double,
     )
     suspend fun adminMetrics(): AdminMetrics {
-        // Archived projects are excluded everywhere so the dashboard totals match
-        // the project list the user actually sees.
+        // Archived rows are excluded everywhere so the dashboard totals match
+        // what the user actually sees in each list.
         val total = supabase.from("projects").select {
             filter { filter("archived_at", FilterOperator.IS, "null") }; count(Count.EXACT)
         }.countOrNull() ?: 0
@@ -156,15 +157,29 @@ object Repo {
         }.countOrNull() ?: 0
         val projects = listProjects()
         val payments = supabase.from("payments").select {
-            filter { isIn("status", listOf("pending", "approved")) }
+            filter {
+                isIn("status", listOf("pending", "approved"))
+                filter("archived_at", FilterOperator.IS, "null")
+            }
         }.decodeList<PaymentRow>()
+        val materialStock = supabase.from("materials").select {
+            filter {
+                eq("status", "delivered")
+                filter("archived_at", FilterOperator.IS, "null")
+            }
+        }.decodeList<MaterialRow>().sumOf { it.quantity }
         val labour = supabase.from("labourers").select {
-            filter { eq("active", true) }; count(Count.EXACT)
+            filter {
+                eq("active", true)
+                filter("archived_at", FilterOperator.IS, "null")
+            }
+            count(Count.EXACT)
         }.countOrNull() ?: 0L
         return AdminMetrics(
             total.toInt(), active.toInt(),
             projects.sumOf { it.totalCost },
             payments.sumOf { it.amount },
+            materialStock,
             labour.toInt(),
             if (projects.isEmpty()) 0.0 else projects.sumOf { it.completionPct } / projects.size,
         )
@@ -452,4 +467,9 @@ object Repo {
             order("assigned_at", Order.DESCENDING); limit(1)
         }.decodeList<ProjectLabourerRow>().firstOrNull()?.projectId
     }
+    // Bulk version of labourerCurrentProject, for screens (e.g. Attendance) that
+    // need every active labourer's current site in one query rather than N.
+    suspend fun listActiveAssignments() = supabase.from("project_labourers")
+        .select { filter { filter("unassigned_at", FilterOperator.IS, "null") } }
+        .decodeList<ProjectLabourerRow>()
 }
