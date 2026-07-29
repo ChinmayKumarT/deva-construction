@@ -22,7 +22,7 @@ export default async function MaterialsPage({
 
   let base = supabase
     .from("materials")
-    .select("id, name, unit, quantity, unit_cost, status, ordered_at, archived_at, projects(name), suppliers(name)")
+    .select("id, name, unit, quantity, unit_cost, status, work_category, ordered_at, archived_at, projects(name), suppliers(name)")
     .order("ordered_at", { ascending: false });
   if (projectFilter) base = base.eq("project_id", projectFilter);
 
@@ -49,6 +49,7 @@ export default async function MaterialsPage({
       `₹${Number(m.unit_cost).toLocaleString()}`,
       `₹${(Number(m.quantity) * Number(m.unit_cost)).toLocaleString()}`,
       m.status,
+      m.work_category ?? "—",
     ]) ?? [];
 
   return (
@@ -103,7 +104,7 @@ export default async function MaterialsPage({
       )}
 
       <DataTable
-        columns={["Material", "Project", "Supplier", "Qty", "Unit cost", "Line total", "Status"]}
+        columns={["Material", "Project", "Supplier", "Qty", "Unit cost", "Line total", "Status", "Category"]}
         rows={rows}
         empty={showArchived ? "No archived materials." : "No materials recorded yet."}
       />
