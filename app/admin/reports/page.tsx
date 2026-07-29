@@ -4,6 +4,9 @@ import { AdminPage, AdminPageHeader, DataTable } from "@/components/admin/Page";
 import { DownloadSummaryPdfButton } from "@/components/admin/ReportPdf";
 import { WAGE_FACTOR, wageForStatus } from "@/lib/wages";
 
+export const dynamic = "force-dynamic";
+export const fetchCache = "force-no-store";
+
 export default async function ReportsPage() {
   const supabase = createSupabaseServerClient();
 

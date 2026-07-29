@@ -16,6 +16,9 @@ const MATERIALS_COLOR = "#16a34a";
 const SUPPLIER_COLOR = "#F59E0B";
 const LABOUR_COLOR = "#0EA5E9";
 
+export const dynamic = "force-dynamic";
+export const fetchCache = "force-no-store";
+
 export default async function SiteReportPage({
   params,
   searchParams,
