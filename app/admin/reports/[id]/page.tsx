@@ -27,16 +27,14 @@ export default async function SiteReportPage({
   const from = searchParams.from || fromStr;
   const to = searchParams.to || toStr;
 
-  const { data: project } = await supabase
-    .from("projects")
-    .select(
-      "id, name, status, completion_pct, total_cost, address, current_stage, start_date, end_date, original_end_date, extension_reason, clients(name)",
-    )
-    .eq("id", params.id)
-    .single();
-  if (!project) notFound();
-
-  const [{ data: materials }, { data: payments }, { data: updates }, cashFlow] = await Promise.all([
+  const [{ data: project }, { data: materials }, { data: payments }, { data: updates }, cashFlow] = await Promise.all([
+    supabase
+      .from("projects")
+      .select(
+        "id, name, status, completion_pct, total_cost, address, current_stage, start_date, end_date, original_end_date, extension_reason, clients(name)",
+      )
+      .eq("id", params.id)
+      .single(),
     supabase
       .from("materials")
       .select("id, name, unit, quantity, unit_cost, status, ordered_at, delivered_at, work_category")
@@ -56,6 +54,7 @@ export default async function SiteReportPage({
       .limit(5),
     computeCashFlow(supabase, from, to, params.id),
   ]);
+  if (!project) notFound();
 
   const spent =
     (materials ?? [])

@@ -22,17 +22,15 @@ export default async function ClientSiteReportPage({ params }: { params: { id: s
     .single();
   if (!client) notFound();
 
-  const { data: project } = await supabase
-    .from("projects")
-    .select(
-      "id, name, status, completion_pct, total_cost, address, current_stage, end_date, original_end_date, extension_reason, client_id",
-    )
-    .eq("id", params.id)
-    .eq("client_id", client.id)
-    .single();
-  if (!project) notFound();
-
-  const [{ data: materials }, { data: payments }, { data: updates }] = await Promise.all([
+  const [{ data: project }, { data: materials }, { data: payments }, { data: updates }] = await Promise.all([
+    supabase
+      .from("projects")
+      .select(
+        "id, name, status, completion_pct, total_cost, address, current_stage, end_date, original_end_date, extension_reason, client_id",
+      )
+      .eq("id", params.id)
+      .eq("client_id", client.id)
+      .single(),
     supabase
       .from("materials")
       .select("id, name, unit, quantity, unit_cost, status, ordered_at, delivered_at")
@@ -51,6 +49,7 @@ export default async function ClientSiteReportPage({ params }: { params: { id: s
       .order("created_at", { ascending: false })
       .limit(5),
   ]);
+  if (!project) notFound();
 
   const spent =
     (materials ?? [])

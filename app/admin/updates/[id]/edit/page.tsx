@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Image from "next/image";
 import { notFound } from "next/navigation";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { AdminPage, AdminPageHeader, Field, SubmitButton } from "@/components/admin/Page";
@@ -36,8 +37,10 @@ export default async function EditUpdatePage({ params }: { params: { id: string 
         {update.image_url && (
           <div>
             <span className="mb-1 block text-sm font-medium text-slate-700">Photo</span>
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={update.image_url} alt="Site update" className="max-h-60 rounded-lg border border-slate-200 object-cover" />
+            <Image
+              src={update.image_url} alt="Site update" width={480} height={360}
+              className="max-h-60 w-auto rounded-lg border border-slate-200 object-cover"
+            />
             <p className="mt-1 text-xs text-slate-500">
               The photo can&apos;t be changed here. Archive this update and post a new one to replace it.
             </p>

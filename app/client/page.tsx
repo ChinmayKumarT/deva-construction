@@ -1,3 +1,4 @@
+import Image from "next/image";
 import { requireRole } from "@/lib/guard";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
@@ -165,8 +166,10 @@ export default async function ClientDashboard() {
                 {u.stage && <div className="mt-1 text-sm text-slate-600">Stage: <span className="font-medium">{u.stage}</span></div>}
                 {u.note && <p className="mt-2 text-sm text-slate-700">{u.note}</p>}
                 {u.image_url && (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={u.image_url} alt="" className="mt-3 max-h-72 rounded-lg border border-slate-200 object-cover" />
+                  <Image
+                    src={u.image_url} alt="" width={640} height={480} loading="lazy"
+                    className="mt-3 max-h-72 w-auto rounded-lg border border-slate-200 object-cover"
+                  />
                 )}
               </li>
             ))}

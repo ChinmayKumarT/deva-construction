@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Image from "next/image";
 import { createSupabaseServerClient, getSessionAndRole } from "@/lib/supabase/server";
 import { AdminPage, AdminPageHeader, Field, Select, SubmitButton } from "@/components/admin/Page";
 import { ArchivedToggle, DeleteForeverButton, RestoreAction } from "@/components/admin/RowActions";
@@ -91,8 +92,10 @@ export default async function UpdatesPage({
             {u.stage && <div className="mt-1 text-sm text-slate-600">Stage: <span className="font-medium">{u.stage}</span></div>}
             {u.note && <p className="mt-2 text-sm text-slate-700">{u.note}</p>}
             {u.image_url && (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={u.image_url} alt="Site update" className="mt-3 max-h-72 rounded-lg border border-slate-200 object-cover" />
+              <Image
+                src={u.image_url} alt="Site update" width={640} height={480} loading="lazy"
+                className="mt-3 max-h-72 w-auto rounded-lg border border-slate-200 object-cover"
+              />
             )}
             <div className="mt-4 flex items-center gap-2 border-t border-slate-100 pt-3">
               {showArchived ? (
