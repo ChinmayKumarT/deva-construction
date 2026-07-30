@@ -26,6 +26,10 @@ Run these in the Supabase SQL editor **in order**:
     stops signup minting `labour` accounts. Labourers are records the site manager maintains,
     not app users. See "Roles" below.
 16. `16_labourer_category.sql` — `category` (trade) on `labourers`, same fixed list as #14.
+17. `17_client_wage_totals.sql` — `my_project_wage_totals()`, a security-definer RPC that
+    returns per-project attendance-wage **totals** scoped to the calling client's own projects
+    (no per-labourer detail), so a client's "Spent" matches the admin's without exposing the
+    attendance table.
 
 ## Entity map (matches the diagram)
 
