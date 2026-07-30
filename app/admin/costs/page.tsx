@@ -2,6 +2,7 @@ import Link from "next/link";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { AdminPage, AdminPageHeader, DataTable } from "@/components/admin/Page";
 import { wageForStatus } from "@/lib/wages";
+import { lineTotal } from "@/lib/money";
 
 export const dynamic = "force-dynamic";
 export const fetchCache = "force-no-store";
@@ -33,7 +34,7 @@ export default async function CostsPage() {
     if (!row) continue;
     row.materialCount += 1;
     if (m.status === "returned") continue;
-    row.materials += Number(m.quantity) * Number(m.unit_cost);
+    row.materials += lineTotal(m.quantity, m.unit_cost);
   }
 
   for (const pay of payments ?? []) {

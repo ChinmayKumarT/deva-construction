@@ -5,6 +5,7 @@ import { useMemo, useState } from "react";
 import { SubmitButton } from "@/components/admin/Page";
 import { WORK_CATEGORIES } from "@/lib/workCategories";
 import { wageDueKey } from "@/lib/wages";
+import { lineTotal } from "@/lib/money";
 
 const inputClass =
   "w-full rounded-lg border border-[var(--line)] bg-white px-3 py-2 outline-none focus:border-brand focus:ring-2 focus:ring-brand/20";
@@ -102,7 +103,7 @@ function PaymentFormFields({
     if (!m) return;
     setPayeeType("supplier");
     setSupplierId(m.supplier_id ?? "none");
-    setAmount(String(Number(m.quantity) * Number(m.unit_cost)));
+    setAmount(String(lineTotal(m.quantity, m.unit_cost)));
     setDescription(`${m.name} (${m.quantity} ${m.unit})`);
     setWorkCategory(m.work_category ?? "");
   }
@@ -170,7 +171,7 @@ function PaymentFormFields({
             </option>
             {projectMaterials.map((m) => (
               <option key={m.id} value={m.id}>
-                {m.name} ({Number(m.quantity)} {m.unit}) — ₹{(Number(m.quantity) * Number(m.unit_cost)).toLocaleString()}
+                {m.name} ({Number(m.quantity)} {m.unit}) — ₹{lineTotal(m.quantity, m.unit_cost).toLocaleString()}
               </option>
             ))}
           </select>

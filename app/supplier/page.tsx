@@ -1,5 +1,6 @@
 import { requireRole } from "@/lib/guard";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { lineTotal } from "@/lib/money";
 import { generateBill, recordDelivery } from "./actions";
 
 const STATUS_STYLE: Record<string, string> = {
@@ -175,7 +176,7 @@ export default async function SupplierDashboard() {
               m.projects?.name ?? "—",
               `${Number(m.quantity)} ${m.unit}`,
               `₹${Number(m.unit_cost).toLocaleString()}`,
-              `₹${(Number(m.quantity) * Number(m.unit_cost)).toLocaleString()}`,
+              `₹${lineTotal(m.quantity, m.unit_cost).toLocaleString()}`,
               m.status,
               new Date(m.ordered_at).toLocaleDateString(),
             ]) ?? []

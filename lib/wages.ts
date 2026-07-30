@@ -1,8 +1,12 @@
+import { roundMoney } from "@/lib/money";
+
 // Present = full daily wage, half day = 50%, absent = 0.
 export const WAGE_FACTOR: Record<string, number> = { present: 1, half_day: 0.5, absent: 0 };
 
 export function wageForStatus(status: string, dailyWage: number): number {
-  return (WAGE_FACTOR[status] ?? 0) * dailyWage;
+  // Rounded to paise: a half day of an odd wage (e.g. 0.5 * 825.01) would
+  // otherwise carry a third decimal into every downstream total.
+  return roundMoney((WAGE_FACTOR[status] ?? 0) * dailyWage);
 }
 
 export function wageDueKey(projectId: string, labourerId: string): string {

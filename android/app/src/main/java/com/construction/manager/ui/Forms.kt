@@ -132,3 +132,11 @@ fun FormColumn(content: @Composable ColumnScope.() -> Unit) {
 }
 
 fun money(d: Double): String = "₹" + "%,.0f".format(d)
+
+// Money is stored exactly in the DB (numeric(x,2)) but read into Double, so
+// multiplying/weighting it can leave sub-paisa float artifacts that then
+// accumulate. Round at the multiplication boundary. Mirrors lib/money.ts.
+fun roundMoney(d: Double): Double = kotlin.math.round(d * 100.0) / 100.0
+
+// A material line total (quantity x unit cost), rounded to paise.
+fun lineTotal(quantity: Double, unitCost: Double): Double = roundMoney(quantity * unitCost)

@@ -1045,7 +1045,7 @@ fun AdminMaterials(isOwner: Boolean = false, initialProjectFilter: ProjectRow? =
             ItemCard(
                 m.name,
                 "${m.quantity} ${m.unit} · ${m.status}",
-                money(m.quantity * m.unitCost),
+                money(lineTotal(m.quantity, m.unitCost)),
                 actions = {
                     if (!showArchived && m.status == "ordered") {
                         TextButton(onClick = {
@@ -1231,12 +1231,12 @@ fun AdminPayments(isOwner: Boolean = false, initialProjectFilter: ProjectRow? = 
             } else {
                 Dropdown(
                     "Purchase (optional)", projectMaterials, purchase,
-                    { m -> "${m.name} (${m.quantity} ${m.unit}) — ${money(m.quantity * m.unitCost)}" },
+                    { m -> "${m.name} (${m.quantity} ${m.unit}) — ${money(lineTotal(m.quantity, m.unitCost))}" },
                     { m ->
                         purchase = m
                         payeeType = "supplier"
                         supplier = suppliers.find { it.id == m.supplierId }
-                        amount = (m.quantity * m.unitCost).toString()
+                        amount = (lineTotal(m.quantity, m.unitCost)).toString()
                         desc = "${m.name} (${m.quantity} ${m.unit})"
                         workCategory = m.workCategory ?: "None"
                     },
@@ -1413,12 +1413,12 @@ private fun EditPaymentDialog(
         } else {
             Dropdown(
                 "Purchase (optional)", projectMaterials, purchase,
-                { m -> "${m.name} (${m.quantity} ${m.unit}) — ${money(m.quantity * m.unitCost)}" },
+                { m -> "${m.name} (${m.quantity} ${m.unit}) — ${money(lineTotal(m.quantity, m.unitCost))}" },
                 { m ->
                     purchase = m
                     payeeType = "supplier"
                     supplier = suppliers.find { it.id == m.supplierId }
-                    amount = (m.quantity * m.unitCost).toString()
+                    amount = (lineTotal(m.quantity, m.unitCost)).toString()
                     desc = "${m.name} (${m.quantity} ${m.unit})"
                     workCategory = m.workCategory ?: "None"
                 },
@@ -1728,7 +1728,7 @@ fun AdminCosts(
     val breakdown = projects.associate { p ->
         val mat = materials
             .filter { it.projectId == p.id && it.status != "returned" }
-            .sumOf { it.quantity * it.unitCost }
+            .sumOf { lineTotal(it.quantity, it.unitCost) }
         val labour = countedPayments
             .filter { it.projectId == p.id && it.payeeType == "labour" }
             .sumOf { it.amount }
@@ -1737,7 +1737,7 @@ fun AdminCosts(
             .sumOf { it.amount }
         val wages = attendance
             .filter { it.projectId == p.id }
-            .sumOf { (ReportWageFactor[it.status] ?: 0.0) * (wageById[it.labourerId] ?: 0.0) }
+            .sumOf { roundMoney((ReportWageFactor[it.status] ?: 0.0) * (wageById[it.labourerId] ?: 0.0)) }
         p.id to listOf(mat, labour, supplierPaid, wages)
     }
     // Spend counts materials + labour payments + wages accrued from attendance.
@@ -1941,7 +1941,7 @@ fun AdminReports() {
     val wageById = labourers.associate { it.id to it.dailyWage }
     val spent = projects.associate { p ->
         val mat = materials.filter { it.projectId == p.id && it.status != "returned" }
-            .sumOf { it.quantity * it.unitCost }
+            .sumOf { lineTotal(it.quantity, it.unitCost) }
         // Labour only: supplier payments settle already-counted material costs,
         // so counting them too would double-count (matches AdminCosts).
         val pay = payments.filter {
@@ -1949,7 +1949,7 @@ fun AdminReports() {
                 it.payeeType == "labour"
         }.sumOf { it.amount }
         val wages = attendance.filter { it.projectId == p.id }
-            .sumOf { (ReportWageFactor[it.status] ?: 0.0) * (wageById[it.labourerId] ?: 0.0) }
+            .sumOf { roundMoney((ReportWageFactor[it.status] ?: 0.0) * (wageById[it.labourerId] ?: 0.0)) }
         p.id to mat + pay + wages
     }
 
@@ -2004,7 +2004,7 @@ private fun weeklyLabourRows(labourers: List<LabourerRow>, weekAttendance: List<
     for (a in weekAttendance) {
         val factor = ReportWageFactor[a.status] ?: 0.0
         daysById[a.labourerId] = (daysById[a.labourerId] ?: 0.0) + factor
-        earnById[a.labourerId] = (earnById[a.labourerId] ?: 0.0) + factor * (wageById[a.labourerId] ?: 0.0)
+        earnById[a.labourerId] = (earnById[a.labourerId] ?: 0.0) + roundMoney(factor * (wageById[a.labourerId] ?: 0.0))
     }
     return daysById.map { (id, days) ->
         PdfLabourRow(nameById[id] ?: "—", "%.1f".format(days), money(earnById[id] ?: 0.0))
@@ -2049,7 +2049,7 @@ private fun computeCashFlow(
         if (m.status == "returned") return@forEach
         val date = m.deliveredAt ?: m.orderedAt ?: return@forEach
         if (date < from || date > to) return@forEach
-        val amount = m.quantity * m.unitCost
+        val amount = lineTotal(m.quantity, m.unitCost)
         materialsTotal += amount
         byProjectMaterials[pid] = (byProjectMaterials[pid] ?: 0.0) + amount
     }
@@ -2074,7 +2074,7 @@ private fun computeCashFlow(
         val pid = a.projectId ?: return@forEach
         if (projectId != null && pid != projectId) return@forEach
         if (a.date < from || a.date > to) return@forEach
-        val amount = (ReportWageFactor[a.status] ?: 0.0) * (labourerWage[a.labourerId] ?: 0.0)
+        val amount = roundMoney((ReportWageFactor[a.status] ?: 0.0) * (labourerWage[a.labourerId] ?: 0.0))
         if (amount <= 0.0) return@forEach
         wagesTotal += amount
         byProjectWages[pid] = (byProjectWages[pid] ?: 0.0) + amount
@@ -2100,7 +2100,7 @@ private fun computeWagesDue(
     val due = mutableMapOf<String, Double>()
     attendance.forEach { a ->
         val pid = a.projectId ?: return@forEach
-        val wage = (ReportWageFactor[a.status] ?: 0.0) * (labourerWage[a.labourerId] ?: 0.0)
+        val wage = roundMoney((ReportWageFactor[a.status] ?: 0.0) * (labourerWage[a.labourerId] ?: 0.0))
         if (wage <= 0.0) return@forEach
         val key = wageDueKey(pid, a.labourerId)
         due[key] = (due[key] ?: 0.0) + wage
@@ -2258,7 +2258,7 @@ private fun WeeklyLabourSection(labourers: List<LabourerRow>, weekAttendance: Li
     for (a in weekAttendance) {
         val factor = ReportWageFactor[a.status] ?: 0.0
         daysById[a.labourerId] = (daysById[a.labourerId] ?: 0.0) + factor
-        earnById[a.labourerId] = (earnById[a.labourerId] ?: 0.0) + factor * (wageById[a.labourerId] ?: 0.0)
+        earnById[a.labourerId] = (earnById[a.labourerId] ?: 0.0) + roundMoney(factor * (wageById[a.labourerId] ?: 0.0))
     }
 
     SectionTitle("Labour: last 7 days")
@@ -2306,7 +2306,7 @@ private fun SiteReportDetail(
                 date = it.deliveredAt ?: it.orderedAt,
                 type = "Material",
                 description = "${it.name} (${it.quantity} ${it.unit})",
-                amount = it.quantity * it.unitCost,
+                amount = lineTotal(it.quantity, it.unitCost),
                 status = it.status,
             )
         }
@@ -2320,7 +2320,7 @@ private fun SiteReportDetail(
             )
         }
         val wageTx = attendance.mapNotNull { a ->
-            val amount = (ReportWageFactor[a.status] ?: 0.0) * (labourerWage[a.labourerId] ?: 0.0)
+            val amount = roundMoney((ReportWageFactor[a.status] ?: 0.0) * (labourerWage[a.labourerId] ?: 0.0))
             if (amount <= 0.0) return@mapNotNull null
             Transaction(
                 date = a.date,
@@ -2412,7 +2412,7 @@ private fun SiteReportDetail(
         materials.forEach { m ->
             if (m.status == "returned") return@forEach
             val cat = m.workCategory ?: "Uncategorized"
-            totals[cat] = (totals[cat] ?: 0.0) + m.quantity * m.unitCost
+            totals[cat] = (totals[cat] ?: 0.0) + lineTotal(m.quantity, m.unitCost)
         }
         payments.forEach { p ->
             if (p.status !in listOf("paid", "approved")) return@forEach
@@ -2420,7 +2420,7 @@ private fun SiteReportDetail(
             totals[cat] = (totals[cat] ?: 0.0) + p.amount
         }
         val wages = attendance.sumOf { a ->
-            (ReportWageFactor[a.status] ?: 0.0) * (labourerWage[a.labourerId] ?: 0.0)
+            roundMoney((ReportWageFactor[a.status] ?: 0.0) * (labourerWage[a.labourerId] ?: 0.0))
         }
         if (wages > 0.0) totals["Wages (attendance)"] = (totals["Wages (attendance)"] ?: 0.0) + wages
         totals.toList().sortedByDescending { it.second }

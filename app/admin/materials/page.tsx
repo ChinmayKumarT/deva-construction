@@ -3,6 +3,7 @@ import { AdminPage, AdminPageHeader, DataTable, Field, Select, SubmitButton } fr
 import { ArchivedToggle, DeleteForeverButton, ManageCard, ManageSection, RestoreAction, RowActions } from "@/components/admin/RowActions";
 import { createMaterial, markMaterialDelivered, archiveMaterial, unarchiveMaterial, deleteMaterial } from "../actions";
 import { WORK_CATEGORIES } from "@/lib/workCategories";
+import { lineTotal } from "@/lib/money";
 
 // Without this, Next.js can cache the underlying Supabase fetch and serve a
 // stale render when navigating between filtered/unfiltered views of this page
@@ -47,7 +48,7 @@ export default async function MaterialsPage({
       m.suppliers?.name ?? "—",
       `${Number(m.quantity)} ${m.unit}`,
       `₹${Number(m.unit_cost).toLocaleString()}`,
-      `₹${(Number(m.quantity) * Number(m.unit_cost)).toLocaleString()}`,
+      `₹${lineTotal(m.quantity, m.unit_cost).toLocaleString()}`,
       m.status,
       m.work_category ?? "—",
     ]) ?? [];

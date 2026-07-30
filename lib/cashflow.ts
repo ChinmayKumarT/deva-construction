@@ -1,5 +1,6 @@
 import type { createSupabaseServerClient } from "@/lib/supabase/server";
 import { wageForStatus } from "@/lib/wages";
+import { lineTotal } from "@/lib/money";
 
 // Plain row shapes the pure reducer works on. Numeric fields may arrive as
 // strings from Postgres, so everything is coerced with Number() below.
@@ -64,7 +65,7 @@ export function reduceCashFlow(
     if (m.status === "returned" || !m.project_id) continue;
     const date = m.delivered_at ?? m.ordered_at;
     if (!date || date < from || date > to) continue;
-    const amount = Number(m.quantity) * Number(m.unit_cost);
+    const amount = lineTotal(m.quantity, m.unit_cost);
     materialsCost += amount;
     byProjectMaterials.set(m.project_id, (byProjectMaterials.get(m.project_id) ?? 0) + amount);
   }

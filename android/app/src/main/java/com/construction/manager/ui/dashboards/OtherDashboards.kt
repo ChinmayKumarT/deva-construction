@@ -17,6 +17,7 @@ import com.construction.manager.ui.CompletionAndSpendPies
 import com.construction.manager.ui.DeleteAccountButton
 import com.construction.manager.ui.SectionTitle
 import com.construction.manager.ui.StatCard
+import com.construction.manager.ui.lineTotal
 import com.construction.manager.ui.money
 import com.construction.manager.util.PdfExporter
 import com.construction.manager.util.PdfSiteDetail
@@ -175,7 +176,7 @@ fun SupplierDashboard(vm: AuthViewModel) = RoleScaffold("Supplier", vm) { paddin
                             Text("${m.quantity} ${m.unit} · ${m.status}",
                                 style = MaterialTheme.typography.bodySmall)
                         }
-                        Text(money(m.quantity * m.unitCost))
+                        Text(money(lineTotal(m.quantity, m.unitCost)))
                     }
                 }
             }
@@ -221,7 +222,7 @@ fun ClientDashboard(vm: AuthViewModel) = RoleScaffold("Client", vm) { padding ->
     val wageByProject = wageTotals.associate { it.projectId to it.wageTotal }
     val spentByProject = projects.associate { p ->
         val mat = materials.filter { it.projectId == p.id && it.status != "returned" }
-            .sumOf { it.quantity * it.unitCost }
+            .sumOf { lineTotal(it.quantity, it.unitCost) }
         // Labour only: supplier payments settle already-counted material costs.
         val pay = payments.filter {
             it.projectId == p.id && it.status in listOf("paid", "approved") &&
@@ -351,7 +352,7 @@ private fun ClientReportDetail(
                 description = "${it.name} (${it.quantity} ${it.unit})",
                 date = it.deliveredAt ?: it.orderedAt ?: "no date",
                 status = it.status,
-                amount = it.quantity * it.unitCost,
+                amount = lineTotal(it.quantity, it.unitCost),
             )
         }
         val paymentTx = payments.map {

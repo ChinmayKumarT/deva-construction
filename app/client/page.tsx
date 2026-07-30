@@ -1,6 +1,7 @@
 import Image from "next/image";
 import { requireRole } from "@/lib/guard";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { lineTotal } from "@/lib/money";
 
 const STATUS_STYLE: Record<string, string> = {
   pending: "bg-amber-50 text-amber-700 border-amber-200",
@@ -72,7 +73,7 @@ export default async function ClientDashboard() {
     if (m.status === "returned") continue;
     spentByProject.set(
       m.project_id!,
-      (spentByProject.get(m.project_id!) ?? 0) + Number(m.quantity) * Number(m.unit_cost),
+      (spentByProject.get(m.project_id!) ?? 0) + lineTotal(m.quantity, m.unit_cost),
     );
   }
   for (const p of payments ?? []) {

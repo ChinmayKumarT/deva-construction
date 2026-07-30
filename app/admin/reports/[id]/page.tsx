@@ -7,6 +7,7 @@ import { DownloadSitePdfButton } from "@/components/admin/ReportPdf";
 import { CashFlowBarChart } from "@/components/admin/CashFlowBarChart";
 import { computeCashFlow, defaultCashFlowRange } from "@/lib/cashflow";
 import { wageForStatus } from "@/lib/wages";
+import { lineTotal } from "@/lib/money";
 
 const BRAND = "#16a34a";
 const SPEND = "#F59E0B";
@@ -79,7 +80,7 @@ export default async function SiteReportPage({
   const spent =
     (materials ?? [])
       .filter((m) => m.status !== "returned")
-      .reduce((sum, m) => sum + Number(m.quantity) * Number(m.unit_cost), 0) +
+      .reduce((sum, m) => sum + lineTotal(m.quantity, m.unit_cost), 0) +
     (payments ?? [])
       // Labour only: supplier payments settle already-counted material costs.
       .filter((p) => (p.status === "paid" || p.status === "approved") && p.payee_type === "labour")
@@ -96,7 +97,7 @@ export default async function SiteReportPage({
       date: m.delivered_at ?? m.ordered_at ?? null,
       type: "Material",
       description: `${m.name} (${m.quantity} ${m.unit})`,
-      amount: Number(m.quantity) * Number(m.unit_cost),
+      amount: lineTotal(m.quantity, m.unit_cost),
       status: m.status,
     })),
     ...(payments ?? []).map((p) => ({
@@ -121,7 +122,7 @@ export default async function SiteReportPage({
   for (const m of materials ?? []) {
     if (m.status === "returned") continue;
     const cat = m.work_category || "Uncategorized";
-    categoryTotals.set(cat, (categoryTotals.get(cat) ?? 0) + Number(m.quantity) * Number(m.unit_cost));
+    categoryTotals.set(cat, (categoryTotals.get(cat) ?? 0) + lineTotal(m.quantity, m.unit_cost));
   }
   for (const p of payments ?? []) {
     if (p.status !== "paid" && p.status !== "approved") continue;
