@@ -125,3 +125,11 @@ data class ProjectLabourerRow(
     @SerialName("labourer_id") val labourerId: String,
     @SerialName("project_id") val projectId: String,
 )
+
+// Row shape returned by the my_project_wage_totals() RPC: a per-project total
+// of attendance-accrued wages, scoped to the calling client's own projects.
+@Serializable
+data class ProjectWageTotalRow(
+    @SerialName("project_id") val projectId: String,
+    @SerialName("wage_total") val wageTotal: Double = 0.0,
+)

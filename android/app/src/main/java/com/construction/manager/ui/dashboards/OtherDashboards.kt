@@ -202,6 +202,7 @@ fun ClientDashboard(vm: AuthViewModel) = RoleScaffold("Client", vm) { padding ->
     var updates by remember { mutableStateOf<List<ProjectUpdateRow>>(emptyList()) }
     var materials by remember { mutableStateOf<List<MaterialRow>>(emptyList()) }
     var payments by remember { mutableStateOf<List<PaymentRow>>(emptyList()) }
+    var wageTotals by remember { mutableStateOf<List<ProjectWageTotalRow>>(emptyList()) }
     var error by remember { mutableStateOf<String?>(null) }
     var reportProject by remember { mutableStateOf<ProjectRow?>(null) }
     LaunchedEffect(Unit) {
@@ -213,9 +214,11 @@ fun ClientDashboard(vm: AuthViewModel) = RoleScaffold("Client", vm) { padding ->
                 updates = Repo.myUpdates(ids)
                 materials = Repo.myMaterials(ids)
                 payments = Repo.myPayments(ids)
+                wageTotals = Repo.myProjectWageTotals()
             }
         } catch (e: Exception) { error = e.message }
     }
+    val wageByProject = wageTotals.associate { it.projectId to it.wageTotal }
     val spentByProject = projects.associate { p ->
         val mat = materials.filter { it.projectId == p.id && it.status != "returned" }
             .sumOf { it.quantity * it.unitCost }
@@ -224,7 +227,9 @@ fun ClientDashboard(vm: AuthViewModel) = RoleScaffold("Client", vm) { padding ->
             it.projectId == p.id && it.status in listOf("paid", "approved") &&
                 it.payeeType == "labour"
         }.sumOf { it.amount }
-        p.id to mat + pay
+        // Attendance-accrued wages (total only, no labourer detail).
+        val wages = wageByProject[p.id] ?: 0.0
+        p.id to mat + pay + wages
     }
 
     val rp = reportProject
@@ -232,6 +237,7 @@ fun ClientDashboard(vm: AuthViewModel) = RoleScaffold("Client", vm) { padding ->
         ClientReportDetail(
             project = rp,
             spent = spentByProject[rp.id] ?: 0.0,
+            wages = wageByProject[rp.id] ?: 0.0,
             materials = materials.filter { it.projectId == rp.id },
             payments = payments.filter { it.projectId == rp.id },
             updates = updates.filter { it.projectId == rp.id },
@@ -328,6 +334,7 @@ fun ClientDashboard(vm: AuthViewModel) = RoleScaffold("Client", vm) { padding ->
 private fun ClientReportDetail(
     project: ProjectRow,
     spent: Double,
+    wages: Double,
     materials: List<MaterialRow>,
     payments: List<PaymentRow>,
     updates: List<ProjectUpdateRow>,
@@ -337,7 +344,7 @@ private fun ClientReportDetail(
     val scope = rememberCoroutineScope()
     var exporting by remember { mutableStateOf(false) }
 
-    val transactions = remember(materials, payments) {
+    val transactions = remember(materials, payments, wages) {
         val materialTx = materials.map {
             PdfTransaction(
                 type = "Material",
@@ -356,7 +363,18 @@ private fun ClientReportDetail(
                 amount = it.amount,
             )
         }
-        (materialTx + paymentTx).sortedByDescending { it.date }
+        // One aggregate line, not per-labourer -- clients see only the total
+        // labour-wage cost on their project, never individual attendance.
+        val wageTx = if (wages > 0.0) listOf(
+            PdfTransaction(
+                type = "Labour wages",
+                description = "Wages accrued from attendance",
+                date = "no date",
+                status = "",
+                amount = wages,
+            ),
+        ) else emptyList()
+        (materialTx + paymentTx + wageTx).sortedByDescending { it.date }
     }
 
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {

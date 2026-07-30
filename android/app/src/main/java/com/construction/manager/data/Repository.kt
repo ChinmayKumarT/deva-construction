@@ -430,6 +430,10 @@ object Repo {
         return supabase.from("clients").select { filter { eq("profile_id", uid) } }
             .decodeSingleOrNull()
     }
+    // Per-project attendance-wage totals for the calling client's own projects
+    // (security-definer RPC -- clients can't read the attendance table directly).
+    suspend fun myProjectWageTotals(): List<ProjectWageTotalRow> =
+        supabase.postgrest.rpc("my_project_wage_totals").decodeList()
     suspend fun myProjects(clientId: String) = supabase.from("projects")
         .select {
             filter {

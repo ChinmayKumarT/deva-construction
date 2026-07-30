@@ -41,7 +41,7 @@ export default async function ClientDashboard() {
 
   const projectIds = (projects ?? []).map((p) => p.id);
 
-  const [{ data: updates }, { data: materials }, { data: payments }] = projectIds.length
+  const [{ data: updates }, { data: materials }, { data: payments }, { data: wageTotals }] = projectIds.length
     ? await Promise.all([
         supabase
           .from("project_updates")
@@ -61,8 +61,11 @@ export default async function ClientDashboard() {
           .in("project_id", projectIds)
           .is("archived_at", null)
           .order("created_at", { ascending: false }),
+        // Attendance wages per project (total only, no labourer detail) via a
+        // security-definer RPC -- clients can't read the attendance table.
+        supabase.rpc("my_project_wage_totals"),
       ])
-    : [{ data: [] }, { data: [] }, { data: [] }];
+    : [{ data: [] }, { data: [] }, { data: [] }, { data: [] }];
 
   const spentByProject = new Map<string, number>();
   for (const m of materials ?? []) {
@@ -79,6 +82,10 @@ export default async function ClientDashboard() {
     // costs that are already counted above, so including them double-counts.
     if (p.payee_type !== "labour") continue;
     spentByProject.set(p.project_id, (spentByProject.get(p.project_id) ?? 0) + Number(p.amount));
+  }
+  for (const w of (wageTotals ?? []) as { project_id: string; wage_total: number }[]) {
+    if (!w.project_id) continue;
+    spentByProject.set(w.project_id, (spentByProject.get(w.project_id) ?? 0) + Number(w.wage_total));
   }
 
   const projectName = new Map((projects ?? []).map((p) => [p.id, p.name]));
