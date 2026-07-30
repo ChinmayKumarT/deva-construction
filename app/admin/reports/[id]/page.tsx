@@ -4,6 +4,7 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { AdminPage, AdminPageHeader, DataTable } from "@/components/admin/Page";
 import { PieChart, PieLegend } from "@/components/admin/PieChart";
 import { DownloadSitePdfButton } from "@/components/admin/ReportPdf";
+import { DownloadSiteCsvButton } from "@/components/admin/ReportCsv";
 import { CashFlowBarChart } from "@/components/admin/CashFlowBarChart";
 import { computeCashFlow, defaultCashFlowRange } from "@/lib/cashflow";
 import { wageForStatus } from "@/lib/wages";
@@ -176,7 +177,10 @@ export default async function SiteReportPage({
       <Link href="/admin/reports" className="text-sm text-slate-600 hover:underline">← Reports</Link>
       <div className="flex items-start justify-between gap-4">
         <AdminPageHeader title={project.name} subtitle={`Status: ${project.status}`} />
-        <DownloadSitePdfButton site={pdfSite} />
+        <div className="flex gap-2">
+          <DownloadSiteCsvButton site={pdfSite} />
+          <DownloadSitePdfButton site={pdfSite} />
+        </div>
       </div>
 
       <div className="grid gap-6 sm:grid-cols-2">

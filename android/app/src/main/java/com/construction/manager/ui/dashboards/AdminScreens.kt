@@ -21,6 +21,7 @@ import com.construction.manager.data.*
 import com.construction.manager.ui.*
 import com.construction.manager.util.PdfCashFlowCategory
 import com.construction.manager.util.PdfCashFlowProject
+import com.construction.manager.util.CsvExporter
 import com.construction.manager.util.PdfExporter
 import com.construction.manager.util.PdfLabourRow
 import com.construction.manager.util.PdfSiteDetail
@@ -1965,15 +1966,15 @@ fun AdminReports() {
                 Modifier.fillMaxWidth().padding(horizontal = 16.dp),
                 horizontalArrangement = Arrangement.End,
             ) {
+                val summarySites = projects.map {
+                    PdfSiteSummary(it.name, it.status, it.completionPct, it.totalCost, spent[it.id] ?: 0.0)
+                }
+                val summaryLabour = weeklyLabourRows(labourers, weekAttendance)
                 TextButton(onClick = {
-                    val uri = PdfExporter.exportSummaryReport(
-                        context,
-                        sites = projects.map {
-                            PdfSiteSummary(it.name, it.status, it.completionPct, it.totalCost, spent[it.id] ?: 0.0)
-                        },
-                        labour = weeklyLabourRows(labourers, weekAttendance),
-                    )
-                    PdfExporter.share(context, uri)
+                    CsvExporter.share(context, CsvExporter.exportSummary(context, summarySites, summaryLabour))
+                }) { Text("Download CSV") }
+                TextButton(onClick = {
+                    PdfExporter.share(context, PdfExporter.exportSummaryReport(context, summarySites, summaryLabour))
                 }) { Text("Download PDF") }
             }
             SiteReportList(projects, spent, onSelect = { selectedProject = it })
@@ -2163,6 +2164,18 @@ fun AdminCashFlow() {
             Modifier.fillMaxWidth().padding(horizontal = 16.dp),
             horizontalArrangement = Arrangement.End,
         ) {
+            val cfProjects = projectIds.map { id ->
+                PdfCashFlowProject(
+                    projectName[id] ?: "—",
+                    cashFlow.byProjectMaterials[id] ?: 0.0,
+                    cashFlow.byProjectSupplier[id] ?: 0.0,
+                    cashFlow.byProjectLabour[id] ?: 0.0,
+                    cashFlow.byProjectWages[id] ?: 0.0,
+                )
+            }
+            TextButton(onClick = {
+                CsvExporter.share(context, CsvExporter.exportCashFlow(context, from, to, cfProjects))
+            }) { Text("Download CSV") }
             TextButton(onClick = {
                 val uri = PdfExporter.exportCashFlowReport(
                     context, from, to,
@@ -2173,15 +2186,7 @@ fun AdminCashFlow() {
                         PdfCashFlowCategory("Wages (attendance)", cashFlow.wages, android.graphics.Color.parseColor("#A855F7")),
                     ),
                     total = cashFlow.materials + cashFlow.supplier + cashFlow.labour + cashFlow.wages,
-                    projects = projectIds.map { id ->
-                        PdfCashFlowProject(
-                            projectName[id] ?: "—",
-                            cashFlow.byProjectMaterials[id] ?: 0.0,
-                            cashFlow.byProjectSupplier[id] ?: 0.0,
-                            cashFlow.byProjectLabour[id] ?: 0.0,
-                            cashFlow.byProjectWages[id] ?: 0.0,
-                        )
-                    },
+                    projects = cfProjects,
                 )
                 PdfExporter.share(context, uri)
             }) { Text("Download PDF") }
@@ -2335,6 +2340,13 @@ private fun SiteReportDetail(
 
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
         TextButton(onClick = onBack) { Text("← Reports") }
+        Row(verticalAlignment = Alignment.CenterVertically) {
+        TextButton(onClick = {
+            val csvTx = transactions.map {
+                PdfTransaction(it.type, it.description, it.date ?: "no date", it.status, it.amount)
+            }
+            CsvExporter.share(context, CsvExporter.exportSiteReport(context, project.name, csvTx))
+        }) { Text("Download CSV") }
         TextButton(
             enabled = !exporting,
             onClick = {
@@ -2380,6 +2392,7 @@ private fun SiteReportDetail(
                 }
             },
         ) { Text(if (exporting) "Preparing…" else "Download PDF") }
+        }
     }
     SectionTitle(project.name)
 

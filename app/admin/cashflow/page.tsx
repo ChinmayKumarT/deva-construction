@@ -2,6 +2,7 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { AdminPage, AdminPageHeader, DataTable, Field, SubmitButton } from "@/components/admin/Page";
 import { CashFlowBarChart } from "@/components/admin/CashFlowBarChart";
 import { DownloadCashFlowPdfButton } from "@/components/admin/ReportPdf";
+import { DownloadCashFlowCsvButton } from "@/components/admin/ReportCsv";
 import { computeCashFlow, defaultCashFlowRange } from "@/lib/cashflow";
 
 const MATERIALS_COLOR = "#16a34a";
@@ -81,7 +82,8 @@ export default async function CashFlowPage({
         <a href="/admin/cashflow" className="text-sm font-medium text-brand-700 hover:underline">
           Clear filter
         </a>
-        <div className="ml-auto">
+        <div className="ml-auto flex gap-2">
+          <DownloadCashFlowCsvButton data={pdfData} />
           <DownloadCashFlowPdfButton data={pdfData} />
         </div>
       </form>

@@ -2,6 +2,7 @@ import Link from "next/link";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { AdminPage, AdminPageHeader, DataTable } from "@/components/admin/Page";
 import { DownloadSummaryPdfButton } from "@/components/admin/ReportPdf";
+import { DownloadSummaryCsvButton } from "@/components/admin/ReportCsv";
 import { WAGE_FACTOR, wageForStatus } from "@/lib/wages";
 import { lineTotal } from "@/lib/money";
 
@@ -87,7 +88,10 @@ export default async function ReportsPage() {
     <AdminPage>
       <div className="mb-2 flex items-start justify-between gap-4">
         <AdminPageHeader title="Reports" subtitle="Pick a site to see its own report and transactions." />
-        <DownloadSummaryPdfButton data={pdfData} />
+        <div className="flex gap-2">
+          <DownloadSummaryCsvButton data={pdfData} />
+          <DownloadSummaryPdfButton data={pdfData} />
+        </div>
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">

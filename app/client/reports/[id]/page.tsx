@@ -5,6 +5,7 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { DataTable } from "@/components/admin/Page";
 import { PieChart, PieLegend } from "@/components/admin/PieChart";
 import { DownloadSitePdfButton } from "@/components/admin/ReportPdf";
+import { DownloadSiteCsvButton } from "@/components/admin/ReportCsv";
 import { lineTotal } from "@/lib/money";
 
 const BRAND = "#16a34a";
@@ -142,7 +143,10 @@ export default async function ClientSiteReportPage({ params }: { params: { id: s
           <h1 className="text-2xl font-bold">{project.name}</h1>
           <p className="mt-1 text-sm text-slate-500">Status: {project.status}</p>
         </div>
-        <DownloadSitePdfButton site={pdfSite} />
+        <div className="flex gap-2">
+          <DownloadSiteCsvButton site={pdfSite} />
+          <DownloadSitePdfButton site={pdfSite} />
+        </div>
       </div>
 
       <div className="mt-6 grid gap-6 sm:grid-cols-2">

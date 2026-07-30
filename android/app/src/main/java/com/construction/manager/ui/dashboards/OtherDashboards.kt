@@ -19,6 +19,7 @@ import com.construction.manager.ui.SectionTitle
 import com.construction.manager.ui.StatCard
 import com.construction.manager.ui.lineTotal
 import com.construction.manager.ui.money
+import com.construction.manager.util.CsvExporter
 import com.construction.manager.util.PdfExporter
 import com.construction.manager.util.PdfSiteDetail
 import com.construction.manager.util.PdfTransaction
@@ -385,6 +386,10 @@ private fun ClientReportDetail(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             TextButton(onClick = onBack) { Text("← Reports") }
+            Row(verticalAlignment = Alignment.CenterVertically) {
+            TextButton(onClick = {
+                CsvExporter.share(context, CsvExporter.exportSiteReport(context, project.name, transactions))
+            }) { Text("Download CSV") }
             TextButton(
                 enabled = !exporting,
                 onClick = {
@@ -424,6 +429,7 @@ private fun ClientReportDetail(
                     }
                 },
             ) { Text(if (exporting) "Preparing…" else "Download PDF") }
+            }
         }
         SectionTitle(project.name)
 
