@@ -1,22 +1,110 @@
-import { createSupabaseServerClient } from "@/lib/supabase/server";
+import type { createSupabaseServerClient } from "@/lib/supabase/server";
 import { wageForStatus } from "@/lib/wages";
 
+// Plain row shapes the pure reducer works on. Numeric fields may arrive as
+// strings from Postgres, so everything is coerced with Number() below.
+type CashMaterial = {
+  project_id: string | null;
+  quantity: number | string;
+  unit_cost: number | string;
+  status: string;
+  ordered_at: string | null;
+  delivered_at: string | null;
+};
+type CashPayment = {
+  project_id: string | null;
+  payee_type: string;
+  amount: number | string;
+  status: string;
+  created_at: string | null;
+};
+type CashAttendance = {
+  project_id: string | null;
+  status: string;
+  labourer_id: string;
+  date: string;
+};
+type CashLabourer = { id: string; daily_wage: number | string };
+
+export type CashFlow = ReturnType<typeof reduceCashFlow>;
+
+// Pure cash-flow reduction over already-fetched rows -- no I/O, so it can be
+// unit-tested directly. Deliberately a different number from "Spent" elsewhere
+// (materials + labour-only payments, to avoid double-counting against materials
+// cost): cash flow asks "what actually left the bank," so materials cost,
+// supplier payments and labour payments are each their own outflow category.
+// Attendance wages are their own category too -- an accrued cost rather than
+// cash paid out, shown so the full outflow picture (including unpaid wage
+// liability) is visible in one place.
+//
+// `from`/`to` are inclusive `YYYY-MM-DD` bounds. Materials are dated by
+// delivered_at ?? ordered_at; payments by created_at (date part); attendance by
+// its own date. Only paid/approved payments count; returned materials and
+// zero-weight (absent) attendance are excluded.
+export function reduceCashFlow(
+  materials: CashMaterial[],
+  payments: CashPayment[],
+  attendance: CashAttendance[],
+  labourers: CashLabourer[],
+  from: string,
+  to: string,
+) {
+  const labourerWage = new Map(labourers.map((l) => [l.id, Number(l.daily_wage)]));
+
+  let materialsCost = 0;
+  let supplierPayments = 0;
+  let labourPayments = 0;
+  let wages = 0;
+  const byProjectMaterials = new Map<string, number>();
+  const byProjectSupplier = new Map<string, number>();
+  const byProjectLabour = new Map<string, number>();
+  const byProjectWages = new Map<string, number>();
+
+  for (const m of materials) {
+    if (m.status === "returned" || !m.project_id) continue;
+    const date = m.delivered_at ?? m.ordered_at;
+    if (!date || date < from || date > to) continue;
+    const amount = Number(m.quantity) * Number(m.unit_cost);
+    materialsCost += amount;
+    byProjectMaterials.set(m.project_id, (byProjectMaterials.get(m.project_id) ?? 0) + amount);
+  }
+  for (const p of payments) {
+    if (!p.project_id || !p.created_at) continue;
+    if (p.status !== "paid" && p.status !== "approved") continue;
+    const date = p.created_at.slice(0, 10);
+    if (date < from || date > to) continue;
+    if (p.payee_type === "supplier") {
+      supplierPayments += Number(p.amount);
+      byProjectSupplier.set(p.project_id, (byProjectSupplier.get(p.project_id) ?? 0) + Number(p.amount));
+    } else if (p.payee_type === "labour") {
+      labourPayments += Number(p.amount);
+      byProjectLabour.set(p.project_id, (byProjectLabour.get(p.project_id) ?? 0) + Number(p.amount));
+    }
+  }
+  for (const a of attendance) {
+    if (!a.project_id || a.date < from || a.date > to) continue;
+    const amount = wageForStatus(a.status, labourerWage.get(a.labourer_id) ?? 0);
+    if (amount <= 0) continue;
+    wages += amount;
+    byProjectWages.set(a.project_id, (byProjectWages.get(a.project_id) ?? 0) + amount);
+  }
+
+  return {
+    materialsCost, supplierPayments, labourPayments, wages,
+    total: materialsCost + supplierPayments + labourPayments + wages,
+    byProjectMaterials, byProjectSupplier, byProjectLabour, byProjectWages,
+  };
+}
+
 // Shared cash-flow calculation for app/admin/cashflow and the per-project
-// section on app/admin/reports/[id]. Deliberately a different number from
-// "Spent" elsewhere in the app (materials + labour-only payments, to avoid
-// double-counting against materials cost) -- cash flow asks "what actually
-// left the bank," so materials cost, supplier payments and labour payments
-// are each their own outflow category rather than blended into one figure.
-// Attendance wages are included as their own category too -- they're an
-// accrued cost rather than cash paid out, but shown here on request so the
-// full outflow picture (including unpaid wage liability) is visible in one
-// place, same as the "Spent" figure on the reports page.
+// section on app/admin/reports/[id]. Fetches the rows, then delegates the math
+// to reduceCashFlow above.
 export async function computeCashFlow(
   supabase: ReturnType<typeof createSupabaseServerClient>,
   from: string,
   to: string,
   projectId?: string,
-) {
+): Promise<CashFlow> {
   let materialsQuery = supabase
     .from("materials")
     .select("project_id, quantity, unit_cost, status, ordered_at, delivered_at")
@@ -42,54 +130,30 @@ export async function computeCashFlow(
     attendanceQuery,
     supabase.from("labourers").select("id, daily_wage"),
   ]);
-  const labourerWage = new Map((labourers ?? []).map((l) => [l.id, Number(l.daily_wage)]));
 
-  let materialsCost = 0;
-  let supplierPayments = 0;
-  let labourPayments = 0;
-  let wages = 0;
-  const byProjectMaterials = new Map<string, number>();
-  const byProjectSupplier = new Map<string, number>();
-  const byProjectLabour = new Map<string, number>();
-  const byProjectWages = new Map<string, number>();
+  return reduceCashFlow(
+    (materials ?? []) as CashMaterial[],
+    (payments ?? []) as CashPayment[],
+    (attendance ?? []) as CashAttendance[],
+    (labourers ?? []) as CashLabourer[],
+    from,
+    to,
+  );
+}
 
-  for (const m of materials ?? []) {
-    if (m.status === "returned" || !m.project_id) continue;
-    const date = m.delivered_at ?? m.ordered_at;
-    if (!date || date < from || date > to) continue;
-    const amount = Number(m.quantity) * Number(m.unit_cost);
-    materialsCost += amount;
-    byProjectMaterials.set(m.project_id, (byProjectMaterials.get(m.project_id) ?? 0) + amount);
-  }
-  for (const p of payments ?? []) {
-    if (!p.project_id || !p.created_at) continue;
-    const date = p.created_at.slice(0, 10);
-    if (date < from || date > to) continue;
-    if (p.payee_type === "supplier") {
-      supplierPayments += Number(p.amount);
-      byProjectSupplier.set(p.project_id, (byProjectSupplier.get(p.project_id) ?? 0) + Number(p.amount));
-    } else if (p.payee_type === "labour") {
-      labourPayments += Number(p.amount);
-      byProjectLabour.set(p.project_id, (byProjectLabour.get(p.project_id) ?? 0) + Number(p.amount));
-    }
-  }
-  for (const a of attendance ?? []) {
-    if (!a.project_id || a.date < from || a.date > to) continue;
-    const amount = wageForStatus(a.status, labourerWage.get(a.labourer_id) ?? 0);
-    if (amount <= 0) continue;
-    wages += amount;
-    byProjectWages.set(a.project_id, (byProjectWages.get(a.project_id) ?? 0) + amount);
-  }
-
-  return {
-    materialsCost, supplierPayments, labourPayments, wages,
-    total: materialsCost + supplierPayments + labourPayments + wages,
-    byProjectMaterials, byProjectSupplier, byProjectLabour, byProjectWages,
-  };
+// Format a Date as YYYY-MM-DD from its LOCAL calendar parts. Going through
+// toISOString() here would be a bug: it converts to UTC first, so in any
+// timezone east of UTC (e.g. IST) local midnight on the 1st lands on the
+// previous month's last day, shifting the default range back a day.
+function ymdLocal(d: Date): string {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
 }
 
 export function defaultCashFlowRange() {
   const now = new Date();
   const from = new Date(now.getFullYear(), now.getMonth(), 1);
-  return { fromStr: from.toISOString().slice(0, 10), toStr: now.toISOString().slice(0, 10) };
+  return { fromStr: ymdLocal(from), toStr: ymdLocal(now) };
 }
