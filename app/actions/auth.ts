@@ -1,9 +1,20 @@
 "use server";
 
 import { redirect } from "next/navigation";
+import { headers } from "next/headers";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 type Role = "admin" | "manager" | "client" | "supplier" | "labour";
+
+// No hardcoded site-URL env var -- derive it from the incoming request so
+// this works the same on localhost and whatever domain Vercel deploys to,
+// without needing a new env var kept in sync per environment.
+function siteOrigin(): string {
+  const h = headers();
+  const host = h.get("x-forwarded-host") ?? h.get("host")!;
+  const proto = h.get("x-forwarded-proto") ?? (host.startsWith("localhost") ? "http" : "https");
+  return `${proto}://${host}`;
+}
 
 export async function signIn(formData: FormData) {
   const email = String(formData.get("email") ?? "");
@@ -27,6 +38,18 @@ export async function signIn(formData: FormData) {
   const role = (profile?.role ?? "client") as Role;
   // Manager shares admin's UI.
   redirect(role === "manager" ? "/admin" : `/${role}`);
+}
+
+export async function signInWithGoogle() {
+  const supabase = createSupabaseServerClient();
+  const { data, error } = await supabase.auth.signInWithOAuth({
+    provider: "google",
+    options: { redirectTo: `${siteOrigin()}/auth/callback` },
+  });
+  if (error || !data.url) {
+    redirect(`/?error=${encodeURIComponent(error?.message ?? "Google sign-in failed")}`);
+  }
+  redirect(data.url);
 }
 
 export async function signUp(formData: FormData) {
