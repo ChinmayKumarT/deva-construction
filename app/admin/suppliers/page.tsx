@@ -1,7 +1,8 @@
+import Link from "next/link";
 import { createSupabaseServerClient, getSessionAndRole } from "@/lib/supabase/server";
-import { AdminPage, AdminPageHeader, DataTable, Field, Select, SubmitButton } from "@/components/admin/Page";
-import { ArchivedToggle, DeleteForeverButton, ManageCard, ManageSection, RestoreAction, RowActions } from "@/components/admin/RowActions";
-import { createSupplier, archiveSupplier, unarchiveSupplier, deleteSupplier } from "../actions";
+import { AdminPage, AdminPageHeader, Field, Select, SubmitButton } from "@/components/admin/Page";
+import { ArchivedToggle, DeleteForeverButton, ManageCard, ManageSection, RestoreAction } from "@/components/admin/RowActions";
+import { createSupplier, unarchiveSupplier, deleteSupplier } from "../actions";
 
 export default async function SuppliersPage({
   searchParams,
@@ -25,8 +26,6 @@ export default async function SuppliersPage({
 
   const linked = new Set((suppliers ?? []).map((s) => s.profile_id).filter(Boolean));
   const unlinkedProfiles = (profiles ?? []).filter((p) => !linked.has(p.id));
-
-  const rows = suppliers?.map((s) => [s.name, s.email, s.phone, s.profile_id ? "linked" : "no login"]) ?? [];
 
   return (
     <AdminPage>
@@ -61,32 +60,46 @@ export default async function SuppliersPage({
         </form>
       )}
 
-      <DataTable
-        columns={["Name", "Email", "Phone", "Login"]}
-        rows={rows}
-        empty={showArchived ? "No archived suppliers." : "No suppliers yet."}
-      />
+      {!showArchived && (
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {(suppliers ?? []).length === 0 && (
+            <p className="col-span-full rounded-xl border border-dashed border-[var(--line)] bg-white p-8 text-center text-sm text-slate-500">
+              No suppliers yet. Add one above.
+            </p>
+          )}
+          {(suppliers ?? []).map((s) => (
+            <Link
+              key={s.id}
+              href={`/admin/suppliers/${s.id}`}
+              className="rounded-xl border border-[var(--line)] bg-white p-5 hover:border-brand hover:shadow-sm transition"
+            >
+              <div className="font-semibold">{s.name}</div>
+              <p className="mt-2 text-sm text-slate-600">
+                {s.email ?? "No email"} · {s.phone ?? "No phone"}
+              </p>
+              <p className="mt-3 text-sm font-medium text-brand-700">Manage →</p>
+            </Link>
+          ))}
+        </div>
+      )}
 
-      {suppliers && suppliers.length > 0 && (
-        <ManageSection showArchived={showArchived}>
-          {suppliers.map((s) => (
-            <ManageCard key={s.id} title={s.name}>
-              {showArchived ? (
+      {showArchived && (
+        (suppliers ?? []).length === 0 ? (
+          <p className="rounded-xl border border-dashed border-[var(--line)] bg-white p-8 text-center text-sm text-slate-500">
+            No archived suppliers.
+          </p>
+        ) : (
+          <ManageSection showArchived={showArchived}>
+            {suppliers!.map((s) => (
+              <ManageCard key={s.id} title={s.name}>
                 <div className="flex items-center gap-2">
                   <RestoreAction id={s.id} action={unarchiveSupplier} />
                   {isOwner && <DeleteForeverButton id={s.id} name={s.name} action={deleteSupplier} />}
                 </div>
-              ) : (
-                <RowActions
-                  editHref={`/admin/suppliers/${s.id}/edit`}
-                  id={s.id}
-                  name={s.name}
-                  archiveAction={archiveSupplier}
-                />
-              )}
-            </ManageCard>
-          ))}
-        </ManageSection>
+              </ManageCard>
+            ))}
+          </ManageSection>
+        )
       )}
     </AdminPage>
   );

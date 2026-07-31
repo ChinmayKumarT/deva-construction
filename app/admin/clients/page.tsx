@@ -1,7 +1,8 @@
+import Link from "next/link";
 import { createSupabaseServerClient, getSessionAndRole } from "@/lib/supabase/server";
-import { AdminPage, AdminPageHeader, DataTable, Field, Select, SubmitButton } from "@/components/admin/Page";
-import { ArchivedToggle, DeleteForeverButton, ManageCard, ManageSection, RestoreAction, RowActions } from "@/components/admin/RowActions";
-import { createClient as createClientAction, archiveClient, unarchiveClient, deleteClient } from "../actions";
+import { AdminPage, AdminPageHeader, Field, Select, SubmitButton } from "@/components/admin/Page";
+import { ArchivedToggle, DeleteForeverButton, ManageCard, ManageSection, RestoreAction } from "@/components/admin/RowActions";
+import { createClient as createClientAction, unarchiveClient, deleteClient } from "../actions";
 
 export default async function ClientsPage({
   searchParams,
@@ -25,8 +26,6 @@ export default async function ClientsPage({
 
   const linkedProfileIds = new Set((clients ?? []).map((c) => c.profile_id).filter(Boolean));
   const unlinkedProfiles = (profiles ?? []).filter((p) => !linkedProfileIds.has(p.id));
-
-  const rows = clients?.map((c) => [c.name, c.email, c.phone, c.profile_id ? "linked" : "no login"]) ?? [];
 
   return (
     <AdminPage>
@@ -57,32 +56,46 @@ export default async function ClientsPage({
         </form>
       )}
 
-      <DataTable
-        columns={["Name", "Email", "Phone", "Login"]}
-        rows={rows}
-        empty={showArchived ? "No archived clients." : "No clients yet."}
-      />
+      {!showArchived && (
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {(clients ?? []).length === 0 && (
+            <p className="col-span-full rounded-xl border border-dashed border-[var(--line)] bg-white p-8 text-center text-sm text-slate-500">
+              No clients yet. Add one above.
+            </p>
+          )}
+          {(clients ?? []).map((c) => (
+            <Link
+              key={c.id}
+              href={`/admin/clients/${c.id}`}
+              className="rounded-xl border border-[var(--line)] bg-white p-5 hover:border-brand hover:shadow-sm transition"
+            >
+              <div className="font-semibold">{c.name}</div>
+              <p className="mt-2 text-sm text-slate-600">
+                {c.email ?? "No email"} · {c.phone ?? "No phone"}
+              </p>
+              <p className="mt-3 text-sm font-medium text-brand-700">Manage →</p>
+            </Link>
+          ))}
+        </div>
+      )}
 
-      {clients && clients.length > 0 && (
-        <ManageSection showArchived={showArchived}>
-          {clients.map((c) => (
-            <ManageCard key={c.id} title={c.name}>
-              {showArchived ? (
+      {showArchived && (
+        (clients ?? []).length === 0 ? (
+          <p className="rounded-xl border border-dashed border-[var(--line)] bg-white p-8 text-center text-sm text-slate-500">
+            No archived clients.
+          </p>
+        ) : (
+          <ManageSection showArchived={showArchived}>
+            {clients!.map((c) => (
+              <ManageCard key={c.id} title={c.name}>
                 <div className="flex items-center gap-2">
                   <RestoreAction id={c.id} action={unarchiveClient} />
                   {isOwner && <DeleteForeverButton id={c.id} name={c.name} action={deleteClient} />}
                 </div>
-              ) : (
-                <RowActions
-                  editHref={`/admin/clients/${c.id}/edit`}
-                  id={c.id}
-                  name={c.name}
-                  archiveAction={archiveClient}
-                />
-              )}
-            </ManageCard>
-          ))}
-        </ManageSection>
+              </ManageCard>
+            ))}
+          </ManageSection>
+        )
       )}
     </AdminPage>
   );
