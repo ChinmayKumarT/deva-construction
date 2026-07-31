@@ -120,3 +120,18 @@ be done from here, it all requires your own Google Cloud and Supabase dashboard 
 
 Once steps 1–3 are done, web sign-in works immediately (no rebuild needed — it's server-side
 config only). Step 4 needs an Android rebuild to take effect.
+
+## Password reset setup
+
+Code is already wired on both platforms (forgot-password → email link → set new password).
+One external step, same dashboard as above:
+
+**Supabase Dashboard → Authentication → URL Configuration → Redirect URLs**: add these three
+(the first two are the same ones from the Google setup above, reused, so only the third is new
+if you've already done that):
+- `http://localhost:3000/auth/callback` (local dev)
+- `https://<your-vercel-domain>/auth/callback` (production)
+- `com.construction.manager://reset-password` (Android — this exact scheme+host is what
+  `Supabase.kt`'s Auth config and the `AndroidManifest.xml` intent-filter both use; Supabase
+  requires every redirect target on this allowlist regardless of whether it's http(s) or a
+  custom scheme, so this one won't work until it's added here too).

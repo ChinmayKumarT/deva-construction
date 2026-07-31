@@ -8,6 +8,7 @@ import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.PasswordVisualTransformation
@@ -29,6 +30,7 @@ fun AuthScreen(vm: AuthViewModel) {
     // Declared above the branch so the half-filled form survives a trip to the
     // privacy / delete-account pages and back.
     var legal by remember { mutableStateOf(LegalPage.None) }
+    var showForgotPassword by remember { mutableStateOf(false) }
     var mode by remember { mutableStateOf("signin") } // signin | signup
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
@@ -36,10 +38,11 @@ fun AuthScreen(vm: AuthViewModel) {
     var role by remember { mutableStateOf(Role.client) }
     val error by vm.error.collectAsState()
 
-    when (legal) {
-        LegalPage.Privacy -> PrivacyScreen(onBack = { legal = LegalPage.None })
-        LegalPage.DeleteAccount -> DeleteAccountInfoScreen(onBack = { legal = LegalPage.None })
-        LegalPage.None -> AuthForm(
+    when {
+        showForgotPassword -> ForgotPasswordScreen(vm, onBack = { showForgotPassword = false })
+        legal == LegalPage.Privacy -> PrivacyScreen(onBack = { legal = LegalPage.None })
+        legal == LegalPage.DeleteAccount -> DeleteAccountInfoScreen(onBack = { legal = LegalPage.None })
+        else -> AuthForm(
             vm = vm,
             mode = mode, onModeChange = { mode = it },
             email = email, onEmailChange = { email = it },
@@ -48,6 +51,7 @@ fun AuthScreen(vm: AuthViewModel) {
             role = role, onRoleChange = { role = it },
             error = error,
             onOpenLegal = { legal = it },
+            onForgotPassword = { showForgotPassword = true },
         )
     }
 }
@@ -62,6 +66,7 @@ private fun AuthForm(
     role: Role, onRoleChange: (Role) -> Unit,
     error: String?,
     onOpenLegal: (LegalPage) -> Unit,
+    onForgotPassword: () -> Unit,
 ) {
     Column(
         Modifier.fillMaxSize().padding(24.dp).verticalScroll(rememberScrollState()),
@@ -94,6 +99,12 @@ private fun AuthForm(
             },
             modifier = Modifier.fillMaxWidth(),
         )
+
+        if (mode == "signin") {
+            TextButton(onClick = onForgotPassword, modifier = Modifier.align(Alignment.End)) {
+                Text("Forgot password?")
+            }
+        }
 
         if (mode == "signup") {
             Text("Role", style = MaterialTheme.typography.labelLarge)
@@ -177,5 +188,90 @@ private fun GoogleSignInButton(vm: AuthViewModel) {
         googleError?.let {
             Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
         }
+    }
+}
+
+@Composable
+private fun ForgotPasswordScreen(vm: AuthViewModel, onBack: () -> Unit) {
+    var email by remember { mutableStateOf("") }
+    var sent by remember { mutableStateOf(false) }
+    val error by vm.error.collectAsState()
+
+    Column(
+        Modifier.fillMaxSize().padding(24.dp).verticalScroll(rememberScrollState()),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        Spacer(Modifier.height(48.dp))
+        Text("Reset your password", style = MaterialTheme.typography.headlineSmall)
+        Text("Enter the email on your account and we'll send you a reset link.",
+            style = MaterialTheme.typography.bodyMedium)
+
+        if (sent) {
+            Text(
+                "If that email has an account, a reset link is on its way.",
+                color = MaterialTheme.colorScheme.primary,
+            )
+        } else {
+            OutlinedTextField(email, { email = it }, label = { Text("Email") },
+                modifier = Modifier.fillMaxWidth())
+            error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+            Button(
+                onClick = { vm.requestPasswordReset(email.trim()) { ok -> if (ok) sent = true } },
+                modifier = Modifier.fillMaxWidth(),
+            ) { Text("Send reset link") }
+        }
+
+        TextButton(onClick = onBack) { Text("← Back to sign in") }
+    }
+}
+
+@Composable
+fun ResetPasswordScreen(vm: AuthViewModel) {
+    var password by remember { mutableStateOf("") }
+    var confirm by remember { mutableStateOf("") }
+    var localError by remember { mutableStateOf<String?>(null) }
+    val vmError by vm.error.collectAsState()
+
+    Column(
+        Modifier.fillMaxSize().padding(24.dp).verticalScroll(rememberScrollState()),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        Spacer(Modifier.height(48.dp))
+        Text("Set a new password", style = MaterialTheme.typography.headlineSmall)
+        Text("Choose a new password for your account.", style = MaterialTheme.typography.bodyMedium)
+
+        var passwordVisible by remember { mutableStateOf(false) }
+        OutlinedTextField(
+            password, { password = it }, label = { Text("New password") },
+            visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
+            trailingIcon = {
+                IconButton(onClick = { passwordVisible = !passwordVisible }) {
+                    Icon(
+                        if (passwordVisible) Icons.Filled.VisibilityOff else Icons.Filled.Visibility,
+                        contentDescription = if (passwordVisible) "Hide password" else "Show password",
+                    )
+                }
+            },
+            modifier = Modifier.fillMaxWidth(),
+        )
+        OutlinedTextField(
+            confirm, { confirm = it }, label = { Text("Confirm new password") },
+            visualTransformation = PasswordVisualTransformation(),
+            modifier = Modifier.fillMaxWidth(),
+        )
+
+        (localError ?: vmError)?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+
+        Button(
+            onClick = {
+                localError = null
+                when {
+                    password.length < 8 -> localError = "Password must be at least 8 characters."
+                    password != confirm -> localError = "Passwords don't match."
+                    else -> vm.updatePassword(password)
+                }
+            },
+            modifier = Modifier.fillMaxWidth(),
+        ) { Text("Update password") }
     }
 }

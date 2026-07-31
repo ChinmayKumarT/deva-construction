@@ -113,6 +113,14 @@ object Repo {
             this.provider = Google
         }
     }
+    // Uses the Auth plugin's configured scheme/host (Supabase.kt) as the
+    // redirect target by default -- the app's registered deep link.
+    suspend fun requestPasswordReset(email: String) {
+        supabase.auth.resetPasswordForEmail(email)
+    }
+    suspend fun updatePassword(newPassword: String) {
+        supabase.auth.updateUser { password = newPassword }
+    }
     suspend fun signUp(email: String, password: String, fullName: String, role: Role) {
         supabase.auth.signUpWith(Email) {
             this.email = email; this.password = password

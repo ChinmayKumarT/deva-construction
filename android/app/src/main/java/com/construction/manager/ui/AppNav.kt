@@ -29,6 +29,7 @@ fun AppNav(vm: AuthViewModel = viewModel()) {
             Spacer(Modifier.height(16.dp))
             Button(onClick = { vm.signOut() }) { Text("Sign out") }
         }
+        AuthState.NeedsPasswordReset -> ResetPasswordScreen(vm)
         is AuthState.SignedIn -> when (s.role) {
             Role.admin, Role.manager ->
                 AdminHome(vm, isAdmin = s.role == Role.admin, isOwner = s.isOwner)

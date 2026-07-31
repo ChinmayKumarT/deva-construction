@@ -13,10 +13,21 @@
         <activity
             android:name=".MainActivity"
             android:exported="true"
+            android:launchMode="singleTask"
             android:theme="@style/Theme.App.Starting">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+            <!-- Password-recovery email link target; see Supabase.kt's Auth
+                 scheme/host config. singleTask above so tapping it while the
+                 app is already running re-delivers to the same instance via
+                 onNewIntent instead of spawning a second one. -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="com.construction.manager" android:host="reset-password" />
             </intent-filter>
         </activity>
 

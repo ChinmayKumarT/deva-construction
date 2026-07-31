@@ -14,6 +14,9 @@ sealed interface AuthState {
     data object SignedOut : AuthState
     data class SignedIn(val role: Role, val isOwner: Boolean) : AuthState
     data class NeedsLink(val message: String) : AuthState
+    /** Landed here via the password-recovery deep link -- must set a new
+     *  password before anything else, regardless of role. */
+    data object NeedsPasswordReset : AuthState
 }
 
 class AuthViewModel : ViewModel() {
@@ -78,6 +81,44 @@ class AuthViewModel : ViewModel() {
         viewModelScope.launch {
             Repo.signOut()
             refresh()
+        }
+    }
+
+    /** Called by MainActivity once it's imported the session from the
+     *  password-recovery deep link -- overrides whatever [refresh] would
+     *  otherwise have landed on. */
+    fun onPasswordRecoverySession() {
+        _state.value = AuthState.NeedsPasswordReset
+    }
+
+    fun requestPasswordReset(email: String, onDone: (Boolean) -> Unit = {}) {
+        viewModelScope.launch {
+            _error.value = null
+            try {
+                Repo.requestPasswordReset(email)
+                onDone(true)
+            } catch (e: Exception) {
+                _error.value = e.message
+                onDone(false)
+            }
+        }
+    }
+
+    /** Signs out afterward rather than continuing straight into the
+     *  dashboard -- "reset done, now sign in with it" is a clearer end
+     *  state than silently continuing the session the email link started. */
+    fun updatePassword(newPassword: String, onDone: (Boolean) -> Unit = {}) {
+        viewModelScope.launch {
+            _error.value = null
+            try {
+                Repo.updatePassword(newPassword)
+                Repo.signOut()
+                _state.value = AuthState.SignedOut
+                onDone(true)
+            } catch (e: Exception) {
+                _error.value = e.message
+                onDone(false)
+            }
         }
     }
 
