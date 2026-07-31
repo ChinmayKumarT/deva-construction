@@ -224,6 +224,15 @@ fun AdminProjects(isOwner: Boolean = false) {
             }
         }
 
+        if (!showArchived && rows.isNotEmpty()) {
+            StatCard("Total cost", money(rows.sumOf { it.totalCost }), modifier = Modifier.padding(horizontal = 16.dp))
+            Spacer(Modifier.height(8.dp))
+            rows.forEach { p ->
+                StatCard(p.name, money(p.totalCost), modifier = Modifier.padding(horizontal = 16.dp, vertical = 2.dp))
+            }
+            Spacer(Modifier.height(8.dp))
+        }
+
         if (!showArchived) {
             SectionTitle("Create project")
             TextField(name, { name = it }, "Name")
