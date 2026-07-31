@@ -35,6 +35,7 @@ export default async function EditPaymentPage({ params }: { params: { id: string
       supabase.from("attendance").select("project_id, labourer_id, status"),
     ]);
   if (!payment) notFound();
+  const backPath = `/admin/payments/${payment.project_id ?? "unassigned"}`;
 
   const labourerWage = new Map((labourers ?? []).map((l) => [l.id, Number(l.daily_wage)]));
   // Exclude this payment itself from "already claimed" -- otherwise editing
@@ -47,7 +48,7 @@ export default async function EditPaymentPage({ params }: { params: { id: string
 
   return (
     <AdminPage>
-      <Link href="/admin/payments" className="text-sm text-slate-600 hover:underline">← Payments</Link>
+      <Link href={backPath} className="text-sm text-slate-600 hover:underline">← Payments</Link>
       <AdminPageHeader
         title="Edit payment"
         subtitle={`Currently ${payment.status}. Status is changed with the approve / pay buttons, not here.`}
@@ -61,7 +62,7 @@ export default async function EditPaymentPage({ params }: { params: { id: string
         assignments={assignments ?? []}
         wageDue={wageDue}
         paymentId={payment.id}
-        cancelHref="/admin/payments"
+        cancelHref={backPath}
         initial={{
           payeeType: payment.payee_type,
           projectId: payment.project_id ?? "none",

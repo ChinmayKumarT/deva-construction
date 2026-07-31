@@ -47,6 +47,7 @@ function PaymentFormFields({
   paymentId,
   submitLabel,
   cancelHref,
+  fixedProject,
 }: {
   action: (fd: FormData) => Promise<void>;
   projects: { id: string; name: string }[];
@@ -59,8 +60,9 @@ function PaymentFormFields({
   paymentId?: string;
   submitLabel: string;
   cancelHref?: string;
+  fixedProject?: { id: string; name: string };
 }) {
-  const [projectId, setProjectId] = useState(initial.projectId);
+  const [projectId, setProjectId] = useState(fixedProject?.id ?? initial.projectId);
   const [purchaseId, setPurchaseId] = useState("none");
   const [payeeType, setPayeeType] = useState(initial.payeeType);
   const [supplierId, setSupplierId] = useState(initial.supplierId);
@@ -124,18 +126,22 @@ function PaymentFormFields({
         </select>
       </label>
 
-      <label className="block text-sm">
-        <span className="mb-1 block font-medium text-slate-700">Project</span>
-        <select
-          name="project_id"
-          className={selectClass}
-          value={projectId}
-          onChange={(e) => handleProjectChange(e.target.value)}
-        >
-          <option value="none">— none —</option>
-          {projects.map((p) => (<option key={p.id} value={p.id}>{p.name}</option>))}
-        </select>
-      </label>
+      {fixedProject ? (
+        <input type="hidden" name="project_id" value={fixedProject.id} />
+      ) : (
+        <label className="block text-sm">
+          <span className="mb-1 block font-medium text-slate-700">Project</span>
+          <select
+            name="project_id"
+            className={selectClass}
+            value={projectId}
+            onChange={(e) => handleProjectChange(e.target.value)}
+          >
+            <option value="none">— none —</option>
+            {projects.map((p) => (<option key={p.id} value={p.id}>{p.name}</option>))}
+          </select>
+        </label>
+      )}
 
       {payeeType === "labour" ? (
         <label className="block text-sm">
@@ -254,6 +260,7 @@ export function CreatePaymentForm({
   assignments,
   wageDue,
   defaultProjectId,
+  fixedProject,
 }: {
   action: (fd: FormData) => Promise<void>;
   projects: { id: string; name: string }[];
@@ -262,7 +269,8 @@ export function CreatePaymentForm({
   materials: Material[];
   assignments: Assignment[];
   wageDue: Record<string, number>;
-  defaultProjectId: string;
+  defaultProjectId?: string;
+  fixedProject?: { id: string; name: string };
 }) {
   return (
     <PaymentFormFields
@@ -273,9 +281,10 @@ export function CreatePaymentForm({
       materials={materials}
       assignments={assignments}
       wageDue={wageDue}
+      fixedProject={fixedProject}
       initial={{
         payeeType: "supplier",
-        projectId: defaultProjectId,
+        projectId: fixedProject?.id ?? defaultProjectId ?? "none",
         amount: "",
         supplierId: "none",
         labourerId: "none",

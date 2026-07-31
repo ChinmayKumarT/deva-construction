@@ -1,9 +1,9 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { createSupabaseServerClient, getSessionAndRole } from "@/lib/supabase/server";
-import { AdminPage, AdminPageHeader, DataTable, Field, Select, SubmitButton } from "@/components/admin/Page";
-import { ArchivedToggle, DeleteForeverButton, ManageCard, ManageSection, RestoreAction, RowActions } from "@/components/admin/RowActions";
-import { createMaterial, markMaterialDelivered, archiveMaterial, unarchiveMaterial, deleteMaterial } from "../../actions";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { AdminPage, AdminPageHeader, CostBox, Field, Select, SubmitButton } from "@/components/admin/Page";
+import { ArchivedToggle } from "@/components/admin/RowActions";
+import { createMaterial } from "../../actions";
 import { WORK_CATEGORIES } from "@/lib/workCategories";
 import { lineTotal } from "@/lib/money";
 
@@ -20,7 +20,6 @@ export default async function ProjectMaterialsPage({
   const showArchived = searchParams.archived === "1";
   const isUnassigned = params.id === "unassigned";
   const supabase = createSupabaseServerClient();
-  const { isOwner } = await getSessionAndRole();
 
   let base = supabase
     .from("materials")
@@ -44,19 +43,6 @@ export default async function ProjectMaterialsPage({
 
   const title = isUnassigned ? "Materials with no project" : project!.name;
   const basePath = `/admin/materials/${params.id}`;
-
-  function toRows(items: typeof materials) {
-    return (items ?? []).map((m) => [
-      m.name,
-      // @ts-expect-error relation
-      m.suppliers?.name ?? "—",
-      `${Number(m.quantity)} ${m.unit}`,
-      `₹${Number(m.unit_cost).toLocaleString()}`,
-      `₹${lineTotal(m.quantity, m.unit_cost).toLocaleString()}`,
-      m.status,
-      m.work_category ?? "—",
-    ]);
-  }
 
   return (
     <AdminPage>
@@ -102,54 +88,18 @@ export default async function ProjectMaterialsPage({
         </form>
       )}
 
-      <DataTable
-        columns={["Material", "Supplier", "Qty", "Unit cost", "Line total", "Status", "Category"]}
-        rows={toRows(materials)}
-        empty={showArchived ? "No archived materials for this project." : "No materials recorded for this project yet."}
-      />
-
-      {(materials ?? []).length > 0 && (
-        <ManageSection showArchived={showArchived}>
-          {(materials ?? []).map((m) => (
-            <ManageCard key={m.id} title={m.name}>
-              {showArchived ? (
-                <div className="flex items-center gap-2">
-                  <RestoreAction id={m.id} action={unarchiveMaterial} />
-                  {isOwner && <DeleteForeverButton id={m.id} name={m.name} action={deleteMaterial} />}
-                </div>
-              ) : (
-                <RowActions
-                  editHref={`/admin/materials/${m.id}/edit`}
-                  id={m.id}
-                  name={m.name}
-                  archiveAction={archiveMaterial}
-                />
-              )}
-            </ManageCard>
-          ))}
-        </ManageSection>
-      )}
-
-      {!showArchived && materials && materials.some((m) => m.status === "ordered") && (
-        <section className="mt-8">
-          <h3 className="mb-2 text-sm font-semibold uppercase tracking-wide text-slate-500">Mark as delivered</h3>
-          <div className="flex flex-wrap gap-2">
-            {materials
-              .filter((m) => m.status === "ordered")
-              .map((m) => (
-                <form key={m.id} action={markMaterialDelivered}>
-                  <input type="hidden" name="id" value={m.id} />
-                  <button
-                    type="submit"
-                    className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs text-slate-700 hover:bg-slate-100"
-                  >
-                    {m.name} →  delivered
-                  </button>
-                </form>
-              ))}
-          </div>
-        </section>
-      )}
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        {(materials ?? []).length === 0 && (
+          <p className="col-span-full rounded-xl border border-dashed border-[var(--line)] bg-white p-8 text-center text-sm text-slate-500">
+            {showArchived ? "No archived materials for this project." : "No materials recorded for this project yet."}
+          </p>
+        )}
+        {(materials ?? []).map((m) => (
+          <Link key={m.id} href={`/admin/materials/${params.id}/${m.id}`}>
+            <CostBox label={m.name} value={lineTotal(m.quantity, m.unit_cost)} />
+          </Link>
+        ))}
+      </div>
     </AdminPage>
   );
 }
