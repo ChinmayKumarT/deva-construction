@@ -5,6 +5,7 @@ import { AdminPage, AdminPageHeader } from "@/components/admin/Page";
 import { ArchivedToggle, DeleteForeverButton, RestoreAction } from "@/components/admin/RowActions";
 import { CreatePaymentForm } from "@/components/admin/PaymentForm";
 import { computeWagesDue } from "@/lib/wages";
+import { formatDateTime } from "@/lib/dateFormat";
 import {
   approvePayment, createPayment, markPaymentPaid, rejectPayment,
   archivePayment, unarchivePayment, deletePayment,
@@ -132,7 +133,7 @@ export default async function ProjectPaymentsPage({
                 p.payee_type === "supplier" ? p.suppliers?.name : p.labourers?.name;
               return (
                 <tr key={p.id} className="border-t border-slate-100">
-                  <td className="px-4 py-2 text-slate-600">{new Date(p.created_at).toLocaleDateString()}</td>
+                  <td className="px-4 py-2 text-slate-600">{formatDateTime(p.created_at)}</td>
                   <td className="px-4 py-2">
                     {payeeName ?? "—"} <span className="text-xs text-slate-500">({p.payee_type})</span>
                   </td>

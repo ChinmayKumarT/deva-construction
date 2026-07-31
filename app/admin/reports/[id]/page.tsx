@@ -9,6 +9,7 @@ import { CashFlowBarChart } from "@/components/admin/CashFlowBarChart";
 import { computeCashFlow, defaultCashFlowRange } from "@/lib/cashflow";
 import { wageForStatus } from "@/lib/wages";
 import { lineTotal } from "@/lib/money";
+import { formatDateOnly, formatDateTime } from "@/lib/dateFormat";
 
 const BRAND = "#16a34a";
 const SPEND = "#F59E0B";
@@ -140,6 +141,12 @@ export default async function SiteReportPage({
   const extended =
     project.original_end_date != null && project.end_date != null && project.end_date > project.original_end_date;
 
+  // Attendance is a plain date column with no time of day, so its "Wage ·
+  // attendance" rows stay date-only; materials/payments have a real
+  // timestamp and show it.
+  const formatTxDate = (t: { date: string | null; type: string }) =>
+    t.type === "Wage · attendance" ? formatDateOnly(t.date) : formatDateTime(t.date);
+
   const pdfSite = {
     name: project.name,
     status: project.status,
@@ -158,7 +165,7 @@ export default async function SiteReportPage({
       extensionReason: project.extension_reason,
     },
     transactions: transactions.map((t) => ({
-      date: t.date ? new Date(t.date).toLocaleDateString() : "no date",
+      date: formatTxDate(t),
       type: t.type,
       description: t.description,
       amount: t.amount,
@@ -167,7 +174,7 @@ export default async function SiteReportPage({
     updates: (updates ?? []).map((u) => ({
       stage: u.stage,
       note: u.note,
-      date: u.created_at ? new Date(u.created_at).toLocaleDateString() : "no date",
+      date: formatDateTime(u.created_at),
       imageUrl: u.image_url,
     })),
   };
@@ -259,7 +266,7 @@ export default async function SiteReportPage({
         rows={transactions.map((t) => [
           t.type,
           t.description,
-          t.date ? new Date(t.date).toLocaleDateString() : "no date",
+          formatTxDate(t),
           t.status,
           `₹${t.amount.toLocaleString()}`,
         ])}

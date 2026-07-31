@@ -1,6 +1,7 @@
 import { requireRole } from "@/lib/guard";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { lineTotal } from "@/lib/money";
+import { formatDateTime } from "@/lib/dateFormat";
 import { generateBill, recordDelivery } from "./actions";
 
 const STATUS_STYLE: Record<string, string> = {
@@ -179,7 +180,7 @@ export default async function SupplierDashboard() {
               `₹${Number(m.unit_cost).toLocaleString()}`,
               `₹${lineTotal(m.quantity, m.unit_cost).toLocaleString()}`,
               m.status,
-              new Date(m.ordered_at).toLocaleDateString(),
+              formatDateTime(m.ordered_at),
             ]) ?? []
           }
         />
@@ -204,7 +205,7 @@ export default async function SupplierDashboard() {
               )}
               {payments?.map((p) => (
                 <tr key={p.id} className="border-t border-slate-100">
-                  <td className="px-4 py-2 text-slate-600">{new Date(p.created_at).toLocaleDateString()}</td>
+                  <td className="px-4 py-2 text-slate-600">{formatDateTime(p.created_at)}</td>
                   {/* @ts-expect-error relation */}
                   <td className="px-4 py-2 text-slate-600">{p.projects?.name ?? "—"}</td>
                   <td className="px-4 py-2 font-medium">₹{Number(p.amount).toLocaleString()}</td>

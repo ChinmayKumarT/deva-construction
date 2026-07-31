@@ -7,6 +7,7 @@ import { PieChart, PieLegend } from "@/components/admin/PieChart";
 import { DownloadSitePdfButton } from "@/components/admin/ReportPdf";
 import { DownloadSiteCsvButton } from "@/components/admin/ReportCsv";
 import { lineTotal } from "@/lib/money";
+import { formatDateTime } from "@/lib/dateFormat";
 
 const BRAND = "#16a34a";
 const SPEND = "#F59E0B";
@@ -120,7 +121,7 @@ export default async function ClientSiteReportPage({ params }: { params: { id: s
       extensionReason: project.extension_reason,
     },
     transactions: transactions.map((t) => ({
-      date: t.date ? new Date(t.date).toLocaleDateString() : "no date",
+      date: formatDateTime(t.date),
       type: t.type,
       description: t.description,
       amount: t.amount,
@@ -129,7 +130,7 @@ export default async function ClientSiteReportPage({ params }: { params: { id: s
     updates: (updates ?? []).map((u) => ({
       stage: u.stage,
       note: u.note,
-      date: u.created_at ? new Date(u.created_at).toLocaleDateString() : "no date",
+      date: formatDateTime(u.created_at),
       imageUrl: u.image_url,
     })),
   };
@@ -225,7 +226,7 @@ export default async function ClientSiteReportPage({ params }: { params: { id: s
         rows={transactions.map((t) => [
           t.type,
           t.description,
-          t.date ? new Date(t.date).toLocaleDateString() : "no date",
+          formatDateTime(t.date),
           t.status,
           `₹${t.amount.toLocaleString()}`,
         ])}

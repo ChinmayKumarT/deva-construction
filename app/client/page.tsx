@@ -2,6 +2,7 @@ import Image from "next/image";
 import { requireRole } from "@/lib/guard";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { lineTotal } from "@/lib/money";
+import { formatDateTime } from "@/lib/dateFormat";
 
 const STATUS_STYLE: Record<string, string> = {
   pending: "bg-amber-50 text-amber-700 border-amber-200",
@@ -201,7 +202,7 @@ export default async function ClientDashboard() {
                 )}
                 {payments?.map((p) => (
                   <tr key={p.id} className="border-t border-slate-100">
-                    <td className="px-4 py-2 text-slate-600">{new Date(p.created_at).toLocaleDateString()}</td>
+                    <td className="px-4 py-2 text-slate-600">{formatDateTime(p.created_at)}</td>
                     <td className="px-4 py-2 text-slate-600">{projectName.get(p.project_id!) ?? "—"}</td>
                     <td className="px-4 py-2 text-slate-600">{p.payee_type === "supplier" ? "Materials/supplier" : "Labour"}</td>
                     <td className="px-4 py-2 font-medium">₹{Number(p.amount).toLocaleString()}</td>
