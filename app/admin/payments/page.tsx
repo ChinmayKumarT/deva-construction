@@ -63,59 +63,70 @@ export default async function PaymentsIndexPage({
         </div>
       ) : null}
 
-      {!showArchived && (projects ?? []).length > 0 && (
-        <div className="mb-8 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+      {!showArchived && (
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           <CostBox label="Total cost" value={totalCost} accent />
+          {(projects ?? []).length === 0 && (
+            <p className="col-span-full rounded-xl border border-dashed border-[var(--line)] bg-white p-8 text-center text-sm text-slate-500">
+              No projects yet.
+            </p>
+          )}
           {(projects ?? []).map((p) => (
-            <CostBox key={p.id} label={p.name} value={byProject.get(p.id)?.spend ?? 0} />
+            <Link key={p.id} href={`/admin/payments/${p.id}`}>
+              <CostBox label={p.name} value={byProject.get(p.id)?.spend ?? 0} />
+            </Link>
           ))}
-          {unassignedCount > 0 && <CostBox label="No project" value={unassignedSpend} />}
+          {unassignedCount > 0 && (
+            <Link href="/admin/payments/unassigned">
+              <CostBox label="No project" value={unassignedSpend} />
+            </Link>
+          )}
         </div>
       )}
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {(projects ?? []).length === 0 && (
-          <p className="col-span-full rounded-xl border border-dashed border-[var(--line)] bg-white p-8 text-center text-sm text-slate-500">
-            No projects yet.
-          </p>
-        )}
-        {(projects ?? []).map((p) => {
-          const stats = byProject.get(p.id) ?? { count: 0, spend: 0 };
-          return (
+      {showArchived && (
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {(projects ?? []).length === 0 && (
+            <p className="col-span-full rounded-xl border border-dashed border-[var(--line)] bg-white p-8 text-center text-sm text-slate-500">
+              No projects yet.
+            </p>
+          )}
+          {(projects ?? []).map((p) => {
+            const stats = byProject.get(p.id) ?? { count: 0, spend: 0 };
+            return (
+              <Link
+                key={p.id}
+                href={`/admin/payments/${p.id}${suffix}`}
+                className="rounded-xl border border-[var(--line)] bg-white p-5 hover:border-brand hover:shadow-sm transition"
+              >
+                <div className="flex items-baseline justify-between">
+                  <div className="font-semibold">{p.name}</div>
+                  <span className="rounded-md border border-slate-200 bg-slate-50 px-2 py-0.5 text-xs text-slate-600">
+                    {p.status}
+                  </span>
+                </div>
+                <p className="mt-2 text-sm text-slate-600">
+                  {stats.count} {stats.count === 1 ? "payment" : "payments"} archived
+                </p>
+                <p className="mt-3 text-sm font-medium text-brand-700">View payments →</p>
+              </Link>
+            );
+          })}
+
+          {unassignedCount > 0 && (
             <Link
-              key={p.id}
-              href={`/admin/payments/${p.id}${suffix}`}
-              className="rounded-xl border border-[var(--line)] bg-white p-5 hover:border-brand hover:shadow-sm transition"
+              href={`/admin/payments/unassigned${suffix}`}
+              className="rounded-xl border border-dashed border-[var(--line)] bg-white p-5 hover:border-brand hover:shadow-sm transition"
             >
-              <div className="flex items-baseline justify-between">
-                <div className="font-semibold">{p.name}</div>
-                <span className="rounded-md border border-slate-200 bg-slate-50 px-2 py-0.5 text-xs text-slate-600">
-                  {p.status}
-                </span>
-              </div>
+              <div className="font-semibold text-slate-700">No project</div>
               <p className="mt-2 text-sm text-slate-600">
-                {stats.count} {stats.count === 1 ? "payment" : "payments"}
-                {showArchived ? " archived" : ` · ₹${stats.spend.toLocaleString()}`}
+                {unassignedCount} {unassignedCount === 1 ? "payment" : "payments"} archived
               </p>
               <p className="mt-3 text-sm font-medium text-brand-700">View payments →</p>
             </Link>
-          );
-        })}
-
-        {unassignedCount > 0 && (
-          <Link
-            href={`/admin/payments/unassigned${suffix}`}
-            className="rounded-xl border border-dashed border-[var(--line)] bg-white p-5 hover:border-brand hover:shadow-sm transition"
-          >
-            <div className="font-semibold text-slate-700">No project</div>
-            <p className="mt-2 text-sm text-slate-600">
-              {unassignedCount} {unassignedCount === 1 ? "payment" : "payments"}
-              {showArchived ? " archived" : ` · ₹${unassignedSpend.toLocaleString()}`}
-            </p>
-            <p className="mt-3 text-sm font-medium text-brand-700">View payments →</p>
-          </Link>
-        )}
-      </div>
+          )}
+        </div>
+      )}
     </AdminPage>
   );
 }
