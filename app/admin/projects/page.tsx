@@ -1,8 +1,8 @@
 import Link from "next/link";
 import { createSupabaseServerClient, getSessionAndRole } from "@/lib/supabase/server";
-import { AdminPage, AdminPageHeader, CostBox, DataTable, Field, Select, SubmitButton } from "@/components/admin/Page";
+import { AdminPage, AdminPageHeader, CostBox, Field, Select, SubmitButton } from "@/components/admin/Page";
 import { DeleteForeverButton } from "@/components/admin/RowActions";
-import { createProject, extendProjectEndDate, setNextPaymentDate, archiveProject, unarchiveProject, deleteProject } from "../actions";
+import { createProject, unarchiveProject, deleteProject } from "../actions";
 
 export default async function ProjectsPage({
   searchParams,
@@ -32,17 +32,6 @@ export default async function ProjectsPage({
   ]);
 
   const totalCost = (projects ?? []).reduce((sum, p) => sum + Number(p.total_cost), 0);
-
-  const rows =
-    projects?.map((p) => [
-      p.name,
-      // @ts-expect-error supabase relation
-      p.clients?.name ?? "—",
-      p.status,
-      p.current_stage,
-      `${Number(p.completion_pct).toFixed(1)}%`,
-      `₹${Number(p.total_cost).toLocaleString()}`,
-    ]) ?? [];
 
   return (
     <AdminPage>
@@ -76,7 +65,9 @@ export default async function ProjectsPage({
         <div className="mb-8 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           <CostBox label="Total cost" value={totalCost} accent />
           {(projects ?? []).map((p) => (
-            <CostBox key={p.id} label={p.name} value={Number(p.total_cost)} />
+            <Link key={p.id} href={`/admin/projects/${p.id}`}>
+              <CostBox label={p.name} value={Number(p.total_cost)} />
+            </Link>
           ))}
         </div>
       )}
@@ -109,144 +100,50 @@ export default async function ProjectsPage({
         </form>
       )}
 
-      <DataTable
-        columns={["Name", "Client", "Status", "Stage", "Completion", "Total cost"]}
-        rows={rows}
-        empty={showArchived ? "No archived projects." : "No projects yet. Create one above."}
-      />
+      {!showArchived && (projects ?? []).length === 0 && (
+        <p className="rounded-xl border border-dashed border-[var(--line)] bg-white p-8 text-center text-sm text-slate-500">
+          No projects yet. Create one above.
+        </p>
+      )}
 
-      {projects && projects.length > 0 && (
-        <section className="mt-8">
-          <h3 className="mb-2 text-sm font-semibold uppercase tracking-wide text-slate-500">
-            {showArchived ? "Restore" : "Manage"}
-          </h3>
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {projects.map((p) => {
-              const extended =
-                p.original_end_date != null && p.end_date != null && p.end_date > p.original_end_date;
-              return (
+      {showArchived && (
+        (projects ?? []).length === 0 ? (
+          <p className="rounded-xl border border-dashed border-[var(--line)] bg-white p-8 text-center text-sm text-slate-500">
+            No archived projects.
+          </p>
+        ) : (
+          <section>
+            <h3 className="mb-2 text-sm font-semibold uppercase tracking-wide text-slate-500">Restore</h3>
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {projects!.map((p) => (
                 <div key={p.id} className="rounded-xl border border-slate-200 bg-white p-4">
                   <div className="mb-2 font-medium text-sm">{p.name}</div>
-
-                  {showArchived ? (
-                    <>
-                      <p className="mb-3 text-xs text-slate-500">
-                        Archived {p.archived_at ? new Date(p.archived_at).toLocaleDateString() : ""}
-                      </p>
-                      <div className="flex items-center gap-2">
-                        <form action={unarchiveProject}>
-                          <input type="hidden" name="id" value={p.id} />
-                          <button
-                            type="submit"
-                            className="rounded-lg bg-brand px-3 py-1.5 text-xs font-medium text-white hover:bg-brand-700"
-                          >
-                            Restore
-                          </button>
-                        </form>
-                        {isOwner && (
-                          <DeleteForeverButton
-                            id={p.id} name={p.name} action={deleteProject}
-                            warning="All its materials, payments and progress updates will be deleted too."
-                          />
-                        )}
-                      </div>
-                    </>
-                  ) : (
-                    <>
-                      <p className="mb-2 text-xs text-slate-500">
-                        Finish: {p.end_date ?? "not set"}
-                        {p.original_end_date ? ` (originally ${p.original_end_date})` : ""}
-                      </p>
-                      {extended && (
-                        <p className="mb-2 text-xs font-medium text-red-600">
-                          Extended from {p.original_end_date}
-                          {p.extension_reason ? ` · ${p.extension_reason}` : ""}
-                        </p>
-                      )}
-
-                      <div className="mb-3 flex items-center gap-2">
-                        <Link
-                          href={`/admin/projects/${p.id}/edit`}
-                          className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs text-slate-700 hover:bg-slate-100"
-                        >
-                          Edit
-                        </Link>
-                        <ArchiveButton id={p.id} name={p.name} />
-                      </div>
-
-                      <form action={extendProjectEndDate} className="border-t border-slate-100 pt-3">
-                        <input type="hidden" name="id" value={p.id} />
-                        <div className="flex flex-wrap items-end gap-2">
-                          <label className="text-xs">
-                            <span className="mb-1 block text-slate-600">Extend finish date</span>
-                            <input
-                              type="date"
-                              name="end_date"
-                              defaultValue={p.end_date ?? ""}
-                              required
-                              className="rounded-lg border border-[var(--line)] bg-white px-2 py-1 text-sm"
-                            />
-                          </label>
-                          <label className="text-xs flex-1 min-w-[8rem]">
-                            <span className="mb-1 block text-slate-600">Reason (optional)</span>
-                            <input
-                              type="text"
-                              name="reason"
-                              className="w-full rounded-lg border border-[var(--line)] bg-white px-2 py-1 text-sm"
-                            />
-                          </label>
-                          <button
-                            type="submit"
-                            className="rounded-lg bg-brand px-3 py-1.5 text-xs font-medium text-white hover:bg-brand-700"
-                          >
-                            Save
-                          </button>
-                        </div>
-                      </form>
-
-                      <form action={setNextPaymentDate} className="mt-3 border-t border-slate-100 pt-3">
-                        <input type="hidden" name="id" value={p.id} />
-                        <div className="flex flex-wrap items-end gap-2">
-                          <label className="text-xs">
-                            <span className="mb-1 block text-slate-600">Next payment date</span>
-                            <input
-                              type="date"
-                              name="next_payment_date"
-                              defaultValue={p.next_payment_date ?? ""}
-                              className="rounded-lg border border-[var(--line)] bg-white px-2 py-1 text-sm"
-                            />
-                          </label>
-                          <button
-                            type="submit"
-                            className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-100"
-                          >
-                            Save
-                          </button>
-                        </div>
-                      </form>
-                    </>
-                  )}
+                  <p className="mb-3 text-xs text-slate-500">
+                    Archived {p.archived_at ? new Date(p.archived_at).toLocaleDateString() : ""}
+                  </p>
+                  <div className="flex items-center gap-2">
+                    <form action={unarchiveProject}>
+                      <input type="hidden" name="id" value={p.id} />
+                      <button
+                        type="submit"
+                        className="rounded-lg bg-brand px-3 py-1.5 text-xs font-medium text-white hover:bg-brand-700"
+                      >
+                        Restore
+                      </button>
+                    </form>
+                    {isOwner && (
+                      <DeleteForeverButton
+                        id={p.id} name={p.name} action={deleteProject}
+                        warning="All its materials, payments and progress updates will be deleted too."
+                      />
+                    )}
+                  </div>
                 </div>
-              );
-            })}
-          </div>
-        </section>
+              ))}
+            </div>
+          </section>
+        )
       )}
     </AdminPage>
-  );
-}
-
-function ArchiveButton({ id, name }: { id: string; name: string }) {
-  return (
-    <form action={archiveProject}>
-      <input type="hidden" name="id" value={id} />
-      <button
-        type="submit"
-        title={`Hide ${name} from all views. Its materials, payments and updates are kept and it can be restored.`}
-        className="rounded-lg border border-red-300 bg-white px-3 py-1.5 text-xs text-red-700 hover:bg-red-50"
-      >
-        Archive
-      </button>
-    </form>
   );
 }
