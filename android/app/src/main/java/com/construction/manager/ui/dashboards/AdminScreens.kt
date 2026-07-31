@@ -978,6 +978,7 @@ fun AdminMaterials(isOwner: Boolean = false, initialProjectFilter: ProjectRow? =
     var archiving by remember { mutableStateOf<MaterialRow?>(null) }
     var deleting by remember { mutableStateOf<MaterialRow?>(null) }
     var projectFilter by remember { mutableStateOf(initialProjectFilter) }
+    var showUnassigned by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
     LaunchedEffect(version, showArchived) {
         safe({
@@ -986,42 +987,56 @@ fun AdminMaterials(isOwner: Boolean = false, initialProjectFilter: ProjectRow? =
             suppliers = Repo.listSuppliers()
         }) { error = it }
     }
-    val visibleRows = projectFilter?.let { pf -> rows.filter { it.projectId == pf.id } } ?: rows
+
+    if (projectFilter == null && !showUnassigned) {
+        MaterialsProjectPicker(
+            projects = projects,
+            rows = rows,
+            onPickProject = { projectFilter = it },
+            onPickUnassigned = { showUnassigned = true },
+        )
+        return
+    }
+
+    val visibleRows = if (showUnassigned) rows.filter { it.projectId == null }
+        else rows.filter { it.projectId == projectFilter?.id }
     var name by remember { mutableStateOf("") }
     var unit by remember { mutableStateOf("unit") }
     var qty by remember { mutableStateOf("") }
     var unitCost by remember { mutableStateOf("") }
     var status by remember { mutableStateOf("ordered") }
-    var project by remember { mutableStateOf(initialProjectFilter) }
     var supplier by remember { mutableStateOf<SupplierRow?>(null) }
     var workCategory by remember { mutableStateOf("None") }
 
     FormColumn {
-        ArchivedSwitch(showArchived) { showArchived = !showArchived }
-        projectFilter?.let { pf ->
-            Row(
-                Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Text(
-                    "Showing materials for ${pf.name}", style = MaterialTheme.typography.bodySmall,
-                    modifier = Modifier.weight(1f),
-                )
-                TextButton(onClick = { projectFilter = null }) { Text("Clear filter") }
+        Row(
+            Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                if (showUnassigned) "Materials with no project" else projectFilter?.name ?: "",
+                style = MaterialTheme.typography.titleSmall,
+                modifier = Modifier.weight(1f),
+            )
+            TextButton(onClick = { projectFilter = null; showUnassigned = false; showArchived = false }) {
+                Text("← All materials")
             }
         }
-        if (!showArchived) {
+        ArchivedSwitch(showArchived) { showArchived = !showArchived }
+        // Materials with no project were never created through this screen
+        // (the create form always assigns a project below), so there's
+        // nothing to add from here -- only existing ones to manage.
+        if (!showArchived && !showUnassigned) {
             SectionTitle("Add material")
             TextField(name, { name = it }, "Name")
             TextField(unit, { unit = it }, "Unit (kg, bag…)")
             NumberField(qty, { qty = it }, "Quantity")
             NumberField(unitCost, { unitCost = it }, "Unit cost")
             Dropdown("Status", listOf("ordered","delivered","returned"), status, { it }, { status = it })
-            Dropdown("Project", projects, project, { it.name }, { project = it })
             Dropdown("Supplier", suppliers, supplier, { it.name }, { supplier = it })
             Dropdown("Work category", WorkCategories, workCategory, { it }, { workCategory = it })
             Button(onClick = {
-                val p = project ?: return@Button
+                val p = projectFilter ?: return@Button
                 scope.launch {
                     safe({
                         Repo.createMaterial(p.id, supplier?.id, name, unit,
@@ -1094,6 +1109,57 @@ fun AdminMaterials(isOwner: Boolean = false, initialProjectFilter: ProjectRow? =
                 scope.launch { safe({ Repo.deleteMaterialForever(m.id); version++ }) { error = it } }
             },
         )
+    }
+}
+
+@Composable
+private fun MaterialsProjectPicker(
+    projects: List<ProjectRow>,
+    rows: List<MaterialRow>,
+    onPickProject: (ProjectRow) -> Unit,
+    onPickUnassigned: () -> Unit,
+) {
+    val statsByProject = remember(rows) {
+        val map = mutableMapOf<String, Pair<Int, Double>>()
+        for (m in rows) {
+            val pid = m.projectId ?: continue
+            val spend = if (m.status == "returned") 0.0 else lineTotal(m.quantity, m.unitCost)
+            val cur = map[pid] ?: (0 to 0.0)
+            map[pid] = (cur.first + 1) to (cur.second + spend)
+        }
+        map
+    }
+    val unassignedRows = remember(rows) { rows.filter { it.projectId == null } }
+    val unassignedSpend = remember(unassignedRows) {
+        unassignedRows.sumOf { if (it.status == "returned") 0.0 else lineTotal(it.quantity, it.unitCost) }
+    }
+
+    FormColumn {
+        SectionTitle("Materials")
+        Text(
+            "Pick a site to see what's ordered, delivered, and how much it costs.",
+            style = MaterialTheme.typography.bodySmall,
+            modifier = Modifier.padding(horizontal = 16.dp),
+        )
+        Spacer(Modifier.height(4.dp))
+        if (projects.isEmpty()) {
+            Text("No projects yet.", Modifier.padding(16.dp))
+        }
+        projects.forEach { p ->
+            val stats = statsByProject[p.id]
+            ItemCard(
+                p.name,
+                "${stats?.first ?: 0} materials · ${money(stats?.second ?: 0.0)}",
+                actions = { TextButton(onClick = { onPickProject(p) }) { Text("View materials →") } },
+            )
+        }
+        if (unassignedRows.isNotEmpty()) {
+            ItemCard(
+                "No project",
+                "${unassignedRows.size} materials · ${money(unassignedSpend)}",
+                actions = { TextButton(onClick = onPickUnassigned) { Text("View materials →") } },
+            )
+        }
     }
 }
 
