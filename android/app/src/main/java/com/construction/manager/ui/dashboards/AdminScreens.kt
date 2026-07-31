@@ -1277,6 +1277,7 @@ fun AdminPayments(isOwner: Boolean = false, initialProjectFilter: ProjectRow? = 
     var archiving by remember { mutableStateOf<PaymentRow?>(null) }
     var deleting by remember { mutableStateOf<PaymentRow?>(null) }
     var projectFilter by remember { mutableStateOf(initialProjectFilter) }
+    var showUnassigned by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
     LaunchedEffect(version, showArchived) {
         safe({
@@ -1289,17 +1290,28 @@ fun AdminPayments(isOwner: Boolean = false, initialProjectFilter: ProjectRow? = 
             attendance = Repo.listAllAttendance()
         }) { error = it }
     }
-    val visibleRows = projectFilter?.let { pf -> rows.filter { it.projectId == pf.id } } ?: rows
+
+    if (projectFilter == null && !showUnassigned) {
+        PaymentsProjectPicker(
+            projects = projects,
+            rows = rows,
+            onPickProject = { projectFilter = it },
+            onPickUnassigned = { showUnassigned = true },
+        )
+        return
+    }
+
+    val visibleRows = if (showUnassigned) rows.filter { it.projectId == null }
+        else rows.filter { it.projectId == projectFilter?.id }
     var payeeType by remember { mutableStateOf("supplier") }
     var amount by remember { mutableStateOf("") }
     var desc by remember { mutableStateOf("") }
-    var project by remember { mutableStateOf(initialProjectFilter) }
     var supplier by remember { mutableStateOf<SupplierRow?>(null) }
     var labourer by remember { mutableStateOf<LabourerRow?>(null) }
     var workCategory by remember { mutableStateOf("None") }
     var purchase by remember { mutableStateOf<MaterialRow?>(null) }
-    val projectMaterials = project?.let { pr -> materials.filter { it.projectId == pr.id } } ?: emptyList()
-    val assignedLabourers = project?.let { pr ->
+    val projectMaterials = projectFilter?.let { pr -> materials.filter { it.projectId == pr.id } } ?: emptyList()
+    val assignedLabourers = projectFilter?.let { pr ->
         val ids = assignments.filter { it.projectId == pr.id }.map { it.labourerId }.toSet()
         labourers.filter { it.id in ids }
     } ?: emptyList()
@@ -1307,35 +1319,35 @@ fun AdminPayments(isOwner: Boolean = false, initialProjectFilter: ProjectRow? = 
     val wageDue = remember(attendance, rows, wageById) { computeWagesDue(attendance, rows, wageById) }
 
     FormColumn {
-        ArchivedSwitch(showArchived) { showArchived = !showArchived }
-        projectFilter?.let { pf ->
-            Row(
-                Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Text(
-                    "Showing payments for ${pf.name}", style = MaterialTheme.typography.bodySmall,
-                    modifier = Modifier.weight(1f),
-                )
-                TextButton(onClick = { projectFilter = null }) { Text("Clear filter") }
+        Row(
+            Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                if (showUnassigned) "Payments with no project" else projectFilter?.name ?: "",
+                style = MaterialTheme.typography.titleSmall,
+                modifier = Modifier.weight(1f),
+            )
+            TextButton(onClick = { projectFilter = null; showUnassigned = false; showArchived = false }) {
+                Text("← All payments")
             }
         }
-        if (!showArchived) {
+        ArchivedSwitch(showArchived) { showArchived = !showArchived }
+        // Payments with no project were never created through this screen
+        // (the create form always assigns the selected project below), so
+        // there's nothing to add from here -- only existing ones to manage.
+        if (!showArchived && !showUnassigned) {
             SectionTitle("Create payment")
             Dropdown(
                 "Payee type", listOf("supplier","labour"), payeeType, { it },
                 { payeeType = it; supplier = null; labourer = null; desc = ""; purchase = null },
-            )
-            Dropdown(
-                "Project", projects, project,
-                { it.name }, { project = it; purchase = null; labourer = null },
             )
             if (payeeType == "labour") {
                 Dropdown(
                     "Labourer", assignedLabourers, labourer, { it.name },
                     { l ->
                         labourer = l
-                        val pid = project?.id
+                        val pid = projectFilter?.id
                         if (pid != null) amount = (wageDue[wageDueKey(pid, l.id)] ?: 0.0).toString()
                     },
                 )
@@ -1364,9 +1376,10 @@ fun AdminPayments(isOwner: Boolean = false, initialProjectFilter: ProjectRow? = 
             Dropdown("Work category", WorkCategories, workCategory, { it }, { workCategory = it })
             NumberField(amount, { amount = it }, "Amount")
             Button(onClick = {
+                val pid = projectFilter?.id ?: return@Button
                 scope.launch {
                     safe({
-                        Repo.createPayment(project?.id, payeeType,
+                        Repo.createPayment(pid, payeeType,
                             supplier?.id, labourer?.id,
                             amount.toDoubleOrNull() ?: 0.0, desc.ifBlank { null },
                             workCategory.takeIf { it != "None" })
@@ -1452,6 +1465,62 @@ fun AdminPayments(isOwner: Boolean = false, initialProjectFilter: ProjectRow? = 
                 scope.launch { safe({ Repo.deletePaymentForever(p.id); version++ }) { error = it } }
             },
         )
+    }
+}
+
+@Composable
+private fun PaymentsProjectPicker(
+    projects: List<ProjectRow>,
+    rows: List<PaymentRow>,
+    onPickProject: (ProjectRow) -> Unit,
+    onPickUnassigned: () -> Unit,
+) {
+    val statsByProject = remember(rows) {
+        val map = mutableMapOf<String, Pair<Int, Double>>()
+        for (p in rows) {
+            val pid = p.projectId ?: continue
+            val spend = if (p.status == "rejected") 0.0 else p.amount
+            val cur = map[pid] ?: (0 to 0.0)
+            map[pid] = (cur.first + 1) to (cur.second + spend)
+        }
+        map
+    }
+    val unassignedRows = remember(rows) { rows.filter { it.projectId == null } }
+    val unassignedSpend = remember(unassignedRows) {
+        unassignedRows.sumOf { if (it.status == "rejected") 0.0 else it.amount }
+    }
+    val totalCost = remember(statsByProject, unassignedSpend) {
+        statsByProject.values.sumOf { it.second } + unassignedSpend
+    }
+
+    FormColumn {
+        SectionTitle("Payments")
+        Text(
+            "Pick a site to see its bills and wages. Pending → approved → paid.",
+            style = MaterialTheme.typography.bodySmall,
+            modifier = Modifier.padding(horizontal = 16.dp),
+        )
+        Spacer(Modifier.height(8.dp))
+        StatCard("Total cost", money(totalCost), modifier = Modifier.padding(horizontal = 16.dp))
+        Spacer(Modifier.height(8.dp))
+        if (projects.isEmpty()) {
+            Text("No projects yet.", Modifier.padding(16.dp))
+        }
+        projects.forEach { p ->
+            val stats = statsByProject[p.id]
+            ItemCard(
+                p.name,
+                "${stats?.first ?: 0} payments · ${money(stats?.second ?: 0.0)}",
+                actions = { TextButton(onClick = { onPickProject(p) }) { Text("View payments →") } },
+            )
+        }
+        if (unassignedRows.isNotEmpty()) {
+            ItemCard(
+                "No project",
+                "${unassignedRows.size} payments · ${money(unassignedSpend)}",
+                actions = { TextButton(onClick = onPickUnassigned) { Text("View payments →") } },
+            )
+        }
     }
 }
 
