@@ -1185,29 +1185,21 @@ private fun MaterialsProjectPicker(
         Spacer(Modifier.height(8.dp))
         StatCard("Total cost", money(totalCost), modifier = Modifier.padding(horizontal = 16.dp))
         Spacer(Modifier.height(8.dp))
-        projects.forEach { p ->
-            StatCard(p.name, money(statsByProject[p.id]?.second ?: 0.0), modifier = Modifier.padding(horizontal = 16.dp, vertical = 2.dp))
-        }
-        if (unassignedRows.isNotEmpty()) {
-            StatCard("No project", money(unassignedSpend), modifier = Modifier.padding(horizontal = 16.dp, vertical = 2.dp))
-        }
-        Spacer(Modifier.height(8.dp))
         if (projects.isEmpty()) {
             Text("No projects yet.", Modifier.padding(16.dp))
         }
         projects.forEach { p ->
-            val stats = statsByProject[p.id]
-            ItemCard(
-                p.name,
-                "${stats?.first ?: 0} materials · ${money(stats?.second ?: 0.0)}",
-                actions = { TextButton(onClick = { onPickProject(p) }) { Text("View materials →") } },
+            StatCard(
+                p.name, money(statsByProject[p.id]?.second ?: 0.0),
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 2.dp)
+                    .clickable { onPickProject(p) },
             )
         }
         if (unassignedRows.isNotEmpty()) {
-            ItemCard(
-                "No project",
-                "${unassignedRows.size} materials · ${money(unassignedSpend)}",
-                actions = { TextButton(onClick = onPickUnassigned) { Text("View materials →") } },
+            StatCard(
+                "No project", money(unassignedSpend),
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 2.dp)
+                    .clickable(onClick = onPickUnassigned),
             )
         }
     }
@@ -1507,18 +1499,17 @@ private fun PaymentsProjectPicker(
             Text("No projects yet.", Modifier.padding(16.dp))
         }
         projects.forEach { p ->
-            val stats = statsByProject[p.id]
-            ItemCard(
-                p.name,
-                "${stats?.first ?: 0} payments · ${money(stats?.second ?: 0.0)}",
-                actions = { TextButton(onClick = { onPickProject(p) }) { Text("View payments →") } },
+            StatCard(
+                p.name, money(statsByProject[p.id]?.second ?: 0.0),
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 2.dp)
+                    .clickable { onPickProject(p) },
             )
         }
         if (unassignedRows.isNotEmpty()) {
-            ItemCard(
-                "No project",
-                "${unassignedRows.size} payments · ${money(unassignedSpend)}",
-                actions = { TextButton(onClick = onPickUnassigned) { Text("View payments →") } },
+            StatCard(
+                "No project", money(unassignedSpend),
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 2.dp)
+                    .clickable(onClick = onPickUnassigned),
             )
         }
     }
