@@ -4,6 +4,7 @@ import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
@@ -193,12 +194,19 @@ fun AdminProjects(isOwner: Boolean = false) {
     val scope = rememberCoroutineScope()
 
     var showArchived by remember { mutableStateOf(false) }
+    var selectedProject by remember { mutableStateOf<ProjectRow?>(null) }
 
     LaunchedEffect(version, showArchived) {
         safe({
             rows = if (showArchived) Repo.listArchivedProjects() else Repo.listProjects()
             clients = Repo.listClients()
         }) { error = it }
+    }
+    // The selected project is a snapshot from `rows`; once a create/edit
+    // reloads the list, re-point it at the fresh row (or drop the selection
+    // if the project no longer exists, e.g. after a delete).
+    LaunchedEffect(rows) {
+        selectedProject = selectedProject?.let { sel -> rows.find { it.id == sel.id } }
     }
 
     var name by remember { mutableStateOf("") }
@@ -224,16 +232,41 @@ fun AdminProjects(isOwner: Boolean = false) {
             }
         }
 
-        if (!showArchived && rows.isNotEmpty()) {
-            StatCard("Total cost", money(rows.sumOf { it.totalCost }), modifier = Modifier.padding(horizontal = 16.dp))
-            Spacer(Modifier.height(8.dp))
-            rows.forEach { p ->
-                StatCard(p.name, money(p.totalCost), modifier = Modifier.padding(horizontal = 16.dp, vertical = 2.dp))
+        if (!showArchived && selectedProject != null) {
+            val p = selectedProject!!
+            Row(
+                Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(p.name, style = MaterialTheme.typography.titleSmall, modifier = Modifier.weight(1f))
+                TextButton(onClick = { selectedProject = null }) { Text("← All projects") }
             }
-            Spacer(Modifier.height(8.dp))
+            error?.let { Text(it, color = MaterialTheme.colorScheme.error,
+                modifier = Modifier.padding(16.dp)) }
+            ProjectRowCard(
+                project = p,
+                clients = clients,
+                archived = false,
+                isOwner = isOwner,
+                onChanged = { version++ },
+            )
+            return@FormColumn
         }
 
         if (!showArchived) {
+            if (rows.isNotEmpty()) {
+                StatCard("Total cost", money(rows.sumOf { it.totalCost }), modifier = Modifier.padding(horizontal = 16.dp))
+                Spacer(Modifier.height(8.dp))
+                rows.forEach { p ->
+                    StatCard(
+                        p.name, money(p.totalCost),
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 2.dp)
+                            .clickable { selectedProject = p },
+                    )
+                }
+                Spacer(Modifier.height(8.dp))
+            }
+
             SectionTitle("Create project")
             TextField(name, { name = it }, "Name")
             TextField(stage, { stage = it }, "Current stage")
@@ -261,29 +294,25 @@ fun AdminProjects(isOwner: Boolean = false) {
                 },
                 modifier = Modifier.padding(16.dp),
             ) { Text("Create") }
-            Divider()
+            if (rows.isEmpty()) {
+                Divider()
+                Text("No projects yet.", Modifier.padding(16.dp))
+            }
+            return@FormColumn
         }
 
-        if (showArchived) {
-            error?.let { Text(it, color = MaterialTheme.colorScheme.error,
-                modifier = Modifier.padding(16.dp)) }
-        }
-
-        SectionTitle(
-            if (showArchived) "Archived projects (${rows.size})" else "Projects (${rows.size})",
-        )
+        error?.let { Text(it, color = MaterialTheme.colorScheme.error,
+            modifier = Modifier.padding(16.dp)) }
+        SectionTitle("Archived projects (${rows.size})")
         if (rows.isEmpty()) {
-            Text(
-                if (showArchived) "No archived projects." else "No projects yet.",
-                Modifier.padding(16.dp),
-            )
+            Text("No archived projects.", Modifier.padding(16.dp))
         }
         rows.forEach { p ->
             key(p.id) {
                 ProjectRowCard(
                     project = p,
                     clients = clients,
-                    archived = showArchived,
+                    archived = true,
                     isOwner = isOwner,
                     onChanged = { version++ },
                 )
