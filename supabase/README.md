@@ -91,3 +91,32 @@ screen (visible only to them), which calls `set_user_role`.
 A `profiles` row is created on signup with the chosen role. To wire a profile to its domain row, set `profile_id = profiles.id` on the matching `clients` / `suppliers` row (labourers don't sign in, so their `profile_id` stays null for now). Until that link is set, the user can sign in but RLS will return empty results — admin must create the linking row.
 
 We can automate that later (e.g., a server action that creates the domain row at the moment admin invites a user).
+
+## Google sign-in setup
+
+The code (web's "Continue with Google" button, Android's Credential Manager flow) is already
+wired up and pushed. It won't work until this one-time external setup is done — none of it can
+be done from here, it all requires your own Google Cloud and Supabase dashboard access.
+
+1. **Google Cloud Console** (https://console.cloud.google.com/apis/credentials), same project for both steps below:
+   - **APIs & Services → OAuth consent screen**: configure it if you haven't (app name, support email, scopes — email/profile/openid are enough).
+   - **Credentials → Create credentials → OAuth client ID → Web application.** This is the
+     *one* client ID both platforms share.
+     - **Authorized redirect URIs**: add `https://<your-project-ref>.supabase.co/auth/v1/callback`
+       (find `<your-project-ref>` in `NEXT_PUBLIC_SUPABASE_URL`). This is Supabase's own callback,
+       not the app's — leave it as the only redirect URI on this client.
+     - Save. Copy the **Client ID** and **Client secret**.
+2. **Supabase Dashboard → Authentication → Providers → Google**: paste the Client ID and Client
+   secret from step 1, enable the provider, save.
+3. **Supabase Dashboard → Authentication → URL Configuration**: add your app's own callback to
+   **Redirect URLs** (not the Google Cloud one from step 1) — `http://localhost:3000/auth/callback`
+   for local dev and `https://<your-vercel-domain>/auth/callback` for production. This is where
+   `app/auth/callback/route.ts` lives.
+4. **Android**: put the *same* Web application Client ID from step 1 into
+   `android/local.properties` as `GOOGLE_WEB_CLIENT_ID=...` (same file that already holds
+   `SUPABASE_URL`/`SUPABASE_ANON_KEY`; gitignored, never committed). Credential Manager uses it
+   as the audience the Google ID token must match — no separate "Android" OAuth client or SHA-1
+   registration is needed for this flow.
+
+Once steps 1–3 are done, web sign-in works immediately (no rebuild needed — it's server-side
+config only). Step 4 needs an Android rebuild to take effect.
