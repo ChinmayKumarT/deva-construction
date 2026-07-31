@@ -23,7 +23,7 @@ export default async function MaterialsPage({
 
   let base = supabase
     .from("materials")
-    .select("id, name, unit, quantity, unit_cost, status, work_category, ordered_at, archived_at, projects(name), suppliers(name)")
+    .select("id, project_id, name, unit, quantity, unit_cost, status, work_category, ordered_at, archived_at, projects(name), suppliers(name)")
     .order("ordered_at", { ascending: false });
   if (projectFilter) base = base.eq("project_id", projectFilter);
 
@@ -39,11 +39,26 @@ export default async function MaterialsPage({
     ? projects?.find((p) => p.id === projectFilter)?.name ?? "selected project"
     : null;
 
-  const rows =
-    materials?.map((m) => [
+  // Grouped by project so the page reads as "pick a site, see its materials"
+  // instead of one long flat table -- the Project column is dropped from the
+  // per-group table since the group heading already says it.
+  const byProject = new Map<string, typeof materials>();
+  const unassigned: typeof materials = [];
+  for (const m of materials ?? []) {
+    if (m.project_id) {
+      byProject.set(m.project_id, [...(byProject.get(m.project_id) ?? []), m]);
+    } else {
+      unassigned.push(m);
+    }
+  }
+  const projectGroups = (projects ?? [])
+    .filter((p) => !projectFilter || p.id === projectFilter)
+    .map((p) => ({ id: p.id, name: p.name, items: byProject.get(p.id) ?? [] }))
+    .filter((g) => g.items.length > 0 || projectFilter === g.id);
+
+  function toRows(items: typeof materials) {
+    return (items ?? []).map((m) => [
       m.name,
-      // @ts-expect-error relation
-      m.projects?.name ?? "—",
       // @ts-expect-error relation
       m.suppliers?.name ?? "—",
       `${Number(m.quantity)} ${m.unit}`,
@@ -51,7 +66,8 @@ export default async function MaterialsPage({
       `₹${lineTotal(m.quantity, m.unit_cost).toLocaleString()}`,
       m.status,
       m.work_category ?? "—",
-    ]) ?? [];
+    ]);
+  }
 
   return (
     <AdminPage>
@@ -104,32 +120,72 @@ export default async function MaterialsPage({
         </form>
       )}
 
-      <DataTable
-        columns={["Material", "Project", "Supplier", "Qty", "Unit cost", "Line total", "Status", "Category"]}
-        rows={rows}
-        empty={showArchived ? "No archived materials." : "No materials recorded yet."}
-      />
+      {projectGroups.length === 0 && unassigned.length === 0 && (
+        <p className="rounded-xl border border-dashed border-[var(--line)] bg-white p-8 text-center text-sm text-slate-500">
+          {showArchived ? "No archived materials." : "No materials recorded yet."}
+        </p>
+      )}
 
-      {materials && materials.length > 0 && (
-        <ManageSection showArchived={showArchived}>
-          {materials.map((m) => (
-            <ManageCard key={m.id} title={m.name}>
-              {showArchived ? (
-                <div className="flex items-center gap-2">
-                  <RestoreAction id={m.id} action={unarchiveMaterial} />
-                  {isOwner && <DeleteForeverButton id={m.id} name={m.name} action={deleteMaterial} />}
-                </div>
-              ) : (
-                <RowActions
-                  editHref={`/admin/materials/${m.id}/edit`}
-                  id={m.id}
-                  name={m.name}
-                  archiveAction={archiveMaterial}
-                />
-              )}
-            </ManageCard>
-          ))}
-        </ManageSection>
+      {projectGroups.map((g) => (
+        <section key={g.id} className="mb-10">
+          <h2 className="mb-3 text-lg font-semibold text-ink">{g.name}</h2>
+          <DataTable
+            columns={["Material", "Supplier", "Qty", "Unit cost", "Line total", "Status", "Category"]}
+            rows={toRows(g.items)}
+            empty="No materials recorded for this project yet."
+          />
+          {g.items.length > 0 && (
+            <ManageSection showArchived={showArchived}>
+              {g.items.map((m) => (
+                <ManageCard key={m.id} title={m.name}>
+                  {showArchived ? (
+                    <div className="flex items-center gap-2">
+                      <RestoreAction id={m.id} action={unarchiveMaterial} />
+                      {isOwner && <DeleteForeverButton id={m.id} name={m.name} action={deleteMaterial} />}
+                    </div>
+                  ) : (
+                    <RowActions
+                      editHref={`/admin/materials/${m.id}/edit`}
+                      id={m.id}
+                      name={m.name}
+                      archiveAction={archiveMaterial}
+                    />
+                  )}
+                </ManageCard>
+              ))}
+            </ManageSection>
+          )}
+        </section>
+      ))}
+
+      {!projectFilter && unassigned.length > 0 && (
+        <section className="mb-10">
+          <h2 className="mb-3 text-lg font-semibold text-ink">No project</h2>
+          <DataTable
+            columns={["Material", "Supplier", "Qty", "Unit cost", "Line total", "Status", "Category"]}
+            rows={toRows(unassigned)}
+            empty="—"
+          />
+          <ManageSection showArchived={showArchived}>
+            {unassigned.map((m) => (
+              <ManageCard key={m.id} title={m.name}>
+                {showArchived ? (
+                  <div className="flex items-center gap-2">
+                    <RestoreAction id={m.id} action={unarchiveMaterial} />
+                    {isOwner && <DeleteForeverButton id={m.id} name={m.name} action={deleteMaterial} />}
+                  </div>
+                ) : (
+                  <RowActions
+                    editHref={`/admin/materials/${m.id}/edit`}
+                    id={m.id}
+                    name={m.name}
+                    archiveAction={archiveMaterial}
+                  />
+                )}
+              </ManageCard>
+            ))}
+          </ManageSection>
+        </section>
       )}
 
       {!showArchived && materials && materials.some((m) => m.status === "ordered") && (
