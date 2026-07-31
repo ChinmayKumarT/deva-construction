@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { createSupabaseServerClient, getSessionAndRole } from "@/lib/supabase/server";
-import { AdminPage, AdminPageHeader, DataTable, Field, Select, SubmitButton } from "@/components/admin/Page";
+import { AdminPage, AdminPageHeader, CostBox, DataTable, Field, Select, SubmitButton } from "@/components/admin/Page";
 import { DeleteForeverButton } from "@/components/admin/RowActions";
 import { createProject, extendProjectEndDate, setNextPaymentDate, archiveProject, unarchiveProject, deleteProject } from "../actions";
 
@@ -30,6 +30,8 @@ export default async function ProjectsPage({
       .select("id", { count: "exact", head: true })
       .not("archived_at", "is", null),
   ]);
+
+  const totalCost = (projects ?? []).reduce((sum, p) => sum + Number(p.total_cost), 0);
 
   const rows =
     projects?.map((p) => [
@@ -69,6 +71,15 @@ export default async function ProjectsPage({
           )
         )}
       </div>
+
+      {!showArchived && (projects ?? []).length > 0 && (
+        <div className="mb-8 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          <CostBox label="Total cost" value={totalCost} accent />
+          {(projects ?? []).map((p) => (
+            <CostBox key={p.id} label={p.name} value={Number(p.total_cost)} />
+          ))}
+        </div>
+      )}
 
       {!showArchived && (
         <form action={createProject} className="mb-8 grid gap-4 rounded-xl border border-slate-200 bg-white p-6 sm:grid-cols-2 lg:grid-cols-3">

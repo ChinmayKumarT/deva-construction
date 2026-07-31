@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { AdminPage, AdminPageHeader } from "@/components/admin/Page";
+import { AdminPage, AdminPageHeader, CostBox } from "@/components/admin/Page";
 import { lineTotal } from "@/lib/money";
 
 // Without this, Next.js can cache the underlying Supabase fetch and serve a
@@ -121,23 +121,5 @@ export default async function MaterialsIndexPage({
         )}
       </div>
     </AdminPage>
-  );
-}
-
-function CostBox({ label, value, accent }: { label: string; value: number; accent?: boolean }) {
-  return (
-    <div
-      className={
-        "rounded-xl p-5 transition " +
-        (accent ? "bg-brand text-white shadow-sm" : "border border-[var(--line)] bg-white hover:border-brand/40")
-      }
-    >
-      <div className={"text-[11px] uppercase tracking-[0.12em] " + (accent ? "text-white/80" : "text-slate-500")}>
-        {label}
-      </div>
-      <div className={"mt-2 text-2xl font-semibold " + (accent ? "text-white" : "text-ink")}>
-        ₹{value.toLocaleString()}
-      </div>
-    </div>
   );
 }

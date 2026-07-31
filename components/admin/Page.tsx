@@ -83,6 +83,24 @@ export function SubmitButton({ children }: { children: React.ReactNode }) {
   );
 }
 
+export function CostBox({ label, value, accent }: { label: string; value: number; accent?: boolean }) {
+  return (
+    <div
+      className={
+        "rounded-xl p-5 transition " +
+        (accent ? "bg-brand text-white shadow-sm" : "border border-[var(--line)] bg-white hover:border-brand/40")
+      }
+    >
+      <div className={"text-[11px] uppercase tracking-[0.12em] " + (accent ? "text-white/80" : "text-slate-500")}>
+        {label}
+      </div>
+      <div className={"mt-2 text-2xl font-semibold " + (accent ? "text-white" : "text-ink")}>
+        ₹{value.toLocaleString()}
+      </div>
+    </div>
+  );
+}
+
 export function DataTable({
   columns,
   rows,
