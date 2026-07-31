@@ -40,6 +40,7 @@ export default async function MaterialsIndexPage({
   }
 
   const suffix = showArchived ? "?archived=1" : "";
+  const totalCost = Array.from(byProject.values()).reduce((sum, s) => sum + s.spend, 0) + unassignedSpend;
 
   return (
     <AdminPage>
@@ -65,6 +66,16 @@ export default async function MaterialsIndexPage({
           </Link>
         </div>
       ) : null}
+
+      {!showArchived && (
+        <div className="mb-8 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          <CostBox label="Total cost" value={totalCost} accent />
+          {(projects ?? []).map((p) => (
+            <CostBox key={p.id} label={p.name} value={byProject.get(p.id)?.spend ?? 0} />
+          ))}
+          {unassignedCount > 0 && <CostBox label="No project" value={unassignedSpend} />}
+        </div>
+      )}
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {(projects ?? []).length === 0 && (
@@ -110,5 +121,23 @@ export default async function MaterialsIndexPage({
         )}
       </div>
     </AdminPage>
+  );
+}
+
+function CostBox({ label, value, accent }: { label: string; value: number; accent?: boolean }) {
+  return (
+    <div
+      className={
+        "rounded-xl p-5 transition " +
+        (accent ? "bg-brand text-white shadow-sm" : "border border-[var(--line)] bg-white hover:border-brand/40")
+      }
+    >
+      <div className={"text-[11px] uppercase tracking-[0.12em] " + (accent ? "text-white/80" : "text-slate-500")}>
+        {label}
+      </div>
+      <div className={"mt-2 text-2xl font-semibold " + (accent ? "text-white" : "text-ink")}>
+        ₹{value.toLocaleString()}
+      </div>
+    </div>
   );
 }

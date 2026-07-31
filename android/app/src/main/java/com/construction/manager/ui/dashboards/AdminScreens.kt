@@ -1133,6 +1133,9 @@ private fun MaterialsProjectPicker(
     val unassignedSpend = remember(unassignedRows) {
         unassignedRows.sumOf { if (it.status == "returned") 0.0 else lineTotal(it.quantity, it.unitCost) }
     }
+    val totalCost = remember(statsByProject, unassignedSpend) {
+        statsByProject.values.sumOf { it.second } + unassignedSpend
+    }
 
     FormColumn {
         SectionTitle("Materials")
@@ -1141,7 +1144,16 @@ private fun MaterialsProjectPicker(
             style = MaterialTheme.typography.bodySmall,
             modifier = Modifier.padding(horizontal = 16.dp),
         )
-        Spacer(Modifier.height(4.dp))
+        Spacer(Modifier.height(8.dp))
+        StatCard("Total cost", money(totalCost), modifier = Modifier.padding(horizontal = 16.dp))
+        Spacer(Modifier.height(8.dp))
+        projects.forEach { p ->
+            StatCard(p.name, money(statsByProject[p.id]?.second ?: 0.0), modifier = Modifier.padding(horizontal = 16.dp, vertical = 2.dp))
+        }
+        if (unassignedRows.isNotEmpty()) {
+            StatCard("No project", money(unassignedSpend), modifier = Modifier.padding(horizontal = 16.dp, vertical = 2.dp))
+        }
+        Spacer(Modifier.height(8.dp))
         if (projects.isEmpty()) {
             Text("No projects yet.", Modifier.padding(16.dp))
         }
