@@ -27,6 +27,9 @@ export async function recordDelivery(fd: FormData) {
   if (!project_id || !name || !Number.isFinite(quantity) || quantity <= 0) {
     throw new Error("project, material, and positive quantity required");
   }
+  if (!Number.isFinite(unit_cost) || unit_cost < 0) {
+    throw new Error("unit cost cannot be negative");
+  }
 
   const { error } = await supabase.from("materials").insert({
     project_id,

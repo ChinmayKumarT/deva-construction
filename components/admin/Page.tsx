@@ -18,6 +18,8 @@ export function Field({
   required,
   defaultValue,
   step,
+  min,
+  max,
 }: {
   label: string;
   name: string;
@@ -25,6 +27,8 @@ export function Field({
   required?: boolean;
   defaultValue?: string | number;
   step?: string;
+  min?: string | number;
+  max?: string | number;
 }) {
   return (
     <label className="block text-sm">
@@ -35,6 +39,8 @@ export function Field({
         required={required}
         defaultValue={defaultValue}
         step={step}
+        min={min}
+        max={max}
         className="w-full rounded-lg border border-[var(--line)] bg-white px-3 py-2 outline-none focus:border-brand focus:ring-2 focus:ring-brand/20"
       />
     </label>

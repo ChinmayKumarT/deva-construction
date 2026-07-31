@@ -227,6 +227,7 @@ function PaymentFormFields({
           name="amount"
           type="number"
           step="0.01"
+          min="0"
           required
           className={inputClass}
           value={amount}

@@ -47,13 +47,13 @@ export default async function EditProjectPage({ params }: { params: { id: string
         </Select>
         <Field label="Current stage" name="current_stage" defaultValue={project.current_stage ?? ""} />
         <Field
-          label="Total cost (₹)" name="total_cost" type="number" step="0.01"
+          label="Total cost (₹)" name="total_cost" type="number" step="0.01" min="0"
           defaultValue={project.total_cost ?? 0}
         />
         <Field label="Start date" name="start_date" type="date" defaultValue={project.start_date ?? ""} />
         <Field label="End date" name="end_date" type="date" defaultValue={project.end_date ?? ""} />
         <Field
-          label="Completion %" name="completion_pct" type="number" step="0.1"
+          label="Completion %" name="completion_pct" type="number" step="0.1" min="0" max="100"
           defaultValue={project.completion_pct ?? 0}
         />
         <div className="flex items-center gap-3 sm:col-span-2 lg:col-span-3">

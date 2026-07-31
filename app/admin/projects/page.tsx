@@ -88,10 +88,10 @@ export default async function ProjectsPage({
             <option value="cancelled">Cancelled</option>
           </Select>
           <Field label="Current stage" name="current_stage" />
-          <Field label="Total cost (₹)" name="total_cost" type="number" step="0.01" />
+          <Field label="Total cost (₹)" name="total_cost" type="number" step="0.01" min="0" />
           <Field label="Start date" name="start_date" type="date" />
           <Field label="End date" name="end_date" type="date" />
-          <Field label="Completion %" name="completion_pct" type="number" step="0.1" />
+          <Field label="Completion %" name="completion_pct" type="number" step="0.1" min="0" max="100" />
           <div className="sm:col-span-2 lg:col-span-3">
             <SubmitButton>Create project</SubmitButton>
           </div>

@@ -33,9 +33,9 @@ export default async function EditMaterialPage({ params }: { params: { id: strin
           <option value="none">— none —</option>
           {suppliers?.map((s) => (<option key={s.id} value={s.id}>{s.name}</option>))}
         </Select>
-        <Field label="Quantity" name="quantity" type="number" step="0.01" required defaultValue={material.quantity ?? 0} />
+        <Field label="Quantity" name="quantity" type="number" step="0.01" min="0" required defaultValue={material.quantity ?? 0} />
         <Field label="Unit (kg, bag, m³…)" name="unit" defaultValue={material.unit ?? "unit"} />
-        <Field label="Unit cost (₹)" name="unit_cost" type="number" step="0.01" required defaultValue={material.unit_cost ?? 0} />
+        <Field label="Unit cost (₹)" name="unit_cost" type="number" step="0.01" min="0" required defaultValue={material.unit_cost ?? 0} />
         <Select label="Status" name="status" defaultValue={material.status}>
           <option value="ordered">Ordered</option>
           <option value="delivered">Delivered</option>

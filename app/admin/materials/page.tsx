@@ -86,9 +86,9 @@ export default async function MaterialsPage({
             <option value="none">— none —</option>
             {suppliers?.map((s) => (<option key={s.id} value={s.id}>{s.name}</option>))}
           </Select>
-          <Field label="Quantity" name="quantity" type="number" step="0.01" required />
+          <Field label="Quantity" name="quantity" type="number" step="0.01" min="0" required />
           <Field label="Unit (kg, bag, m³…)" name="unit" defaultValue="unit" />
-          <Field label="Unit cost (₹)" name="unit_cost" type="number" step="0.01" required />
+          <Field label="Unit cost (₹)" name="unit_cost" type="number" step="0.01" min="0" required />
           <Select label="Status" name="status" defaultValue="ordered">
             <option value="ordered">Ordered</option>
             <option value="delivered">Delivered</option>

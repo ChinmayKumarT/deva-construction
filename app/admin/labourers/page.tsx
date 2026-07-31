@@ -70,7 +70,7 @@ export default async function LabourersPage({
             {WORK_CATEGORIES.map((c) => (<option key={c} value={c}>{c}</option>))}
           </Select>
           <Field label="Phone" name="phone" />
-          <Field label="Daily wage (₹)" name="daily_wage" type="number" step="0.01" />
+          <Field label="Daily wage (₹)" name="daily_wage" type="number" step="0.01" min="0" />
           <label className="flex items-center gap-2 text-sm text-slate-700">
             <input type="checkbox" name="active" defaultChecked />
             Active

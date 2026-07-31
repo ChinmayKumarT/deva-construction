@@ -229,7 +229,7 @@ fun AdminProjects(isOwner: Boolean = false) {
             TextField(name, { name = it }, "Name")
             TextField(stage, { stage = it }, "Current stage")
             NumberField(cost, { cost = it }, "Total cost")
-            NumberField(completion, { completion = it }, "Completion %")
+            NumberField(completion, { completion = it }, "Completion %", max = 100.0)
             Dropdown("Status", listOf("planned","active","on_hold","completed","cancelled"), status,
                 { it }, { status = it })
             Dropdown("Client", clients, client, { it.name }, { client = it })
@@ -429,7 +429,7 @@ private fun EditProjectDialog(
                 TextField(name, { name = it }, "Name")
                 TextField(stage, { stage = it }, "Current stage")
                 NumberField(cost, { cost = it }, "Total cost")
-                NumberField(completion, { completion = it }, "Completion %")
+                NumberField(completion, { completion = it }, "Completion %", max = 100.0)
                 Dropdown("Status", listOf("planned","active","on_hold","completed","cancelled"),
                     status, { it }, { status = it })
                 Dropdown("Client", clients, client, { it.name }, { client = it })
@@ -1537,7 +1537,7 @@ fun AdminUpdates(isOwner: Boolean = false) {
             SectionTitle("Post project update")
             Dropdown("Project", projects, project, { it.name }, { project = it })
             TextField(stage, { stage = it }, "Stage")
-            NumberField(completion, { completion = it }, "Completion %")
+            NumberField(completion, { completion = it }, "Completion %", max = 100.0)
             TextField(note, { note = it }, "Note")
 
             Row(Modifier.padding(horizontal = 16.dp, vertical = 4.dp),

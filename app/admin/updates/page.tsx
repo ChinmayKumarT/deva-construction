@@ -48,7 +48,7 @@ export default async function UpdatesPage({
             {projects?.map((p) => (<option key={p.id} value={p.id}>{p.name}</option>))}
           </Select>
           <Field label="Stage (e.g. Foundation, Slab)" name="stage" />
-          <Field label="Completion %" name="completion_pct" type="number" step="0.1" />
+          <Field label="Completion %" name="completion_pct" type="number" step="0.1" min="0" max="100" />
           <label className="block text-sm">
             <span className="mb-1 block font-medium text-slate-700">Photo (upload)</span>
             <input

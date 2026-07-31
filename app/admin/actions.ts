@@ -14,6 +14,19 @@ function num(fd: FormData, k: string) {
   const n = Number(v);
   return Number.isFinite(n) ? n : null;
 }
+// Money, quantity, and wage fields are never legitimately negative -- a typo'd
+// "-500" would otherwise silently flip a total negative and skew cash flow.
+// The <input min="0"> on the form is a UX hint only; this is the real gate.
+function nonNegNum(fd: FormData, k: string, label: string) {
+  const n = num(fd, k);
+  if (n != null && n < 0) throw new Error(`${label} cannot be negative`);
+  return n;
+}
+function pct(fd: FormData, k: string, label: string) {
+  const n = num(fd, k);
+  if (n != null && (n < 0 || n > 100)) throw new Error(`${label} must be between 0 and 100`);
+  return n;
+}
 function uuidOrNull(fd: FormData, k: string) {
   const v = str(fd, k);
   return v && v !== "none" ? v : null;
@@ -29,8 +42,8 @@ export async function createProject(fd: FormData) {
     current_stage: str(fd, "current_stage"),
     start_date: str(fd, "start_date"),
     end_date: str(fd, "end_date"),
-    total_cost: num(fd, "total_cost") ?? 0,
-    completion_pct: num(fd, "completion_pct") ?? 0,
+    total_cost: nonNegNum(fd, "total_cost", "Total cost") ?? 0,
+    completion_pct: pct(fd, "completion_pct", "Completion %") ?? 0,
   });
   if (error) throw new Error(error.message);
   revalidatePath("/admin/projects");
@@ -51,8 +64,8 @@ export async function updateProject(fd: FormData) {
       current_stage: str(fd, "current_stage"),
       start_date: str(fd, "start_date"),
       end_date: str(fd, "end_date"),
-      total_cost: num(fd, "total_cost") ?? 0,
-      completion_pct: num(fd, "completion_pct") ?? 0,
+      total_cost: nonNegNum(fd, "total_cost", "Total cost") ?? 0,
+      completion_pct: pct(fd, "completion_pct", "Completion %") ?? 0,
     })
     .eq("id", id);
   if (error) throw new Error(error.message);
@@ -196,7 +209,7 @@ export async function updateLabourer(fd: FormData) {
   await updateRow("labourers", str(fd, "id"), {
     name: str(fd, "name"),
     phone: str(fd, "phone"),
-    daily_wage: num(fd, "daily_wage") ?? 0,
+    daily_wage: nonNegNum(fd, "daily_wage", "Daily wage") ?? 0,
     active: fd.get("active") === "on",
     category: str(fd, "category"),
   });
@@ -213,8 +226,8 @@ export async function updateMaterial(fd: FormData) {
     supplier_id: uuidOrNull(fd, "supplier_id"),
     name: str(fd, "name"),
     unit: str(fd, "unit") ?? "unit",
-    quantity: num(fd, "quantity") ?? 0,
-    unit_cost: num(fd, "unit_cost") ?? 0,
+    quantity: nonNegNum(fd, "quantity", "Quantity") ?? 0,
+    unit_cost: nonNegNum(fd, "unit_cost", "Unit cost") ?? 0,
     status,
     work_category: str(fd, "work_category"),
   });
@@ -233,7 +246,7 @@ export async function updatePayment(fd: FormData) {
     // to be set, matching payee_type -- so always clear the other one.
     supplier_id: payee_type === "supplier" ? uuidOrNull(fd, "supplier_id") : null,
     labourer_id: payee_type === "labour" ? uuidOrNull(fd, "labourer_id") : null,
-    amount: num(fd, "amount") ?? 0,
+    amount: nonNegNum(fd, "amount", "Amount") ?? 0,
     description: str(fd, "description"),
     work_category: str(fd, "work_category"),
   });
@@ -287,8 +300,8 @@ export async function createMaterial(fd: FormData) {
     supplier_id: uuidOrNull(fd, "supplier_id"),
     name: str(fd, "name"),
     unit: str(fd, "unit") ?? "unit",
-    quantity: num(fd, "quantity") ?? 0,
-    unit_cost: num(fd, "unit_cost") ?? 0,
+    quantity: nonNegNum(fd, "quantity", "Quantity") ?? 0,
+    unit_cost: nonNegNum(fd, "unit_cost", "Unit cost") ?? 0,
     status,
     delivered_at: status === "delivered" ? new Date().toISOString() : null,
     work_category: str(fd, "work_category"),
@@ -361,7 +374,7 @@ export async function createPayment(fd: FormData) {
   const row: Record<string, unknown> = {
     project_id: uuidOrNull(fd, "project_id"),
     payee_type,
-    amount: num(fd, "amount") ?? 0,
+    amount: nonNegNum(fd, "amount", "Amount") ?? 0,
     description: str(fd, "description"),
     work_category: str(fd, "work_category"),
     status: "pending",
@@ -450,7 +463,7 @@ export async function postProjectUpdate(fd: FormData) {
   if (error) throw new Error(error.message);
 
   const stage = str(fd, "stage");
-  const completion = num(fd, "completion_pct");
+  const completion = pct(fd, "completion_pct", "Completion %");
   if (stage || completion != null) {
     const patch: Record<string, unknown> = {};
     if (stage) patch.current_stage = stage;
@@ -510,7 +523,7 @@ export async function createLabourer(fd: FormData) {
   const { error } = await supabase.from("labourers").insert({
     name: str(fd, "name"),
     phone: str(fd, "phone"),
-    daily_wage: num(fd, "daily_wage") ?? 0,
+    daily_wage: nonNegNum(fd, "daily_wage", "Daily wage") ?? 0,
     active: fd.get("active") === "on",
     category: str(fd, "category"),
   });

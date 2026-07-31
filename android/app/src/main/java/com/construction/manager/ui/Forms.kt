@@ -39,12 +39,20 @@ fun TextField(value: String, onChange: (String) -> Unit, label: String,
     )
 }
 
+// Money, quantity, and wage fields are never legitimately negative, and a
+// percentage (completion_pct) also has an upper bound. [max] is optional --
+// pass it for percent fields; leave null for open-ended amounts. Mirrors the
+// <input min="0" max="..."> on the web forms (lib/wages.ts / Forms.tsx).
 @Composable
 fun NumberField(value: String, onChange: (String) -> Unit, label: String,
-                modifier: Modifier = Modifier) {
+                modifier: Modifier = Modifier, max: Double? = null) {
     OutlinedTextField(
         value = value,
-        onValueChange = { s -> if (s.isEmpty() || s.toDoubleOrNull() != null) onChange(s) },
+        onValueChange = onValueChange@{ s ->
+            if (s.isEmpty()) { onChange(s); return@onValueChange }
+            val d = s.toDoubleOrNull()
+            if (d != null && d >= 0.0 && (max == null || d <= max)) onChange(s)
+        },
         label = { Text(label) },
         modifier = modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
         singleLine = true,
