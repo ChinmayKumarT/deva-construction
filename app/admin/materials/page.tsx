@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { AdminPage, AdminPageHeader, CostBox } from "@/components/admin/Page";
+import { AdminPage, AdminPageHeader, CostBox, Field, Select, SubmitButton } from "@/components/admin/Page";
+import { createMaterial } from "../actions";
+import { WORK_CATEGORIES } from "@/lib/workCategories";
 import { lineTotal } from "@/lib/money";
 
 // Without this, Next.js can cache the underlying Supabase fetch and serve a
@@ -17,11 +19,12 @@ export default async function MaterialsIndexPage({
   const showArchived = searchParams.archived === "1";
   const supabase = createSupabaseServerClient();
 
-  const [{ data: projects }, { data: materials }, { count: archivedCount }] = await Promise.all([
+  const [{ data: projects }, { data: materials }, { data: suppliers }, { count: archivedCount }] = await Promise.all([
     supabase.from("projects").select("id, name, status").is("archived_at", null).order("name"),
     showArchived
       ? supabase.from("materials").select("id, project_id, quantity, unit_cost, status").not("archived_at", "is", null)
       : supabase.from("materials").select("id, project_id, quantity, unit_cost, status").is("archived_at", null),
+    supabase.from("suppliers").select("id, name").is("archived_at", null).order("name"),
     supabase.from("materials").select("id", { count: "exact", head: true }).not("archived_at", "is", null),
   ]);
 
@@ -66,6 +69,35 @@ export default async function MaterialsIndexPage({
           </Link>
         </div>
       ) : null}
+
+      {!showArchived && (
+        <form action={createMaterial} className="mb-8 grid gap-4 rounded-xl border border-slate-200 bg-white p-6 sm:grid-cols-2 lg:grid-cols-3">
+          <Field label="Material name" name="name" required />
+          <Select label="Project" name="project_id" defaultValue="none">
+            <option value="none">— none —</option>
+            {(projects ?? []).map((p) => (<option key={p.id} value={p.id}>{p.name}</option>))}
+          </Select>
+          <Select label="Supplier" name="supplier_id" defaultValue="none">
+            <option value="none">— none —</option>
+            {suppliers?.map((s) => (<option key={s.id} value={s.id}>{s.name}</option>))}
+          </Select>
+          <Field label="Quantity" name="quantity" type="number" step="0.01" min="0" required />
+          <Field label="Unit (kg, bag, m³…)" name="unit" defaultValue="unit" />
+          <Field label="Unit cost (₹)" name="unit_cost" type="number" step="0.01" min="0" required />
+          <Select label="Status" name="status" defaultValue="ordered">
+            <option value="ordered">Ordered</option>
+            <option value="delivered">Delivered</option>
+            <option value="returned">Returned</option>
+          </Select>
+          <Select label="Work category" name="work_category" defaultValue="">
+            <option value="">— none —</option>
+            {WORK_CATEGORIES.map((c) => (<option key={c} value={c}>{c}</option>))}
+          </Select>
+          <div className="sm:col-span-2 lg:col-span-3">
+            <SubmitButton>Add material</SubmitButton>
+          </div>
+        </form>
+      )}
 
       {!showArchived && (
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
