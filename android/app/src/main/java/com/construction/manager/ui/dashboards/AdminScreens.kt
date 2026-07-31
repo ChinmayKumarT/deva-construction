@@ -1029,7 +1029,9 @@ fun AdminMaterials(isOwner: Boolean = false, initialProjectFilter: ProjectRow? =
     if (projectFilter == null && !showUnassigned) {
         MaterialsProjectPicker(
             projects = projects,
+            suppliers = suppliers,
             rows = rows,
+            onCreated = { version++ },
             onPickProject = { projectFilter = it },
             onPickUnassigned = { showUnassigned = true },
         )
@@ -1153,7 +1155,9 @@ fun AdminMaterials(isOwner: Boolean = false, initialProjectFilter: ProjectRow? =
 @Composable
 private fun MaterialsProjectPicker(
     projects: List<ProjectRow>,
+    suppliers: List<SupplierRow>,
     rows: List<MaterialRow>,
+    onCreated: () -> Unit,
     onPickProject: (ProjectRow) -> Unit,
     onPickUnassigned: () -> Unit,
 ) {
@@ -1175,6 +1179,17 @@ private fun MaterialsProjectPicker(
         statsByProject.values.sumOf { it.second } + unassignedSpend
     }
 
+    var name by remember { mutableStateOf("") }
+    var unit by remember { mutableStateOf("unit") }
+    var qty by remember { mutableStateOf("") }
+    var unitCost by remember { mutableStateOf("") }
+    var status by remember { mutableStateOf("ordered") }
+    var project by remember { mutableStateOf<ProjectRow?>(null) }
+    var supplier by remember { mutableStateOf<SupplierRow?>(null) }
+    var workCategory by remember { mutableStateOf("None") }
+    var error by remember { mutableStateOf<String?>(null) }
+    val scope = rememberCoroutineScope()
+
     FormColumn {
         SectionTitle("Materials")
         Text(
@@ -1183,6 +1198,29 @@ private fun MaterialsProjectPicker(
             modifier = Modifier.padding(horizontal = 16.dp),
         )
         Spacer(Modifier.height(8.dp))
+        SectionTitle("Add material")
+        TextField(name, { name = it }, "Name")
+        Dropdown("Project", projects, project, { it.name }, { project = it })
+        Dropdown("Supplier", suppliers, supplier, { it.name }, { supplier = it })
+        TextField(unit, { unit = it }, "Unit (kg, bag…)")
+        NumberField(qty, { qty = it }, "Quantity")
+        NumberField(unitCost, { unitCost = it }, "Unit cost")
+        Dropdown("Status", listOf("ordered","delivered","returned"), status, { it }, { status = it })
+        Dropdown("Work category", WorkCategories, workCategory, { it }, { workCategory = it })
+        Button(onClick = {
+            val p = project ?: return@Button
+            scope.launch {
+                safe({
+                    Repo.createMaterial(p.id, supplier?.id, name, unit,
+                        qty.toDoubleOrNull() ?: 0.0, unitCost.toDoubleOrNull() ?: 0.0, status,
+                        workCategory.takeIf { it != "None" })
+                    name = ""; qty = ""; unitCost = ""; onCreated()
+                }) { error = it }
+            }
+        }, modifier = Modifier.padding(16.dp)) { Text("Create") }
+        error?.let { Text(it, color = MaterialTheme.colorScheme.error,
+            modifier = Modifier.padding(16.dp)) }
+        Divider()
         StatCard("Total cost", money(totalCost), modifier = Modifier.padding(horizontal = 16.dp))
         Spacer(Modifier.height(8.dp))
         if (projects.isEmpty()) {
