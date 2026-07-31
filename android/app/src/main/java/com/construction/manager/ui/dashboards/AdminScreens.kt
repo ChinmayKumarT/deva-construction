@@ -1430,7 +1430,7 @@ fun AdminPayments(isOwner: Boolean = false, initialProjectFilter: ProjectRow? = 
         }
         visibleRows.forEach { p ->
             ItemCard("${p.payeeType} · ${p.description ?: "—"}",
-                p.status, money(p.amount),
+                "${formatDateTime(p.createdAt)} · ${p.status}", money(p.amount),
                 actions = {
                     if (!showArchived) {
                         when (p.status) {
@@ -2551,13 +2551,17 @@ private fun SiteReportDetail(
         }
         (materialTx + paymentTx + wageTx).sortedByDescending { it.date ?: "" }
     }
+    // Attendance has no time of day stored, so its "Wage · attendance" rows
+    // stay date-only; materials/payments have a real timestamp and show it.
+    fun formatTxDate(t: Transaction) =
+        if (t.type == "Wage · attendance") formatDateOnly(t.date) else formatDateTime(t.date)
 
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
         TextButton(onClick = onBack) { Text("← Reports") }
         Row(verticalAlignment = Alignment.CenterVertically) {
         TextButton(onClick = {
             val csvTx = transactions.map {
-                PdfTransaction(it.type, it.description, it.date ?: "no date", it.status, it.amount)
+                PdfTransaction(it.type, it.description, formatTxDate(it), it.status, it.amount)
             }
             CsvExporter.share(context, CsvExporter.exportSiteReport(context, project.name, csvTx))
         }) { Text("Download CSV") }
@@ -2570,14 +2574,14 @@ private fun SiteReportDetail(
                         PdfUpdate(
                             stage = u.stage,
                             note = u.note,
-                            date = u.createdAt ?: "no date",
+                            date = formatDateTime(u.createdAt),
                             image = u.imageUrl?.let { PdfExporter.downloadBitmap(it) },
                         )
                     }
                     val pdfTransactions = transactions.map {
                         PdfTransaction(
                             type = it.type, description = it.description,
-                            date = it.date ?: "no date", status = it.status, amount = it.amount,
+                            date = formatTxDate(it), status = it.status, amount = it.amount,
                         )
                     }
                     val uri = withContext(kotlinx.coroutines.Dispatchers.IO) {
@@ -2626,7 +2630,7 @@ private fun SiteReportDetail(
         transactions.forEach { t ->
             ItemCard(
                 "${t.type} · ${t.description}",
-                "${t.date ?: "no date"} · ${t.status}",
+                "${formatTxDate(t)} · ${t.status}",
                 money(t.amount),
             )
         }

@@ -63,4 +63,30 @@ class FormsTest {
         assertEquals(416.67, roundMoney(0.5 * dailyWage), 0.0)
         assertEquals(0.0, roundMoney(0.0 * dailyWage), 0.0)
     }
+
+    @Test
+    fun `formatDateTime shows the local date and time for a UTC timestamp`() {
+        // Formats in the JVM's default zone -- assert only the parts that
+        // don't shift with zone (date order, AM-PM marker), not the exact
+        // hour, so this test isn't tied to the CI machine's timezone.
+        val out = formatDateTime("2026-07-29T13:22:47.123456+00:00")
+        assertEquals(true, out.contains("2026"))
+        assertEquals(true, out.contains("29") || out.contains("30"))
+        assertEquals(true, out.contains("AM") || out.contains("PM"))
+    }
+
+    @Test
+    fun `formatDateTime returns the no-date fallback for null`() {
+        assertEquals("no date", formatDateTime(null))
+    }
+
+    @Test
+    fun `formatDateOnly formats a plain date column with no time`() {
+        assertEquals("29/7/2026", formatDateOnly("2026-07-29"))
+    }
+
+    @Test
+    fun `formatDateOnly returns the no-date fallback for null`() {
+        assertEquals("no date", formatDateOnly(null))
+    }
 }

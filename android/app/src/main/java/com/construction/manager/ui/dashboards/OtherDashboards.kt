@@ -15,6 +15,7 @@ import com.construction.manager.ui.AuthViewModel
 import com.construction.manager.ui.BudgetPie
 import com.construction.manager.ui.CompletionAndSpendPies
 import com.construction.manager.ui.DeleteAccountButton
+import com.construction.manager.ui.formatDateTime
 import com.construction.manager.ui.SectionTitle
 import com.construction.manager.ui.StatCard
 import com.construction.manager.ui.lineTotal
@@ -351,7 +352,7 @@ private fun ClientReportDetail(
             PdfTransaction(
                 type = "Material",
                 description = "${it.name} (${it.quantity} ${it.unit})",
-                date = it.deliveredAt ?: it.orderedAt ?: "no date",
+                date = formatDateTime(it.deliveredAt ?: it.orderedAt),
                 status = it.status,
                 amount = lineTotal(it.quantity, it.unitCost),
             )
@@ -360,7 +361,7 @@ private fun ClientReportDetail(
             PdfTransaction(
                 type = if (it.payeeType == "labour") "Payment · labour" else "Payment · supplier",
                 description = it.description?.ifBlank { null } ?: "—",
-                date = it.createdAt ?: "no date",
+                date = formatDateTime(it.createdAt),
                 status = it.status,
                 amount = it.amount,
             )
@@ -399,7 +400,7 @@ private fun ClientReportDetail(
                             PdfUpdate(
                                 stage = u.stage,
                                 note = u.note,
-                                date = u.createdAt ?: "no date",
+                                date = formatDateTime(u.createdAt),
                                 image = u.imageUrl?.let { PdfExporter.downloadBitmap(it) },
                             )
                         }

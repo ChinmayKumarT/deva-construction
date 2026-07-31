@@ -10,7 +10,11 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import java.time.Instant
+import java.time.LocalDate
+import java.time.OffsetDateTime
+import java.time.ZoneId
 import java.time.ZoneOffset
+import java.time.format.DateTimeFormatter
 
 @Composable
 fun StatCard(label: String, value: String, modifier: Modifier = Modifier) {
@@ -140,6 +144,33 @@ fun FormColumn(content: @Composable ColumnScope.() -> Unit) {
 }
 
 fun money(d: Double): String = "₹" + "%,.0f".format(d)
+
+// Locale pinned rather than left as device-default, so output (and this
+// file's own unit tests) don't vary with the user's/CI's locale.
+private val dateTimeFormatter = DateTimeFormatter.ofPattern("d/M/yyyy, h:mm a", java.util.Locale.US)
+private val dateOnlyFormatter = DateTimeFormatter.ofPattern("d/M/yyyy", java.util.Locale.US)
+
+// Materials (ordered_at/delivered_at) and payments (created_at) are
+// timestamptz -- they carry a real time of day, so use formatDateTime.
+// Attendance is a plain date column with no time stored, so it should use
+// formatDateOnly instead of showing a fabricated midnight.
+fun formatDateTime(iso: String?): String {
+    if (iso == null) return "no date"
+    return try {
+        OffsetDateTime.parse(iso).atZoneSameInstant(ZoneId.systemDefault()).format(dateTimeFormatter)
+    } catch (e: Exception) {
+        iso
+    }
+}
+
+fun formatDateOnly(iso: String?): String {
+    if (iso == null) return "no date"
+    return try {
+        LocalDate.parse(iso.take(10)).format(dateOnlyFormatter)
+    } catch (e: Exception) {
+        iso
+    }
+}
 
 // Money is stored exactly in the DB (numeric(x,2)) but read into Double, so
 // multiplying/weighting it can leave sub-paisa float artifacts that then
