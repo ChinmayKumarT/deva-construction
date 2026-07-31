@@ -1,6 +1,7 @@
 import { createSupabaseServerClient, getSessionAndRole } from "@/lib/supabase/server";
 import { AdminPage, AdminPageHeader, DataTable, Field, Select, SubmitButton } from "@/components/admin/Page";
 import { ArchivedToggle, DeleteForeverButton, ManageCard, ManageSection, RestoreAction, RowActions } from "@/components/admin/RowActions";
+import { AssignLabourerForm } from "@/components/admin/AssignLabourerForm";
 import { assignLabourer, createLabourer, archiveLabourer, unarchiveLabourer, deleteLabourer } from "../actions";
 import { WORK_CATEGORIES } from "@/lib/workCategories";
 
@@ -119,25 +120,14 @@ export default async function LabourersPage({
           <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-500">Assign to project</h2>
           <div className="grid gap-3 sm:grid-cols-2">
             {labourers.filter((l) => l.active).map((l) => (
-              <form key={l.id} action={assignLabourer} className="flex items-end gap-2 rounded-lg border border-slate-200 bg-white p-3">
-                <input type="hidden" name="labourer_id" value={l.id} />
-                <div className="flex-1">
-                  <div className="text-sm font-medium text-slate-800">{l.name}</div>
-                  <div className="text-xs text-slate-500">currently: {currentSite.get(l.id) ?? "unassigned"}</div>
-                </div>
-                <select
-                  name="project_id"
-                  defaultValue="none"
-                  required
-                  className="rounded-lg border border-slate-300 bg-white px-2 py-1.5 text-sm"
-                >
-                  <option value="none" disabled>— project —</option>
-                  {projects.map((p) => (<option key={p.id} value={p.id}>{p.name}</option>))}
-                </select>
-                <button className="rounded-lg bg-slate-900 px-3 py-1.5 text-sm font-medium text-white hover:bg-slate-800">
-                  Assign
-                </button>
-              </form>
+              <AssignLabourerForm
+                key={l.id}
+                labourerId={l.id}
+                labourerName={l.name}
+                currentSite={currentSite.get(l.id) ?? "unassigned"}
+                projects={projects ?? []}
+                action={assignLabourer}
+              />
             ))}
           </div>
         </section>
