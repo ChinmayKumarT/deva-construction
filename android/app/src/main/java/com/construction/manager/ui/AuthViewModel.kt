@@ -54,6 +54,16 @@ class AuthViewModel : ViewModel() {
         }
     }
 
+    fun signInWithGoogle(idToken: String) {
+        viewModelScope.launch {
+            _error.value = null
+            try {
+                Repo.signInWithGoogleIdToken(idToken)
+                refresh()
+            } catch (e: Exception) { _error.value = e.message }
+        }
+    }
+
     fun signUp(email: String, password: String, fullName: String, role: Role) {
         viewModelScope.launch {
             _error.value = null

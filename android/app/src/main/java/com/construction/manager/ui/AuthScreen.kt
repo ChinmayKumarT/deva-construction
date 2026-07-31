@@ -9,10 +9,18 @@ import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
+import androidx.credentials.CredentialManager
+import androidx.credentials.GetCredentialRequest
+import androidx.credentials.exceptions.GetCredentialException
+import com.construction.manager.BuildConfig
 import com.construction.manager.data.Role
+import com.google.android.libraries.identity.googleid.GetGoogleIdOption
+import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential
+import kotlinx.coroutines.launch
 
 private enum class LegalPage { None, Privacy, DeleteAccount }
 
@@ -119,6 +127,8 @@ private fun AuthForm(
             Text(if (mode == "signin") "New here? Create account" else "Have an account? Sign in")
         }
 
+        GoogleSignInButton(vm)
+
         Row(Modifier.fillMaxWidth().padding(top = 16.dp),
             horizontalArrangement = Arrangement.Center) {
             TextButton(onClick = { onOpenLegal(LegalPage.Privacy) }) {
@@ -127,6 +137,45 @@ private fun AuthForm(
             TextButton(onClick = { onOpenLegal(LegalPage.DeleteAccount) }) {
                 Text("Delete account", style = MaterialTheme.typography.bodySmall)
             }
+        }
+    }
+}
+
+@Composable
+private fun GoogleSignInButton(vm: AuthViewModel) {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    var googleError by remember { mutableStateOf<String?>(null) }
+
+    Column(Modifier.fillMaxWidth().padding(top = 8.dp)) {
+        OutlinedButton(
+            onClick = {
+                scope.launch {
+                    googleError = null
+                    try {
+                        val option = GetGoogleIdOption.Builder()
+                            .setFilterByAuthorizedAccounts(false)
+                            .setServerClientId(BuildConfig.GOOGLE_WEB_CLIENT_ID)
+                            .build()
+                        val request = GetCredentialRequest.Builder()
+                            .addCredentialOption(option)
+                            .build()
+                        val result = CredentialManager.create(context).getCredential(context, request)
+                        val googleCred = GoogleIdTokenCredential.createFrom(result.credential.data)
+                        vm.signInWithGoogle(googleCred.idToken)
+                    } catch (e: GetCredentialException) {
+                        // The user cancelling the account picker also lands here --
+                        // that's not a failure worth alarming them about.
+                        if (e !is androidx.credentials.exceptions.GetCredentialCancellationException) {
+                            googleError = e.message ?: "Google sign-in failed"
+                        }
+                    }
+                }
+            },
+            modifier = Modifier.fillMaxWidth(),
+        ) { Text("Continue with Google") }
+        googleError?.let {
+            Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
         }
     }
 }

@@ -1,7 +1,9 @@
 package com.construction.manager.data
 
 import io.github.jan.supabase.auth.auth
+import io.github.jan.supabase.auth.providers.Google
 import io.github.jan.supabase.auth.providers.builtin.Email
+import io.github.jan.supabase.auth.providers.builtin.IDToken
 import io.github.jan.supabase.postgrest.from
 import io.github.jan.supabase.postgrest.postgrest
 import io.github.jan.supabase.postgrest.query.Count
@@ -101,6 +103,15 @@ object Repo {
     // ---------- Auth ----------
     suspend fun signIn(email: String, password: String) {
         supabase.auth.signInWith(Email) { this.email = email; this.password = password }
+    }
+    // New Google accounts land as role='client' via the same handle_new_user()
+    // trigger the web sign-up path uses (it defaults any unrecognized/absent
+    // role to client) -- no separate handling needed here.
+    suspend fun signInWithGoogleIdToken(idToken: String) {
+        supabase.auth.signInWith(IDToken) {
+            this.idToken = idToken
+            this.provider = Google
+        }
     }
     suspend fun signUp(email: String, password: String, fullName: String, role: Role) {
         supabase.auth.signUpWith(Email) {

@@ -27,6 +27,10 @@ android {
 
         buildConfigField("String", "SUPABASE_URL", "\"${prop("SUPABASE_URL")}\"")
         buildConfigField("String", "SUPABASE_ANON_KEY", "\"${prop("SUPABASE_ANON_KEY")}\"")
+        // The Google Cloud "Web application" OAuth client ID -- used both as
+        // the audience Supabase's Google provider validates the ID token
+        // against, and as the serverClientId Credential Manager requests here.
+        buildConfigField("String", "GOOGLE_WEB_CLIENT_ID", "\"${prop("GOOGLE_WEB_CLIENT_ID")}\"")
     }
 
     signingConfigs {
@@ -96,6 +100,10 @@ dependencies {
 
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.7.1")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.8.1")
+
+    implementation("androidx.credentials:credentials:1.3.0")
+    implementation("androidx.credentials:credentials-play-services-auth:1.3.0")
+    implementation("com.google.android.libraries.identity.googleid:googleid:1.1.1")
 
     implementation(platform("io.github.jan-tennert.supabase:bom:$supabase"))
     implementation("io.github.jan-tennert.supabase:auth-kt")
