@@ -1,26 +1,63 @@
 import Link from "next/link";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { AdminPage, AdminPageHeader } from "@/components/admin/Page";
+import { AdminPage, AdminPageHeader, DataTable, Field, SubmitButton } from "@/components/admin/Page";
+import { DownloadAttendancePdfButton } from "@/components/admin/ReportPdf";
+import { DownloadAttendanceCsvButton } from "@/components/admin/ReportCsv";
+import { reduceAttendance, defaultAttendanceRange } from "@/lib/attendance";
 import { markAttendance } from "../actions";
 
 export default async function AttendancePage({
   searchParams,
 }: {
-  searchParams: { date?: string };
+  searchParams: { date?: string; from?: string; to?: string };
 }) {
   const supabase = createSupabaseServerClient();
   const date = searchParams.date ?? new Date().toISOString().slice(0, 10);
+  const { fromStr, toStr } = defaultAttendanceRange();
+  const from = searchParams.from || fromStr;
+  const to = searchParams.to || toStr;
+  const rangeCoversDate = date >= from && date <= to;
 
-  const [{ data: labourers }, { data: assignments }, { data: rows }, { data: projects }] = await Promise.all([
-    supabase.from("labourers").select("id, name, daily_wage").is("archived_at", null).eq("active", true).order("name"),
+  const [{ data: labourers }, { data: assignments }, { data: rows }, { data: rangeRows }, { data: projects }] = await Promise.all([
+    supabase.from("labourers").select("id, name, daily_wage, category").is("archived_at", null).eq("active", true).order("name"),
     supabase.from("project_labourers").select("labourer_id, project_id, assigned_at, unassigned_at").is("unassigned_at", null),
-    supabase.from("attendance").select("labourer_id, status, project_id").eq("date", date),
+    rangeCoversDate
+      ? Promise.resolve({ data: null as { labourer_id: string; status: string; project_id: string | null }[] | null })
+      : supabase.from("attendance").select("labourer_id, status, project_id").eq("date", date),
+    supabase.from("attendance").select("labourer_id, status, project_id, date").gte("date", from).lte("date", to),
     supabase.from("projects").select("id, name").is("archived_at", null).order("name"),
   ]);
 
   const projectName = new Map((projects ?? []).map((p) => [p.id, p.name]));
   const currentSite = new Map((assignments ?? []).map((a) => [a.labourer_id, a.project_id]));
-  const today = new Map((rows ?? []).map((r) => [r.labourer_id, r.status]));
+  const todaySource = rangeCoversDate
+    ? (rangeRows ?? []).filter((r) => r.date === date)
+    : rows ?? [];
+  const today = new Map(todaySource.map((r) => [r.labourer_id, r.status]));
+
+  const summary = reduceAttendance(rangeRows ?? [], labourers ?? [], from, to);
+  const summaryRows = summary.map((s) => [
+    s.name,
+    s.category ?? "—",
+    s.present,
+    s.halfDay,
+    s.absent,
+    s.daysWorked,
+    `₹${s.wages.toLocaleString()}`,
+  ]);
+  const exportData = {
+    from,
+    to,
+    labourers: summary.map((s) => ({
+      name: s.name,
+      category: s.category,
+      present: s.present,
+      halfDay: s.halfDay,
+      absent: s.absent,
+      daysWorked: s.daysWorked,
+      wages: s.wages,
+    })),
+  };
 
   return (
     <AdminPage>
@@ -111,6 +148,27 @@ export default async function AttendancePage({
           </tbody>
         </table>
       </div>
+
+      <AdminPageHeader title="Attendance summary" subtitle="Per-labourer counts and wages over a date range." />
+
+      <form method="get" className="mb-6 flex flex-wrap items-end gap-4 rounded-xl border border-slate-200 bg-white p-6">
+        <Field label="From" name="from" type="date" defaultValue={from} />
+        <Field label="To" name="to" type="date" defaultValue={to} />
+        <SubmitButton>Apply</SubmitButton>
+        <a href="/admin/attendance" className="text-sm font-medium text-brand-700 hover:underline">
+          Clear filter
+        </a>
+        <div className="ml-auto flex gap-2">
+          <DownloadAttendanceCsvButton data={exportData} />
+          <DownloadAttendancePdfButton data={exportData} />
+        </div>
+      </form>
+
+      <DataTable
+        columns={["Labourer", "Category", "Present", "Half day", "Absent", "Days worked", "Wages earned"]}
+        rows={summaryRows}
+        empty="No attendance recorded in this date range."
+      />
     </AdminPage>
   );
 }

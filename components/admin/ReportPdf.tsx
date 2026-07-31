@@ -471,3 +471,92 @@ export function DownloadCashFlowPdfButton({
     </button>
   );
 }
+
+function attendanceChartImage(bars: { label: string; value: number }[]) {
+  const rowH = 34;
+  const top = 30;
+  const c = makeCanvas(560, top + rowH * Math.max(bars.length, 1) + 10);
+  const ctx = c.getContext("2d")!;
+  ctx.fillStyle = "#ffffff";
+  ctx.fillRect(0, 0, c.width, c.height);
+
+  ctx.font = "bold 13px Arial";
+  ctx.fillStyle = "#334155";
+  ctx.fillText("Wages earned by labourer", 20, 20);
+
+  const maxVal = Math.max(...bars.map((b) => b.value), 1);
+  const barMaxW = 300;
+  const labelX = 20;
+  const barX = 170;
+
+  bars.forEach((b, i) => {
+    const y = top + i * rowH;
+    ctx.font = "12px Arial";
+    ctx.fillStyle = "#334155";
+    const label = b.label.length > 22 ? b.label.slice(0, 21) + "…" : b.label;
+    ctx.fillText(label, labelX, y + 14);
+    const w = (b.value / maxVal) * barMaxW;
+    ctx.fillStyle = BRAND;
+    ctx.fillRect(barX, y, Math.max(w, 2), 16);
+    ctx.fillText(`Rs ${b.value.toLocaleString()}`, barX + w + 8, y + 14);
+  });
+
+  return c.toDataURL("image/png");
+}
+
+export async function downloadAttendancePdf(data: {
+  from: string;
+  to: string;
+  labourers: {
+    name: string;
+    category: string | null;
+    present: number;
+    halfDay: number;
+    absent: number;
+    daysWorked: number;
+    wages: number;
+  }[];
+}) {
+  const { doc, autoTable } = await buildPdf();
+  header(doc, "Attendance summary", `${data.from} to ${data.to}`);
+
+  const bars = data.labourers.map((l) => ({ label: l.name, value: l.wages }));
+  const img = attendanceChartImage(bars);
+  const imgHeight = (30 + Math.max(bars.length, 1) * 34 + 10) * (500 / 560);
+  doc.addImage(img, "PNG", 40, 75, 500, imgHeight);
+
+  autoTable(doc, {
+    startY: 75 + imgHeight + 20,
+    head: [["Labourer", "Category", "Present", "Half day", "Absent", "Days worked", "Wages earned"]],
+    body: data.labourers.map((l) => [
+      l.name,
+      l.category ?? "—",
+      l.present,
+      l.halfDay,
+      l.absent,
+      l.daysWorked,
+      `Rs ${l.wages.toLocaleString()}`,
+    ]),
+    headStyles: { fillColor: [22, 163, 74] },
+    styles: { fontSize: 9 },
+    margin: { left: 40, right: 40 },
+  });
+
+  doc.save(`attendance-${data.from}-to-${data.to}.pdf`);
+}
+
+export function DownloadAttendancePdfButton({
+  data,
+}: {
+  data: Parameters<typeof downloadAttendancePdf>[0];
+}) {
+  return (
+    <button
+      type="button"
+      onClick={() => downloadAttendancePdf(data)}
+      className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-100"
+    >
+      Download PDF
+    </button>
+  );
+}

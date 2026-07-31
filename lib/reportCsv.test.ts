@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { csvCell, toCsv, slug, buildSiteCsv, buildSummaryCsv, buildCashFlowCsv } from "./reportCsv";
+import { csvCell, toCsv, slug, buildSiteCsv, buildSummaryCsv, buildCashFlowCsv, buildAttendanceCsv } from "./reportCsv";
 
 describe("csvCell", () => {
   it("leaves a plain value unquoted", () => {
@@ -89,5 +89,32 @@ describe("buildCashFlowCsv", () => {
       "Project,Materials,Supplier payments,Labour payments,Wages (attendance),Total\r\n" +
         "Mysore,0,42600,800,12000,55400", // 42600 + 800 + 12000
     );
+  });
+});
+
+describe("buildAttendanceCsv", () => {
+  it("emits per-labourer rows with counts, days worked and wages earned", () => {
+    const csv = buildAttendanceCsv({
+      from: "2026-07-01",
+      to: "2026-07-30",
+      labourers: [
+        { name: "Ravi", category: "mason", present: 20, halfDay: 2, absent: 1, daysWorked: 21, wages: 16800 },
+      ],
+    });
+    expect(csv).toBe(
+      "Labourer,Category,Present,Half day,Absent,Days worked,Wages earned\r\n" +
+        "Ravi,mason,20,2,1,21,16800",
+    );
+  });
+
+  it("renders a missing category as an empty cell", () => {
+    const csv = buildAttendanceCsv({
+      from: "2026-07-01",
+      to: "2026-07-30",
+      labourers: [
+        { name: "Suresh", category: null, present: 0, halfDay: 0, absent: 0, daysWorked: 0, wages: 0 },
+      ],
+    });
+    expect(csv).toContain("Suresh,,0,0,0,0,0");
   });
 });

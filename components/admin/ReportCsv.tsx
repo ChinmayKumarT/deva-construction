@@ -4,8 +4,8 @@
 // buttons. The CSV *content* is built by the pure helpers in lib/reportCsv.ts
 // (unit-tested); this file only wraps them in a browser Blob download.
 
-import { downloadSitePdf, downloadSummaryPdf, downloadCashFlowPdf } from "./ReportPdf";
-import { buildSiteCsv, buildSummaryCsv, buildCashFlowCsv, slug } from "@/lib/reportCsv";
+import { downloadSitePdf, downloadSummaryPdf, downloadCashFlowPdf, downloadAttendancePdf } from "./ReportPdf";
+import { buildSiteCsv, buildSummaryCsv, buildCashFlowCsv, buildAttendanceCsv, slug } from "@/lib/reportCsv";
 
 function downloadCsv(filename: string, csv: string) {
   // Prepend a UTF-8 BOM so Excel renders ₹ and non-ASCII names correctly.
@@ -50,6 +50,18 @@ export function DownloadCashFlowCsvButton({ data }: { data: Parameters<typeof do
     <button
       type="button"
       onClick={() => downloadCsv(`cash-flow-${data.from}-to-${data.to}.csv`, buildCashFlowCsv(data))}
+      className={btnClass}
+    >
+      Download CSV
+    </button>
+  );
+}
+
+export function DownloadAttendanceCsvButton({ data }: { data: Parameters<typeof downloadAttendancePdf>[0] }) {
+  return (
+    <button
+      type="button"
+      onClick={() => downloadCsv(`attendance-${data.from}-to-${data.to}.csv`, buildAttendanceCsv(data))}
       className={btnClass}
     >
       Download CSV

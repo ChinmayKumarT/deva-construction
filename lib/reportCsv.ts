@@ -19,6 +19,19 @@ export type CashFlowCsvInput = {
   to: string;
   projects: { name: string; materials: number; supplier: number; labour: number; wages: number }[];
 };
+export type AttendanceCsvInput = {
+  from: string;
+  to: string;
+  labourers: {
+    name: string;
+    category: string | null;
+    present: number;
+    halfDay: number;
+    absent: number;
+    daysWorked: number;
+    wages: number;
+  }[];
+};
 
 /** Escape one CSV cell per RFC 4180: quote when it holds a comma, quote or
  *  newline, and double any embedded quotes. */
@@ -67,6 +80,22 @@ export function buildCashFlowCsv(data: CashFlowCsvInput): string {
       p.labour,
       p.wages,
       p.materials + p.supplier + p.labour + p.wages,
+    ]),
+  ]);
+}
+
+/** Attendance summary: per-labourer counts, days worked and wages earned over a date range. */
+export function buildAttendanceCsv(data: AttendanceCsvInput): string {
+  return toCsv([
+    ["Labourer", "Category", "Present", "Half day", "Absent", "Days worked", "Wages earned"],
+    ...data.labourers.map((l) => [
+      l.name,
+      l.category ?? "",
+      l.present,
+      l.halfDay,
+      l.absent,
+      l.daysWorked,
+      l.wages,
     ]),
   ]);
 }
