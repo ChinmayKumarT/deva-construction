@@ -106,4 +106,6 @@ dependencies {
     implementation("io.ktor:ktor-client-okhttp:$ktor")
 
     debugImplementation("androidx.compose.ui:ui-tooling")
+
+    testImplementation("junit:junit:4.13.2")
 }

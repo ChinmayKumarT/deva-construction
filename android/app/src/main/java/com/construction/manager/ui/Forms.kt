@@ -144,7 +144,17 @@ fun money(d: Double): String = "₹" + "%,.0f".format(d)
 // Money is stored exactly in the DB (numeric(x,2)) but read into Double, so
 // multiplying/weighting it can leave sub-paisa float artifacts that then
 // accumulate. Round at the multiplication boundary. Mirrors lib/money.ts.
-fun roundMoney(d: Double): Double = kotlin.math.round(d * 100.0) / 100.0
+//
+// Deliberately java.lang.Math.round, not kotlin.math.round: Kotlin's rounds
+// ties to even (banker's rounding), while JS's Math.round -- what the web
+// side uses -- rounds ties up. java.lang.Math.round matches JS here.
+//
+// The epsilon nudge matters too: 1.005 is actually stored as
+// 1.00499999999999989.. in IEEE-754, so without it a half-paisa tie rounds
+// DOWN (1.00, not 1.01) -- same float representation as JS, same fix as
+// Number.EPSILON there.
+private const val MONEY_EPSILON = 2.220446049250313e-16
+fun roundMoney(d: Double): Double = Math.round((d + MONEY_EPSILON) * 100.0) / 100.0
 
 // A material line total (quantity x unit cost), rounded to paise.
 fun lineTotal(quantity: Double, unitCost: Double): Double = roundMoney(quantity * unitCost)
