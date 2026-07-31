@@ -52,6 +52,40 @@ export async function signInWithGoogle() {
   redirect(data.url);
 }
 
+export async function requestPasswordReset(formData: FormData) {
+  const email = String(formData.get("email") ?? "");
+  const supabase = createSupabaseServerClient();
+  await supabase.auth.resetPasswordForEmail(email, {
+    redirectTo: `${siteOrigin()}/auth/callback?next=/reset-password`,
+  });
+  // Same message whether or not the email has an account -- resetPasswordForEmail
+  // doesn't report that either, so this doesn't let someone probe for registered emails.
+  redirect(
+    `/forgot-password?notice=${encodeURIComponent("If that email has an account, a reset link is on its way.")}`,
+  );
+}
+
+export async function updatePassword(formData: FormData) {
+  const password = String(formData.get("password") ?? "");
+  const confirm = String(formData.get("confirm") ?? "");
+  if (password.length < 8) {
+    redirect(`/reset-password?error=${encodeURIComponent("Password must be at least 8 characters.")}`);
+  }
+  if (password !== confirm) {
+    redirect(`/reset-password?error=${encodeURIComponent("Passwords don't match.")}`);
+  }
+
+  const supabase = createSupabaseServerClient();
+  const { error } = await supabase.auth.updateUser({ password });
+  if (error) redirect(`/reset-password?error=${encodeURIComponent(error.message)}`);
+
+  // Sign out rather than dropping them straight into their dashboard --
+  // "reset done, now sign in with it" is a clearer end state than silently
+  // continuing a session that started from an email link.
+  await supabase.auth.signOut();
+  redirect(`/?notice=${encodeURIComponent("Password updated. Sign in with your new password.")}`);
+}
+
 export async function signUp(formData: FormData) {
   const email = String(formData.get("email") ?? "");
   const password = String(formData.get("password") ?? "");

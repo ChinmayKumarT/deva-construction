@@ -2,15 +2,21 @@
 
 import { useState } from "react";
 
-export function PasswordField() {
+export function PasswordField({
+  name = "password",
+  label = "Password",
+}: {
+  name?: string;
+  label?: string;
+}) {
   const [visible, setVisible] = useState(false);
 
   return (
     <label className="block text-sm">
-      <span className="mb-1 block font-medium text-slate-700">Password</span>
+      <span className="mb-1 block font-medium text-slate-700">{label}</span>
       <div className="relative">
         <input
-          name="password"
+          name={name}
           type={visible ? "text" : "password"}
           required
           className="w-full rounded-lg border border-[var(--line)] bg-white px-3 py-2 pr-10 outline-none focus:border-brand focus:ring-2 focus:ring-brand/20"

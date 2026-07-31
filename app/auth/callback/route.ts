@@ -1,18 +1,24 @@
 import { NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
-// Supabase's Google OAuth flow lands here with a ?code= to exchange for a
-// session (PKCE code exchange) -- this is the redirectTo target configured
-// in signInWithGoogle, not the redirect URI registered with Google itself
+// Both Google OAuth (signInWithGoogle) and the password-recovery email link
+// (requestPasswordReset) land here with a ?code= to exchange for a session
+// (PKCE code exchange) -- this is the redirectTo/next target we configured
+// in each of those, not the redirect URI registered with Google itself
 // (that one points at Supabase's own /auth/v1/callback).
 export async function GET(request: Request) {
   const { searchParams, origin } = new URL(request.url);
   const code = searchParams.get("code");
+  const next = searchParams.get("next");
 
   if (code) {
     const supabase = createSupabaseServerClient();
     const { error } = await supabase.auth.exchangeCodeForSession(code);
     if (!error) {
+      // Recovery links carry `next` so they land on the set-new-password
+      // page instead of the role dashboard.
+      if (next) return NextResponse.redirect(`${origin}${next}`);
+
       const {
         data: { user },
       } = await supabase.auth.getUser();
@@ -28,5 +34,5 @@ export async function GET(request: Request) {
     }
   }
 
-  return NextResponse.redirect(`${origin}/?error=${encodeURIComponent("Google sign-in failed")}`);
+  return NextResponse.redirect(`${origin}/?error=${encodeURIComponent("Sign-in failed")}`);
 }

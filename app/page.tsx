@@ -72,6 +72,13 @@ export default async function LoginPage({
             )}
             <Field label="Email" name="email" type="email" required />
             <PasswordField />
+            {!isSignUp && (
+              <p className="text-right text-sm">
+                <a href="/forgot-password" className="font-medium text-brand-700 hover:underline">
+                  Forgot password?
+                </a>
+              </p>
+            )}
             {isSignUp && (
               <label className="block text-sm">
                 <span className="mb-1 block font-medium text-slate-700">Role</span>
