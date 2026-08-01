@@ -124,17 +124,39 @@ config only). Step 4 needs an Android rebuild to take effect.
 ## Password reset setup
 
 Code is already wired on both platforms (forgot-password → email link → set new password).
-One external step, same dashboard as above:
+Two external steps, same dashboard as above:
 
-**Supabase Dashboard → Authentication → URL Configuration → Redirect URLs**: add these three
-(the first two are the same ones from the Google setup above, reused, so only the third is new
-if you've already done that):
-- `http://localhost:3000/auth/callback` (local dev)
-- `https://<your-vercel-domain>/auth/callback` (production)
-- `com.construction.manager://reset-password` (Android — this exact scheme+host is what
-  `Supabase.kt`'s Auth config and the `AndroidManifest.xml` intent-filter both use; Supabase
-  requires every redirect target on this allowlist regardless of whether it's http(s) or a
-  custom scheme, so this one won't work until it's added here too).
+1. **Supabase Dashboard → Authentication → URL Configuration**:
+   - **Site URL**: set this to your production domain (e.g. `https://deva-demo.vercel.app`).
+     This is a *different* field from Redirect URLs below — it's the base Supabase uses to
+     build `{{ .SiteURL }}` in email templates. Leaving it on the default `http://localhost:3000`
+     means every email link points at localhost regardless of what's in Redirect URLs.
+   - **Redirect URLs**: add these three (the first two are the same ones from the Google setup
+     above, reused, so only the third is new if you've already done that):
+     - `http://localhost:3000/auth/callback` (local dev)
+     - `https://<your-vercel-domain>/auth/callback` (production)
+     - `com.construction.manager://reset-password` (Android — this exact scheme+host is what
+       `Supabase.kt`'s Auth config and the `AndroidManifest.xml` intent-filter both use; Supabase
+       requires every redirect target on this allowlist regardless of whether it's http(s) or a
+       custom scheme, so this one won't work until it's added here too).
+
+2. **Supabase Dashboard → Authentication → Email Templates → Reset Password**: replace the
+   default template's link with one that points at our own confirm page instead of Supabase's
+   directly-clickable verify link:
+   ```html
+   <h2>Reset Password</h2>
+   <p>Follow this link to reset the password for your user:</p>
+   <p><a href="{{ .SiteURL }}/reset-password/confirm?token_hash={{ .TokenHash }}&type=recovery&redirect_to={{ .RedirectTo }}">Reset Password</a></p>
+   ```
+   **Why**: Supabase's default template links straight to its own `/auth/v1/verify` endpoint,
+   which consumes the one-time recovery token as soon as it's fetched. Gmail and Outlook both
+   prefetch links in emails to scan them for safety *before* the user clicks — which silently
+   burns the token, so by the time the user taps the link it's already expired
+   (`error=access_denied&error_code=otp_expired`). Landing on `/reset-password/confirm` first and
+   only verifying the token after an explicit button tap (see `app/reset-password/confirm/page.tsx`)
+   avoids that, since scanners don't run JavaScript or click buttons. This template is shared by
+   both platforms — the confirm page detects an Android `redirect_to` and hands the unconsumed
+   token off to the app's deep link instead of verifying it in the browser.
 
 ## Magic link setup
 

@@ -1,5 +1,6 @@
 package com.construction.manager.data
 
+import io.github.jan.supabase.auth.OtpType
 import io.github.jan.supabase.auth.auth
 import io.github.jan.supabase.auth.providers.Google
 import io.github.jan.supabase.auth.providers.builtin.Email
@@ -130,6 +131,14 @@ object Repo {
     }
     suspend fun updatePassword(newPassword: String) {
         supabase.auth.updateUser { password = newPassword }
+    }
+    // Verifies the raw token_hash handed off by the web confirm page (see
+    // app/reset-password/confirm) instead of the SDK's own handleDeeplinks
+    // parsing -- the email template now routes every recovery link through
+    // that page first so Gmail/Outlook's link-prefetch scanners can't
+    // silently consume the one-time token before the user taps it.
+    suspend fun verifyRecoveryOtp(tokenHash: String) {
+        supabase.auth.verifyEmailOtp(type = OtpType.Email.RECOVERY, tokenHash = tokenHash)
     }
     suspend fun signUp(email: String, password: String, fullName: String, role: Role) {
         supabase.auth.signUpWith(Email) {

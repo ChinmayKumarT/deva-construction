@@ -91,6 +91,23 @@ class AuthViewModel : ViewModel() {
         _state.value = AuthState.NeedsPasswordReset
     }
 
+    /** Called by MainActivity when the deep link carries a raw token_hash
+     *  (from the web confirm page's hand-off) rather than an already-imported
+     *  session. Verifying it here, only in response to a real tap that opened
+     *  the app, is what keeps email-scanner prefetches from burning the token. */
+    fun verifyRecoveryToken(tokenHash: String) {
+        viewModelScope.launch {
+            _error.value = null
+            try {
+                Repo.verifyRecoveryOtp(tokenHash)
+                _state.value = AuthState.NeedsPasswordReset
+            } catch (e: Exception) {
+                _error.value = e.message ?: "That reset link is invalid or has expired."
+                _state.value = AuthState.SignedOut
+            }
+        }
+    }
+
     fun requestPasswordReset(email: String, onDone: (Boolean) -> Unit = {}) {
         viewModelScope.launch {
             _error.value = null
