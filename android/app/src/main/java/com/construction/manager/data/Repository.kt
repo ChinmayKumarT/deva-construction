@@ -4,6 +4,7 @@ import io.github.jan.supabase.auth.auth
 import io.github.jan.supabase.auth.providers.Google
 import io.github.jan.supabase.auth.providers.builtin.Email
 import io.github.jan.supabase.auth.providers.builtin.IDToken
+import io.github.jan.supabase.auth.providers.builtin.OTP
 import io.github.jan.supabase.postgrest.from
 import io.github.jan.supabase.postgrest.postgrest
 import io.github.jan.supabase.postgrest.query.Count
@@ -117,6 +118,15 @@ object Repo {
     // redirect target by default -- the app's registered deep link.
     suspend fun requestPasswordReset(email: String) {
         supabase.auth.resetPasswordForEmail(email)
+    }
+    // Lands on the same deep link as password recovery (this SDK version's
+    // OTP config has no per-call redirect override) -- MainActivity tells
+    // the two apart via the imported UserSession's `type` field.
+    suspend fun requestMagicLink(email: String) {
+        supabase.auth.signInWith(OTP) {
+            this.email = email
+            this.createUser = true
+        }
     }
     suspend fun updatePassword(newPassword: String) {
         supabase.auth.updateUser { password = newPassword }

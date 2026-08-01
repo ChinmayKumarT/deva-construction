@@ -19,10 +19,13 @@
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
-            <!-- Password-recovery email link target; see Supabase.kt's Auth
-                 scheme/host config. singleTask above so tapping it while the
-                 app is already running re-delivers to the same instance via
-                 onNewIntent instead of spawning a second one. -->
+            <!-- Auth email link target (password recovery, magic link, etc.);
+                 see Supabase.kt's Auth scheme/host config. All these flows
+                 share one host: MainActivity tells them apart via the
+                 imported UserSession's own `type` field, not the URL.
+                 singleTask above so tapping it while the app is already
+                 running re-delivers to the same instance via onNewIntent
+                 instead of spawning a second one. -->
             <intent-filter>
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />

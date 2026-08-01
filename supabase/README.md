@@ -135,3 +135,16 @@ if you've already done that):
   `Supabase.kt`'s Auth config and the `AndroidManifest.xml` intent-filter both use; Supabase
   requires every redirect target on this allowlist regardless of whether it's http(s) or a
   custom scheme, so this one won't work until it's added here too).
+
+## Magic link setup
+
+Code is already wired on both platforms ("Sign in with a magic link" on web, "Magic link
+instead" on Android) — no new external setup if you've already done the Password reset setup
+above, since magic link reuses the exact same redirect URLs (web's `/auth/callback`, Android's
+`com.construction.manager://reset-password`). Email auth (on by default) is all magic link
+needs from the Supabase side; there's no separate provider toggle like Google's.
+
+Android reuses the password-recovery deep link rather than a second one, since the OTP
+provider in this app's Supabase Kotlin SDK version has no per-call redirect override —
+`MainActivity` tells the two flows apart via the imported session's own `type` field
+(`"recovery"` vs anything else), not the URL.

@@ -39,8 +39,13 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun handleAuthDeeplink(intent: Intent) {
-        supabase.handleDeeplinks(intent) {
-            authViewModel.onPasswordRecoverySession()
+        // Password recovery and magic-link sign-in share one deep link host
+        // (Supabase.kt's Auth config, and the OTP provider has no per-call
+        // redirect override in this SDK version) -- the imported session's
+        // own `type` says which flow this actually is.
+        supabase.handleDeeplinks(intent) { session ->
+            if (session.type == "recovery") authViewModel.onPasswordRecoverySession()
+            else authViewModel.refresh()
         }
     }
 }

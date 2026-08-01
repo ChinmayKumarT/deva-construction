@@ -8,7 +8,6 @@ import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.PasswordVisualTransformation
@@ -31,6 +30,7 @@ fun AuthScreen(vm: AuthViewModel) {
     // privacy / delete-account pages and back.
     var legal by remember { mutableStateOf(LegalPage.None) }
     var showForgotPassword by remember { mutableStateOf(false) }
+    var showMagicLink by remember { mutableStateOf(false) }
     var mode by remember { mutableStateOf("signin") } // signin | signup
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
@@ -40,6 +40,7 @@ fun AuthScreen(vm: AuthViewModel) {
 
     when {
         showForgotPassword -> ForgotPasswordScreen(vm, onBack = { showForgotPassword = false })
+        showMagicLink -> MagicLinkScreen(vm, onBack = { showMagicLink = false })
         legal == LegalPage.Privacy -> PrivacyScreen(onBack = { legal = LegalPage.None })
         legal == LegalPage.DeleteAccount -> DeleteAccountInfoScreen(onBack = { legal = LegalPage.None })
         else -> AuthForm(
@@ -52,6 +53,7 @@ fun AuthScreen(vm: AuthViewModel) {
             error = error,
             onOpenLegal = { legal = it },
             onForgotPassword = { showForgotPassword = true },
+            onMagicLink = { showMagicLink = true },
         )
     }
 }
@@ -67,6 +69,7 @@ private fun AuthForm(
     error: String?,
     onOpenLegal: (LegalPage) -> Unit,
     onForgotPassword: () -> Unit,
+    onMagicLink: () -> Unit,
 ) {
     Column(
         Modifier.fillMaxSize().padding(24.dp).verticalScroll(rememberScrollState()),
@@ -101,8 +104,9 @@ private fun AuthForm(
         )
 
         if (mode == "signin") {
-            TextButton(onClick = onForgotPassword, modifier = Modifier.align(Alignment.End)) {
-                Text("Forgot password?")
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                TextButton(onClick = onMagicLink) { Text("Magic link instead") }
+                TextButton(onClick = onForgotPassword) { Text("Forgot password?") }
             }
         }
 
@@ -219,6 +223,37 @@ private fun ForgotPasswordScreen(vm: AuthViewModel, onBack: () -> Unit) {
                 onClick = { vm.requestPasswordReset(email.trim()) { ok -> if (ok) sent = true } },
                 modifier = Modifier.fillMaxWidth(),
             ) { Text("Send reset link") }
+        }
+
+        TextButton(onClick = onBack) { Text("← Back to sign in") }
+    }
+}
+
+@Composable
+private fun MagicLinkScreen(vm: AuthViewModel, onBack: () -> Unit) {
+    var email by remember { mutableStateOf("") }
+    var sent by remember { mutableStateOf(false) }
+    val error by vm.error.collectAsState()
+
+    Column(
+        Modifier.fillMaxSize().padding(24.dp).verticalScroll(rememberScrollState()),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        Spacer(Modifier.height(48.dp))
+        Text("Sign in with a magic link", style = MaterialTheme.typography.headlineSmall)
+        Text("We'll email you a link to sign in -- no password needed.",
+            style = MaterialTheme.typography.bodyMedium)
+
+        if (sent) {
+            Text("Check your email for a sign-in link.", color = MaterialTheme.colorScheme.primary)
+        } else {
+            OutlinedTextField(email, { email = it }, label = { Text("Email") },
+                modifier = Modifier.fillMaxWidth())
+            error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+            Button(
+                onClick = { vm.requestMagicLink(email.trim()) { ok -> if (ok) sent = true } },
+                modifier = Modifier.fillMaxWidth(),
+            ) { Text("Send magic link") }
         }
 
         TextButton(onClick = onBack) { Text("← Back to sign in") }

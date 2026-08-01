@@ -104,6 +104,19 @@ class AuthViewModel : ViewModel() {
         }
     }
 
+    fun requestMagicLink(email: String, onDone: (Boolean) -> Unit = {}) {
+        viewModelScope.launch {
+            _error.value = null
+            try {
+                Repo.requestMagicLink(email)
+                onDone(true)
+            } catch (e: Exception) {
+                _error.value = e.message
+                onDone(false)
+            }
+        }
+    }
+
     /** Signs out afterward rather than continuing straight into the
      *  dashboard -- "reset done, now sign in with it" is a clearer end
      *  state than silently continuing the session the email link started. */
