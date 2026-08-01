@@ -2300,6 +2300,58 @@ private fun computeCashFlow(
     )
 }
 
+// Same rows, same rules as computeCashFlow, but bucketed by day instead of
+// summed into one total -- this is what CashFlowTrendChart plots. Every day
+// in the range gets an entry (even 0) so the line stays continuous instead
+// of jumping between the sparse days something actually happened.
+private fun dailyCashFlowTotals(
+    materials: List<MaterialRow>,
+    payments: List<PaymentRow>,
+    attendance: List<AttendanceRow>,
+    labourerWage: Map<String, Double>,
+    from: String,
+    to: String,
+    projectId: String? = null,
+): List<CashFlowDailyPoint> {
+    val byDate = mutableMapOf<String, Double>()
+    fun add(date: String, amount: Double) { byDate[date] = (byDate[date] ?: 0.0) + amount }
+
+    materials.forEach { m ->
+        val pid = m.projectId ?: return@forEach
+        if (projectId != null && pid != projectId) return@forEach
+        if (m.status == "returned") return@forEach
+        val date = m.deliveredAt ?: m.orderedAt ?: return@forEach
+        val d = date.take(10)
+        if (d < from || d > to) return@forEach
+        add(d, lineTotal(m.quantity, m.unitCost))
+    }
+    payments.forEach { p ->
+        val pid = p.projectId ?: return@forEach
+        if (projectId != null && pid != projectId) return@forEach
+        if (p.status !in listOf("paid", "approved")) return@forEach
+        val d = (p.createdAt ?: return@forEach).take(10)
+        if (d < from || d > to) return@forEach
+        add(d, p.amount)
+    }
+    attendance.forEach { a ->
+        val pid = a.projectId ?: return@forEach
+        if (projectId != null && pid != projectId) return@forEach
+        if (a.date < from || a.date > to) return@forEach
+        val amount = roundMoney((ReportWageFactor[a.status] ?: 0.0) * (labourerWage[a.labourerId] ?: 0.0))
+        if (amount > 0.0) add(a.date, amount)
+    }
+
+    val points = mutableListOf<CashFlowDailyPoint>()
+    var cur = LocalDate.parse(from)
+    val end = LocalDate.parse(to)
+    while (!cur.isAfter(end)) {
+        val d = cur.toString()
+        points.add(CashFlowDailyPoint(d, byDate[d] ?: 0.0))
+        cur = cur.plusDays(1)
+    }
+    return points
+}
+
 private fun wageDueKey(projectId: String, labourerId: String) = "$projectId|$labourerId"
 
 // How much is still owed to a labourer for a project: wage accrued from
@@ -2362,6 +2414,9 @@ fun AdminCashFlow() {
     val cashFlow = remember(materials, payments, attendance, labourers, from, to) {
         computeCashFlow(materials, payments, attendance, wageById, from, to)
     }
+    val dailyCashFlow = remember(materials, payments, attendance, labourers, from, to) {
+        dailyCashFlowTotals(materials, payments, attendance, wageById, from, to)
+    }
     val projectName = projects.associate { it.id to it.name }
     val projectIds = (
         cashFlow.byProjectMaterials.keys + cashFlow.byProjectSupplier.keys +
@@ -2405,6 +2460,9 @@ fun AdminCashFlow() {
                 PdfExporter.share(context, uri)
             }) { Text("Download PDF") }
         }
+
+        SectionTitle("Cumulative outflow")
+        CashFlowTrendChart(dailyCashFlow)
 
         SectionTitle("Outflow by category")
         CashFlowBarChart(
@@ -2676,6 +2734,11 @@ private fun SiteReportDetail(
     val projectCashFlow = remember(materials, payments, attendance, cfFrom, cfTo) {
         computeCashFlow(materials, payments, attendance, labourerWage, cfFrom, cfTo, project.id)
     }
+    val projectDailyCashFlow = remember(materials, payments, attendance, cfFrom, cfTo) {
+        dailyCashFlowTotals(materials, payments, attendance, labourerWage, cfFrom, cfTo, project.id)
+    }
+    SectionTitle("Cumulative outflow")
+    CashFlowTrendChart(projectDailyCashFlow)
     CashFlowBarChart(
         listOf(
             CashFlowCategory("Materials", projectCashFlow.materials, CashFlowMaterialsColor),

@@ -7,7 +7,9 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 
@@ -166,6 +168,57 @@ fun CashFlowBarChart(categories: List<CashFlowCategory>, modifier: Modifier = Mo
                 }
                 Spacer(Modifier.width(8.dp))
                 Text(money(cat.value), style = MaterialTheme.typography.bodySmall)
+            }
+        }
+    }
+}
+
+data class CashFlowDailyPoint(val date: String, val total: Double)
+
+private val TrendLineColor = Color(0xFF16A34A)
+private val TrendFillColor = Color(0x1A16A34A)
+private val TrendAxisColor = Color(0xFF94A3B8)
+
+/** Cumulative running-total outflow over a date range, as a filled line --
+ *  shows whether spend is front-loaded, steady, or spiking, which the bar
+ *  chart's per-category totals alone can't. Mirrors web's CashFlowTrendChart. */
+@Composable
+fun CashFlowTrendChart(daily: List<CashFlowDailyPoint>, modifier: Modifier = Modifier) {
+    var running = 0.0
+    val cumulative = daily.map { it.date to (running + it.total).also { r -> running = r } }
+    val max = (cumulative.maxOfOrNull { it.second } ?: 0.0).coerceAtLeast(1.0)
+    val n = (cumulative.size - 1).coerceAtLeast(1)
+
+    Column(modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)) {
+        Canvas(Modifier.fillMaxWidth().height(140.dp)) {
+            val w = size.width
+            val h = size.height
+            listOf(0f, 0.5f, 1f).forEach { frac ->
+                val y = h * (1f - frac)
+                drawLine(TrackColor, Offset(0f, y), Offset(w, y), strokeWidth = 1f)
+            }
+            if (cumulative.size > 1) {
+                val points = cumulative.mapIndexed { i, (_, total) ->
+                    Offset(x = (i.toFloat() / n) * w, y = h - (total / max).toFloat() * h)
+                }
+                val path = Path().apply {
+                    moveTo(points.first().x, h)
+                    points.forEach { lineTo(it.x, it.y) }
+                    lineTo(points.last().x, h)
+                    close()
+                }
+                drawPath(path, TrendFillColor)
+                for (i in 0 until points.size - 1) {
+                    drawLine(TrendLineColor, points[i], points[i + 1], strokeWidth = 4f)
+                }
+            }
+        }
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+            listOf(0, n / 2, n).distinct().forEach { i ->
+                Text(
+                    cumulative.getOrNull(i)?.first?.takeLast(5) ?: "",
+                    style = MaterialTheme.typography.labelSmall, color = TrendAxisColor,
+                )
             }
         }
     }
