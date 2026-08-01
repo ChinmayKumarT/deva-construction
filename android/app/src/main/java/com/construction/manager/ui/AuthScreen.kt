@@ -261,6 +261,49 @@ private fun MagicLinkScreen(vm: AuthViewModel, onBack: () -> Unit) {
 }
 
 @Composable
+fun ChooseRoleScreen(vm: AuthViewModel) {
+    val error by vm.error.collectAsState()
+
+    Column(
+        Modifier.fillMaxSize().padding(24.dp).verticalScroll(rememberScrollState()),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        Spacer(Modifier.height(48.dp))
+        Text("One more thing", style = MaterialTheme.typography.headlineSmall)
+        Text("Pick the role that matches you on site before continuing.",
+            style = MaterialTheme.typography.bodyMedium)
+
+        error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+
+        RoleOption(
+            title = "Client",
+            subtitle = "I'm having a project built and want to track its progress.",
+            onClick = { vm.chooseRole(Role.client) },
+        )
+        RoleOption(
+            title = "Supplier",
+            subtitle = "I deliver materials and submit bills for projects.",
+            onClick = { vm.chooseRole(Role.supplier) },
+        )
+    }
+}
+
+@Composable
+private fun RoleOption(title: String, subtitle: String, onClick: () -> Unit) {
+    OutlinedButton(
+        onClick = onClick,
+        modifier = Modifier.fillMaxWidth(),
+        contentPadding = PaddingValues(16.dp),
+    ) {
+        Column(Modifier.fillMaxWidth()) {
+            Text(title, style = MaterialTheme.typography.titleMedium)
+            Text(subtitle, style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+    }
+}
+
+@Composable
 fun ResetPasswordScreen(vm: AuthViewModel) {
     var password by remember { mutableStateOf("") }
     var confirm by remember { mutableStateOf("") }

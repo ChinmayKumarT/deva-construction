@@ -13,6 +13,7 @@ data class Profile(
     @SerialName("full_name") val fullName: String? = null,
     val role: String = "client",
     @SerialName("is_owner") val isOwner: Boolean = false,
+    @SerialName("role_pending") val rolePending: Boolean = false,
 )
 
 @Serializable

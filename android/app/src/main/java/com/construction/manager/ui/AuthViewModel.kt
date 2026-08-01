@@ -18,6 +18,9 @@ sealed interface AuthState {
     /** Landed here via the password-recovery deep link -- must set a new
      *  password before anything else, regardless of role. */
     data object NeedsPasswordReset : AuthState
+    /** Google sign-in carries no role metadata, so a fresh Google signup
+     *  lands here instead of a dashboard until they pick client vs. supplier. */
+    data object NeedsRoleSelection : AuthState
 }
 
 class AuthViewModel : ViewModel() {
@@ -38,6 +41,10 @@ class AuthViewModel : ViewModel() {
             }
             try {
                 val profile = Repo.fetchMyProfile()
+                if (profile?.rolePending == true) {
+                    _state.value = AuthState.NeedsRoleSelection
+                    return@launch
+                }
                 val role = Role.fromString(profile?.role)
                 _state.value = if (role != null) AuthState.SignedIn(role, profile?.isOwner ?: false)
                 else AuthState.NeedsLink("Your profile has no role assigned. Contact admin.")
@@ -108,6 +115,20 @@ class AuthViewModel : ViewModel() {
             } catch (e: Exception) {
                 _error.value = e.message ?: "That link is invalid or has expired."
                 _state.value = AuthState.SignedOut
+            }
+        }
+    }
+
+    fun chooseRole(role: Role, onDone: (Boolean) -> Unit = {}) {
+        viewModelScope.launch {
+            _error.value = null
+            try {
+                Repo.chooseRole(role)
+                refresh()
+                onDone(true)
+            } catch (e: Exception) {
+                _error.value = e.message
+                onDone(false)
             }
         }
     }

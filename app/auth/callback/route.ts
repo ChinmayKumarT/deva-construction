@@ -25,9 +25,12 @@ export async function GET(request: Request) {
       if (user) {
         const { data: profile } = await supabase
           .from("profiles")
-          .select("role")
+          .select("role, role_pending")
           .eq("id", user.id)
           .single();
+        // Google OAuth carries no role metadata, so handle_new_user() marks
+        // a fresh signup role_pending until they pick client vs. supplier.
+        if (profile?.role_pending) return NextResponse.redirect(`${origin}/choose-role`);
         const role = profile?.role ?? "client";
         return NextResponse.redirect(`${origin}${role === "manager" ? "/admin" : `/${role}`}`);
       }

@@ -159,6 +159,15 @@ object Repo {
             .decodeSingleOrNull<Profile>()
     }
 
+    // Self-service, but narrow: only fires while role_pending is true (see
+    // 18_oauth_role_pending.sql), only accepts client/supplier, and only
+    // touches the caller's own row -- can't be used to self-promote.
+    suspend fun chooseRole(role: Role) {
+        supabase.postgrest.rpc("choose_role", buildJsonObject {
+            put("new_role", role.name)
+        })
+    }
+
     // Owner-only; the set_user_role() RPC re-checks is_owner() server-side and
     // rejects the call outright for anyone else.
     suspend fun setUserRole(targetId: String, role: Role) {

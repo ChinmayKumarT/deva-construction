@@ -40,6 +40,20 @@ export async function signIn(formData: FormData) {
   redirect(role === "manager" ? "/admin" : `/${role}`);
 }
 
+// Only reachable with role_pending still true (see 18_oauth_role_pending.sql)
+// -- the RPC re-checks that server-side and is scoped to auth.uid()'s own
+// row, so this can't be used to self-promote to admin/manager.
+export async function chooseRole(formData: FormData) {
+  const role = String(formData.get("role") ?? "");
+  if (role !== "client" && role !== "supplier") {
+    redirect(`/choose-role?error=${encodeURIComponent("Pick a role to continue.")}`);
+  }
+  const supabase = createSupabaseServerClient();
+  const { error } = await supabase.rpc("choose_role", { new_role: role });
+  if (error) redirect(`/choose-role?error=${encodeURIComponent(error.message)}`);
+  redirect(`/${role}`);
+}
+
 export async function signInWithMagicLink(formData: FormData) {
   const email = String(formData.get("email") ?? "");
   const supabase = createSupabaseServerClient();
