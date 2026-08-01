@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { reduceCashFlow, defaultCashFlowRange } from "./cashflow";
+import { reduceCashFlow, defaultCashFlowRange, dailyCashFlowTotals, toCumulative } from "./cashflow";
 
 const RANGE = ["2026-01-01", "2026-12-31"] as const;
 const labourers = [
@@ -148,6 +148,67 @@ describe("reduceCashFlow — totals and separation", () => {
     const cf = reduceCashFlow([], [], [], [], ...RANGE);
     expect(cf.total).toBe(0);
     expect(cf.byProjectMaterials.size).toBe(0);
+  });
+});
+
+describe("dailyCashFlowTotals", () => {
+  const RANGE3 = ["2026-06-01", "2026-06-03"] as const;
+
+  it("returns one entry per day in the range, zero-filled where nothing happened", () => {
+    const days = dailyCashFlowTotals([], [], [], labourers, ...RANGE3);
+    expect(days).toEqual([
+      { date: "2026-06-01", total: 0 },
+      { date: "2026-06-02", total: 0 },
+      { date: "2026-06-03", total: 0 },
+    ]);
+  });
+
+  it("buckets a material's cost onto its delivered_at day", () => {
+    const days = dailyCashFlowTotals(
+      [material({ quantity: 2, unit_cost: 50, ordered_at: "2026-06-01", delivered_at: "2026-06-02" })],
+      [], [], labourers, ...RANGE3,
+    );
+    expect(days.find((d) => d.date === "2026-06-02")?.total).toBe(100);
+    expect(days.find((d) => d.date === "2026-06-01")?.total).toBe(0);
+  });
+
+  it("sums multiple categories landing on the same day", () => {
+    const days = dailyCashFlowTotals(
+      [material({ quantity: 1, unit_cost: 100, delivered_at: "2026-06-02" })],
+      [{ project_id: "proj-1", payee_type: "supplier", amount: 50, status: "paid", created_at: "2026-06-02T10:00:00Z" }],
+      [{ project_id: "proj-1", labourer_id: "lab-1", status: "present", date: "2026-06-02" }],
+      labourers, ...RANGE3,
+    );
+    // 100 material + 50 payment + 800 wage
+    expect(days.find((d) => d.date === "2026-06-02")?.total).toBe(950);
+  });
+
+  it("excludes rejected payments and returned materials, same as reduceCashFlow", () => {
+    const days = dailyCashFlowTotals(
+      [material({ status: "returned", delivered_at: "2026-06-02" })],
+      [{ project_id: "proj-1", payee_type: "supplier", amount: 999, status: "rejected", created_at: "2026-06-02T00:00:00Z" }],
+      [], labourers, ...RANGE3,
+    );
+    expect(days.every((d) => d.total === 0)).toBe(true);
+  });
+});
+
+describe("toCumulative", () => {
+  it("carries a running sum across days", () => {
+    const cum = toCumulative([
+      { date: "2026-06-01", total: 100 },
+      { date: "2026-06-02", total: 0 },
+      { date: "2026-06-03", total: 50 },
+    ]);
+    expect(cum).toEqual([
+      { date: "2026-06-01", total: 100 },
+      { date: "2026-06-02", total: 100 },
+      { date: "2026-06-03", total: 150 },
+    ]);
+  });
+
+  it("returns an empty array for empty input", () => {
+    expect(toCumulative([])).toEqual([]);
   });
 });
 

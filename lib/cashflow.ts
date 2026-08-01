@@ -27,7 +27,7 @@ type CashAttendance = {
 };
 type CashLabourer = { id: string; daily_wage: number | string };
 
-export type CashFlow = ReturnType<typeof reduceCashFlow>;
+export type CashFlow = ReturnType<typeof reduceCashFlow> & { daily: DailyCashFlowPoint[] };
 
 // Pure cash-flow reduction over already-fetched rows -- no I/O, so it can be
 // unit-tested directly. Deliberately a different number from "Spent" elsewhere
@@ -97,6 +97,65 @@ export function reduceCashFlow(
   };
 }
 
+export type DailyCashFlowPoint = { date: string; total: number };
+
+// Same rows, same rules as reduceCashFlow, but bucketed by day instead of
+// summed into one total -- this is what the trend chart plots. Every day in
+// the range gets an entry (even 0), so the line stays continuous instead of
+// jumping between the sparse days something actually happened.
+export function dailyCashFlowTotals(
+  materials: CashMaterial[],
+  payments: CashPayment[],
+  attendance: CashAttendance[],
+  labourers: CashLabourer[],
+  from: string,
+  to: string,
+): DailyCashFlowPoint[] {
+  const labourerWage = new Map(labourers.map((l) => [l.id, Number(l.daily_wage)]));
+  const byDate = new Map<string, number>();
+  const add = (date: string, amount: number) => byDate.set(date, (byDate.get(date) ?? 0) + amount);
+
+  for (const m of materials) {
+    if (m.status === "returned" || !m.project_id) continue;
+    const date = m.delivered_at ?? m.ordered_at;
+    if (!date) continue;
+    const d = date.slice(0, 10);
+    if (d < from || d > to) continue;
+    add(d, lineTotal(m.quantity, m.unit_cost));
+  }
+  for (const p of payments) {
+    if (!p.project_id || !p.created_at) continue;
+    if (p.status !== "paid" && p.status !== "approved") continue;
+    const d = p.created_at.slice(0, 10);
+    if (d < from || d > to) continue;
+    add(d, Number(p.amount));
+  }
+  for (const a of attendance) {
+    if (!a.project_id || a.date < from || a.date > to) continue;
+    const amount = wageForStatus(a.status, labourerWage.get(a.labourer_id) ?? 0);
+    if (amount > 0) add(a.date, amount);
+  }
+
+  const points: DailyCashFlowPoint[] = [];
+  let cur = new Date(`${from}T00:00:00`);
+  const end = new Date(`${to}T00:00:00`);
+  while (cur <= end) {
+    const d = ymdLocal(cur);
+    points.push({ date: d, total: byDate.get(d) ?? 0 });
+    cur = new Date(cur.getFullYear(), cur.getMonth(), cur.getDate() + 1);
+  }
+  return points;
+}
+
+/** Running total over daily points -- what the trend chart's line actually plots. */
+export function toCumulative(daily: DailyCashFlowPoint[]): DailyCashFlowPoint[] {
+  let running = 0;
+  return daily.map((d) => {
+    running += d.total;
+    return { date: d.date, total: running };
+  });
+}
+
 // Shared cash-flow calculation for app/admin/cashflow and the per-project
 // section on app/admin/reports/[id]. Fetches the rows, then delegates the math
 // to reduceCashFlow above.
@@ -132,14 +191,15 @@ export async function computeCashFlow(
     supabase.from("labourers").select("id, daily_wage"),
   ]);
 
-  return reduceCashFlow(
-    (materials ?? []) as CashMaterial[],
-    (payments ?? []) as CashPayment[],
-    (attendance ?? []) as CashAttendance[],
-    (labourers ?? []) as CashLabourer[],
-    from,
-    to,
-  );
+  const m = (materials ?? []) as CashMaterial[];
+  const p = (payments ?? []) as CashPayment[];
+  const a = (attendance ?? []) as CashAttendance[];
+  const l = (labourers ?? []) as CashLabourer[];
+
+  return {
+    ...reduceCashFlow(m, p, a, l, from, to),
+    daily: dailyCashFlowTotals(m, p, a, l, from, to),
+  };
 }
 
 // Format a Date as YYYY-MM-DD from its LOCAL calendar parts. Going through

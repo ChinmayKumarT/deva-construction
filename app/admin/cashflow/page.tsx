@@ -1,6 +1,7 @@
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { AdminPage, AdminPageHeader, DataTable, Field, SubmitButton } from "@/components/admin/Page";
 import { CashFlowBarChart } from "@/components/admin/CashFlowBarChart";
+import { CashFlowTrendChart } from "@/components/admin/CashFlowTrendChart";
 import { DownloadCashFlowPdfButton } from "@/components/admin/ReportPdf";
 import { DownloadCashFlowCsvButton } from "@/components/admin/ReportCsv";
 import { computeCashFlow, defaultCashFlowRange } from "@/lib/cashflow";
@@ -95,6 +96,13 @@ export default async function CashFlowPage({
         <SummaryCard label="Wages (attendance)" value={cashFlow.wages} />
         <SummaryCard label="Total outflow" value={cashFlow.total} accent />
       </section>
+
+      <div className="mb-8 rounded-xl border border-[var(--line)] bg-white p-5">
+        <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-500">
+          Cumulative outflow, {from} to {to}
+        </h2>
+        <CashFlowTrendChart daily={cashFlow.daily} />
+      </div>
 
       <div className="mb-8 rounded-xl border border-[var(--line)] bg-white p-5">
         <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-500">Outflow by category</h2>
