@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.construction.manager.data.Repo
 import com.construction.manager.data.Role
+import io.github.jan.supabase.auth.OtpType
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -94,15 +95,18 @@ class AuthViewModel : ViewModel() {
     /** Called by MainActivity when the deep link carries a raw token_hash
      *  (from the web confirm page's hand-off) rather than an already-imported
      *  session. Verifying it here, only in response to a real tap that opened
-     *  the app, is what keeps email-scanner prefetches from burning the token. */
-    fun verifyRecoveryToken(tokenHash: String) {
+     *  the app, is what keeps email-scanner prefetches from burning the
+     *  token. Recovery forces the reset-password screen; magic-link signs
+     *  straight into the role dashboard like any other successful sign-in. */
+    fun verifyEmailToken(tokenHash: String, type: OtpType.Email) {
         viewModelScope.launch {
             _error.value = null
             try {
-                Repo.verifyRecoveryOtp(tokenHash)
-                _state.value = AuthState.NeedsPasswordReset
+                Repo.verifyEmailOtp(tokenHash, type)
+                if (type == OtpType.Email.RECOVERY) _state.value = AuthState.NeedsPasswordReset
+                else refresh()
             } catch (e: Exception) {
-                _error.value = e.message ?: "That reset link is invalid or has expired."
+                _error.value = e.message ?: "That link is invalid or has expired."
                 _state.value = AuthState.SignedOut
             }
         }

@@ -161,10 +161,23 @@ Two external steps, same dashboard as above:
 ## Magic link setup
 
 Code is already wired on both platforms ("Sign in with a magic link" on web, "Magic link
-instead" on Android) — no new external setup if you've already done the Password reset setup
+instead" on Android) — no new redirect-URL setup if you've already done the Password reset setup
 above, since magic link reuses the exact same redirect URLs (web's `/auth/callback`, Android's
 `com.construction.manager://reset-password`). Email auth (on by default) is all magic link
 needs from the Supabase side; there's no separate provider toggle like Google's.
+
+One more step, same as the password-reset fix above and for the same reason (Gmail/Outlook
+prefetch the email's link and silently burn the one-time token before the user clicks it):
+**Supabase Dashboard → Authentication → Email Templates → Magic Link** — replace the default
+template's link the same way:
+```html
+<h2>Magic Link</h2>
+<p>Follow this link to sign in:</p>
+<p><a href="{{ .SiteURL }}/reset-password/confirm?token_hash={{ .TokenHash }}&type=magiclink&redirect_to={{ .RedirectTo }}">Sign in</a></p>
+```
+The confirm page (`app/reset-password/confirm/page.tsx`) is shared between both flows — it reads
+`type` from the link to tell a recovery link from a magic-link one, and sends the user to the
+right place after verifying (`/reset-password` vs. straight into their dashboard).
 
 Android reuses the password-recovery deep link rather than a second one, since the OTP
 provider in this app's Supabase Kotlin SDK version has no per-call redirect override —

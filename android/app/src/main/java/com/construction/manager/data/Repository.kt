@@ -134,11 +134,12 @@ object Repo {
     }
     // Verifies the raw token_hash handed off by the web confirm page (see
     // app/reset-password/confirm) instead of the SDK's own handleDeeplinks
-    // parsing -- the email template now routes every recovery link through
-    // that page first so Gmail/Outlook's link-prefetch scanners can't
-    // silently consume the one-time token before the user taps it.
-    suspend fun verifyRecoveryOtp(tokenHash: String) {
-        supabase.auth.verifyEmailOtp(type = OtpType.Email.RECOVERY, tokenHash = tokenHash)
+    // parsing -- both the Reset Password and Magic Link email templates now
+    // route through that page first so Gmail/Outlook's link-prefetch
+    // scanners can't silently consume the one-time token before the user
+    // taps it.
+    suspend fun verifyEmailOtp(tokenHash: String, type: OtpType.Email) {
+        supabase.auth.verifyEmailOtp(type = type, tokenHash = tokenHash)
     }
     suspend fun signUp(email: String, password: String, fullName: String, role: Role) {
         supabase.auth.signUpWith(Email) {

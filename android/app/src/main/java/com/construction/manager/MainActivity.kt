@@ -12,6 +12,7 @@ import com.construction.manager.data.supabase
 import com.construction.manager.ui.AppNav
 import com.construction.manager.ui.AuthViewModel
 import com.construction.manager.ui.theme.AppTheme
+import io.github.jan.supabase.auth.OtpType
 import io.github.jan.supabase.auth.handleDeeplinks
 
 class MainActivity : ComponentActivity() {
@@ -39,17 +40,18 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun handleAuthDeeplink(intent: Intent) {
-        // The recovery email template now routes through the web confirm
-        // page first (see app/reset-password/confirm), which hands off here
-        // with a raw, still-unconsumed token_hash instead of letting the SDK
-        // auto-import a session -- that hand-off is what stops Gmail/Outlook
-        // link-prefetch scanners from burning the one-time token before the
-        // user actually taps it. Magic-link sign-in still uses the SDK's own
-        // handleDeeplinks parsing, so fall back to it when there's no
-        // token_hash on the intent.
+        // Both the Reset Password and Magic Link email templates now route
+        // through the web confirm page first (see app/reset-password/confirm),
+        // which hands off here with a raw, still-unconsumed token_hash instead
+        // of letting the SDK auto-import a session -- that hand-off is what
+        // stops Gmail/Outlook link-prefetch scanners from burning the
+        // one-time token before the user actually taps it. Fall back to the
+        // SDK's own handleDeeplinks parsing for any older-format link.
         val tokenHash = intent.data?.getQueryParameter("token_hash")
         if (tokenHash != null) {
-            authViewModel.verifyRecoveryToken(tokenHash)
+            val type = if (intent.data?.getQueryParameter("type") == "magiclink")
+                OtpType.Email.MAGIC_LINK else OtpType.Email.RECOVERY
+            authViewModel.verifyEmailToken(tokenHash, type)
             return
         }
         supabase.handleDeeplinks(intent) { session ->
