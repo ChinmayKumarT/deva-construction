@@ -482,6 +482,11 @@ object Repo {
     // (security-definer RPC -- clients can't read the attendance table directly).
     suspend fun myProjectWageTotals(): List<ProjectWageTotalRow> =
         supabase.postgrest.rpc("my_project_wage_totals").decodeList()
+    // Which labourers worked the calling client's own projects (names/trade
+    // only, no wages -- security-definer RPC, same scoping as the wage totals
+    // one above).
+    suspend fun myProjectLabourers(): List<LabourOnProjectRow> =
+        supabase.postgrest.rpc("my_project_labourers").decodeList()
     suspend fun myProjects(clientId: String) = supabase.from("projects")
         .select {
             filter {

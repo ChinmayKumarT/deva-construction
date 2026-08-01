@@ -143,3 +143,16 @@ data class ProjectWageTotalRow(
     @SerialName("project_id") val projectId: String,
     @SerialName("wage_total") val wageTotal: Double = 0.0,
 )
+
+// Row shape returned by the my_project_labourers() RPC: which labourers have
+// attendance on a project owned by the calling client. Names/trade only, no
+// wage figures -- see 19_client_project_labourers.sql. Named distinctly from
+// ProjectLabourerRow above, which is the admin-side project_labourers
+// *assignment* table (current site), a different concept from attendance.
+@Serializable
+data class LabourOnProjectRow(
+    @SerialName("project_id") val projectId: String,
+    @SerialName("labourer_id") val labourerId: String,
+    @SerialName("labourer_name") val labourerName: String,
+    val category: String? = null,
+)

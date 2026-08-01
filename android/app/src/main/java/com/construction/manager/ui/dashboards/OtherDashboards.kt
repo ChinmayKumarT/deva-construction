@@ -206,6 +206,7 @@ fun ClientDashboard(vm: AuthViewModel) = RoleScaffold("Client", vm) { padding ->
     var materials by remember { mutableStateOf<List<MaterialRow>>(emptyList()) }
     var payments by remember { mutableStateOf<List<PaymentRow>>(emptyList()) }
     var wageTotals by remember { mutableStateOf<List<ProjectWageTotalRow>>(emptyList()) }
+    var projectLabourers by remember { mutableStateOf<List<LabourOnProjectRow>>(emptyList()) }
     var error by remember { mutableStateOf<String?>(null) }
     var reportProject by remember { mutableStateOf<ProjectRow?>(null) }
     LaunchedEffect(Unit) {
@@ -218,10 +219,12 @@ fun ClientDashboard(vm: AuthViewModel) = RoleScaffold("Client", vm) { padding ->
                 materials = Repo.myMaterials(ids)
                 payments = Repo.myPayments(ids)
                 wageTotals = Repo.myProjectWageTotals()
+                projectLabourers = Repo.myProjectLabourers()
             }
         } catch (e: Exception) { error = e.message }
     }
     val wageByProject = wageTotals.associate { it.projectId to it.wageTotal }
+    val labourersByProject = projectLabourers.groupBy { it.projectId }
     val spentByProject = projects.associate { p ->
         val mat = materials.filter { it.projectId == p.id && it.status != "returned" }
             .sumOf { lineTotal(it.quantity, it.unitCost) }
@@ -301,6 +304,22 @@ fun ClientDashboard(vm: AuthViewModel) = RoleScaffold("Client", vm) { padding ->
                                 style = MaterialTheme.typography.bodySmall,
                                 color = androidx.compose.ui.graphics.Color(0xFFF59E0B),
                                 modifier = Modifier.padding(top = 4.dp),
+                            )
+                        }
+                        labourersByProject[p.id]?.takeIf { it.isNotEmpty() }?.let { labourers ->
+                            Text(
+                                "LABOUR ON SITE",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.padding(top = 8.dp),
+                            )
+                            Text(
+                                labourers.joinToString(", ") { l ->
+                                    if (l.category.isNullOrBlank()) l.labourerName
+                                    else "${l.labourerName} · ${l.category}"
+                                },
+                                style = MaterialTheme.typography.bodySmall,
+                                modifier = Modifier.padding(top = 2.dp),
                             )
                         }
                         TextButton(

@@ -43,7 +43,7 @@ export default async function ClientDashboard() {
 
   const projectIds = (projects ?? []).map((p) => p.id);
 
-  const [{ data: updates }, { data: materials }, { data: payments }, { data: wageTotals }] = projectIds.length
+  const [{ data: updates }, { data: materials }, { data: payments }, { data: wageTotals }, { data: projectLabourers }] = projectIds.length
     ? await Promise.all([
         supabase
           .from("project_updates")
@@ -66,8 +66,11 @@ export default async function ClientDashboard() {
         // Attendance wages per project (total only, no labourer detail) via a
         // security-definer RPC -- clients can't read the attendance table.
         supabase.rpc("my_project_wage_totals"),
+        // Which labourers worked each project (names/trade only, no wages) --
+        // same security-definer scoping as the wage totals RPC above.
+        supabase.rpc("my_project_labourers"),
       ])
-    : [{ data: [] }, { data: [] }, { data: [] }, { data: [] }];
+    : [{ data: [] }, { data: [] }, { data: [] }, { data: [] }, { data: [] }];
 
   const spentByProject = new Map<string, number>();
   for (const m of materials ?? []) {
@@ -91,6 +94,14 @@ export default async function ClientDashboard() {
   }
 
   const projectName = new Map((projects ?? []).map((p) => [p.id, p.name]));
+
+  const labourersByProject = new Map<string, { name: string; category: string | null }[]>();
+  for (const l of (projectLabourers ?? []) as { project_id: string; labourer_name: string; category: string | null }[]) {
+    if (!l.project_id) continue;
+    const list = labourersByProject.get(l.project_id) ?? [];
+    list.push({ name: l.labourer_name, category: l.category });
+    labourersByProject.set(l.project_id, list);
+  }
 
   return (
     <main className="mx-auto max-w-5xl p-8">
@@ -152,6 +163,21 @@ export default async function ClientDashboard() {
                   {p.next_payment_date && (
                     <div className="mt-2 rounded-lg border border-amber-200 bg-amber-50 px-2.5 py-1.5 text-xs font-medium text-amber-800">
                       Next payment due: {p.next_payment_date}
+                    </div>
+                  )}
+                  {(labourersByProject.get(p.id)?.length ?? 0) > 0 && (
+                    <div className="mt-3">
+                      <div className="text-xs uppercase tracking-wide text-slate-500">Labour on site</div>
+                      <div className="mt-1.5 flex flex-wrap gap-1.5">
+                        {labourersByProject.get(p.id)!.map((l, i) => (
+                          <span
+                            key={i}
+                            className="rounded-md border border-slate-200 bg-slate-50 px-2 py-0.5 text-xs text-slate-700"
+                          >
+                            {l.name}{l.category ? ` · ${l.category}` : ""}
+                          </span>
+                        ))}
+                      </div>
                     </div>
                   )}
                 </article>
