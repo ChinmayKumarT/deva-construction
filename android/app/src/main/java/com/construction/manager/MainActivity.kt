@@ -8,11 +8,11 @@ import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
 import androidx.compose.material3.Surface
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
+import com.construction.manager.data.otpTypeFromDeepLinkParam
 import com.construction.manager.data.supabase
 import com.construction.manager.ui.AppNav
 import com.construction.manager.ui.AuthViewModel
 import com.construction.manager.ui.theme.AppTheme
-import io.github.jan.supabase.auth.OtpType
 import io.github.jan.supabase.auth.handleDeeplinks
 
 class MainActivity : ComponentActivity() {
@@ -49,8 +49,7 @@ class MainActivity : ComponentActivity() {
         // SDK's own handleDeeplinks parsing for any older-format link.
         val tokenHash = intent.data?.getQueryParameter("token_hash")
         if (tokenHash != null) {
-            val type = if (intent.data?.getQueryParameter("type") == "magiclink")
-                OtpType.Email.MAGIC_LINK else OtpType.Email.RECOVERY
+            val type = otpTypeFromDeepLinkParam(intent.data?.getQueryParameter("type"))
             authViewModel.verifyEmailToken(tokenHash, type)
             return
         }

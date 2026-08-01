@@ -1,11 +1,20 @@
 package com.construction.manager.data
 
+import io.github.jan.supabase.auth.OtpType
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
 enum class Role { admin, manager, client, supplier, labour;
     companion object { fun fromString(s: String?): Role? = entries.firstOrNull { it.name == s } }
 }
+
+// The web confirm page (app/reset-password/confirm) hands off a raw
+// token_hash to this app's deep link with a `type` query param -- "magiclink"
+// or anything else (including absent, for older links) means recovery. Pulled
+// out of MainActivity so the decision itself is unit-testable without an
+// Android Intent.
+fun otpTypeFromDeepLinkParam(type: String?): OtpType.Email =
+    if (type == "magiclink") OtpType.Email.MAGIC_LINK else OtpType.Email.RECOVERY
 
 @Serializable
 data class Profile(
