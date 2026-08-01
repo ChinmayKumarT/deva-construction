@@ -6,6 +6,7 @@ import { PieChart, PieLegend } from "@/components/admin/PieChart";
 import { DownloadSitePdfButton } from "@/components/admin/ReportPdf";
 import { DownloadSiteCsvButton } from "@/components/admin/ReportCsv";
 import { CashFlowBarChart } from "@/components/admin/CashFlowBarChart";
+import { CashFlowTrendChart } from "@/components/admin/CashFlowTrendChart";
 import { computeCashFlow, defaultCashFlowRange } from "@/lib/cashflow";
 import { wageForStatus } from "@/lib/wages";
 import { lineTotal } from "@/lib/money";
@@ -311,6 +312,12 @@ export default async function SiteReportPage({
           Clear filter
         </Link>
       </form>
+      <div className="mb-4 rounded-xl border border-[var(--line)] bg-white p-5">
+        <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-500">
+          Cumulative outflow, {from} to {to}
+        </h3>
+        <CashFlowTrendChart daily={cashFlow.daily} />
+      </div>
       <div className="rounded-xl border border-[var(--line)] bg-white p-5">
         <CashFlowBarChart
           bars={[
