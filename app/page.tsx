@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { signIn, signUp, signInWithGoogle } from "./actions/auth";
+import { signIn, signUp, signInWithGoogle, signInWithMagicLink } from "./actions/auth";
 import { getSessionAndRole } from "@/lib/supabase/server";
 import { PasswordField } from "@/components/PasswordField";
 
@@ -12,6 +12,7 @@ export default async function LoginPage({
   if (user && role) redirect(role === "manager" ? "/admin" : `/${role}`);
 
   const isSignUp = searchParams.mode === "signup";
+  const isMagicLink = searchParams.mode === "magic-link";
 
   return (
     <main className="min-h-screen grid lg:grid-cols-2 bg-[var(--bg)]">
@@ -45,10 +46,14 @@ export default async function LoginPage({
         <div className="w-full max-w-md">
           <header className="mb-8">
             <h1 className="text-2xl font-semibold tracking-tight text-ink">
-              {isSignUp ? "Create your account" : "Sign in to Deva Construction"}
+              {isSignUp ? "Create your account" : isMagicLink ? "Sign in with a magic link" : "Sign in to Deva Construction"}
             </h1>
             <p className="mt-1 text-sm text-slate-600">
-              {isSignUp ? "Pick the role that matches you on site." : "Welcome back."}
+              {isSignUp
+                ? "Pick the role that matches you on site."
+                : isMagicLink
+                ? "We'll email you a link to sign in — no password needed."
+                : "Welcome back."}
             </p>
           </header>
 
@@ -63,49 +68,72 @@ export default async function LoginPage({
             </div>
           )}
 
-          <form
-            action={isSignUp ? signUp : signIn}
-            className="space-y-4 rounded-2xl border border-[var(--line)] bg-white p-6 shadow-sm"
-          >
-            {isSignUp && (
-              <Field label="Full name" name="full_name" type="text" required />
-            )}
-            <Field label="Email" name="email" type="email" required />
-            <PasswordField />
-            {!isSignUp && (
-              <p className="text-right text-sm">
-                <a href="/forgot-password" className="font-medium text-brand-700 hover:underline">
-                  Forgot password?
+          {isMagicLink ? (
+            <form
+              action={signInWithMagicLink}
+              className="space-y-4 rounded-2xl border border-[var(--line)] bg-white p-6 shadow-sm"
+            >
+              <Field label="Email" name="email" type="email" required />
+              <button
+                type="submit"
+                className="w-full rounded-lg bg-brand px-4 py-2.5 font-medium text-white hover:bg-brand-700 active:bg-brand-800 transition"
+              >
+                Send magic link
+              </button>
+              <p className="text-center text-sm">
+                <a href="/" className="font-medium text-brand-700 hover:underline">
+                  Use your password instead
                 </a>
               </p>
-            )}
-            {isSignUp && (
-              <label className="block text-sm">
-                <span className="mb-1 block font-medium text-slate-700">Role</span>
-                <select
-                  name="role"
-                  className="w-full rounded-lg border border-[var(--line)] bg-white px-3 py-2 focus:outline-none focus:border-brand focus:ring-2 focus:ring-brand/20"
-                  defaultValue="client"
-                >
-                  <option value="client">Client</option>
-                  <option value="supplier">Supplier</option>
-                </select>
-                {/* No "Labour" option: labourers are records the site manager
-                    maintains, not app users. handle_new_user() maps a requested
-                    'labour' role to 'client' so this can't be bypassed. */}
-                {/* Admin/manager are never self-serve — the owner grants those
-                    from the app's Team access screen. handle_new_user() also
-                    clamps any other role server-side, so this is UI-only. */}
-              </label>
-            )}
-
-            <button
-              type="submit"
-              className="w-full rounded-lg bg-brand px-4 py-2.5 font-medium text-white hover:bg-brand-700 active:bg-brand-800 transition"
+            </form>
+          ) : (
+            <form
+              action={isSignUp ? signUp : signIn}
+              className="space-y-4 rounded-2xl border border-[var(--line)] bg-white p-6 shadow-sm"
             >
-              {isSignUp ? "Create account" : "Sign in"}
-            </button>
-          </form>
+              {isSignUp && (
+                <Field label="Full name" name="full_name" type="text" required />
+              )}
+              <Field label="Email" name="email" type="email" required />
+              <PasswordField />
+              {!isSignUp && (
+                <p className="flex items-center justify-between text-sm">
+                  <a href="/?mode=magic-link" className="font-medium text-brand-700 hover:underline">
+                    Sign in with a magic link
+                  </a>
+                  <a href="/forgot-password" className="font-medium text-brand-700 hover:underline">
+                    Forgot password?
+                  </a>
+                </p>
+              )}
+              {isSignUp && (
+                <label className="block text-sm">
+                  <span className="mb-1 block font-medium text-slate-700">Role</span>
+                  <select
+                    name="role"
+                    className="w-full rounded-lg border border-[var(--line)] bg-white px-3 py-2 focus:outline-none focus:border-brand focus:ring-2 focus:ring-brand/20"
+                    defaultValue="client"
+                  >
+                    <option value="client">Client</option>
+                    <option value="supplier">Supplier</option>
+                  </select>
+                  {/* No "Labour" option: labourers are records the site manager
+                      maintains, not app users. handle_new_user() maps a requested
+                      'labour' role to 'client' so this can't be bypassed. */}
+                  {/* Admin/manager are never self-serve — the owner grants those
+                      from the app's Team access screen. handle_new_user() also
+                      clamps any other role server-side, so this is UI-only. */}
+                </label>
+              )}
+
+              <button
+                type="submit"
+                className="w-full rounded-lg bg-brand px-4 py-2.5 font-medium text-white hover:bg-brand-700 active:bg-brand-800 transition"
+              >
+                {isSignUp ? "Create account" : "Sign in"}
+              </button>
+            </form>
+          )}
 
           <div className="my-5 flex items-center gap-3 text-xs text-slate-400">
             <span className="h-px flex-1 bg-[var(--line)]" />

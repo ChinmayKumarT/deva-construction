@@ -40,6 +40,19 @@ export async function signIn(formData: FormData) {
   redirect(role === "manager" ? "/admin" : `/${role}`);
 }
 
+export async function signInWithMagicLink(formData: FormData) {
+  const email = String(formData.get("email") ?? "");
+  const supabase = createSupabaseServerClient();
+  const { error } = await supabase.auth.signInWithOtp({
+    email,
+    options: { emailRedirectTo: `${siteOrigin()}/auth/callback` },
+  });
+  if (error) redirect(`/?mode=magic-link&error=${encodeURIComponent(error.message)}`);
+  redirect(
+    `/?mode=magic-link&notice=${encodeURIComponent("Check your email for a sign-in link.")}`,
+  );
+}
+
 export async function signInWithGoogle() {
   const supabase = createSupabaseServerClient();
   const { data, error } = await supabase.auth.signInWithOAuth({
