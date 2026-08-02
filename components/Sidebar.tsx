@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState, useTransition } from "react";
@@ -46,9 +47,10 @@ export function Sidebar({
         </button>
         {expanded && (
           <Link href={homeHref} className="ml-1 flex items-baseline gap-1.5">
-            <span className="inline-flex items-center justify-center h-7 w-9 rounded-md bg-brand">
-              <BrandMark />
-            </span>
+            <Image
+              src="/icon.png" alt="" width={28} height={28}
+              className="rounded-md" style={{ objectFit: "contain" }}
+            />
             <span className="text-[18px] font-semibold leading-none tracking-tight">
               Deva <span className="font-normal text-white/85">Construction</span>
             </span>
@@ -266,17 +268,6 @@ function isItemActive(pathname: string | null, href: string) {
   return pathname.startsWith(href);
 }
 
-/* ---------- Brand mark ---------- */
-
-function BrandMark() {
-  return (
-    <svg width="22" height="14" viewBox="0 0 22 14" fill="none" aria-hidden="true">
-      <path d="M2 11h18v2H2z" fill="#fff" />
-      <path d="M4 11V8a7 7 0 0 1 14 0v3" fill="#fff" />
-      <rect x="10" y="3" width="2" height="6" fill="#16a34a" />
-    </svg>
-  );
-}
 
 /* ---------- Icons ---------- */
 
