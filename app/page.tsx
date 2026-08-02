@@ -2,6 +2,8 @@ import { redirect } from "next/navigation";
 import { signIn, signUp, signInWithGoogle, signInWithMagicLink } from "./actions/auth";
 import { getSessionAndRole } from "@/lib/supabase/server";
 import { PasswordField } from "@/components/PasswordField";
+import { OrganicBlob } from "@/components/ui/OrganicBlob";
+import { DottedPattern } from "@/components/ui/DottedPattern";
 
 export default async function LoginPage({
   searchParams,
@@ -16,28 +18,32 @@ export default async function LoginPage({
 
   return (
     <main className="min-h-screen grid lg:grid-cols-2 bg-[var(--bg)]">
-      <aside className="hidden lg:flex flex-col justify-between bg-forest text-white p-12">
-        <div className="flex items-center gap-2">
+      <aside className="hidden lg:flex relative overflow-hidden flex-col justify-between bg-forest text-white p-12">
+        <DottedPattern className="absolute -right-10 top-24 h-56 w-56 text-white/10" />
+        <OrganicBlob className="absolute -left-24 -bottom-28 h-96 w-96 text-brand/25" />
+        <OrganicBlob className="absolute -right-16 -top-20 h-72 w-72 text-brand/15" />
+
+        <div className="relative flex items-center gap-2">
           <span className="inline-flex items-center justify-center h-9 w-12 rounded-md bg-brand">
             <svg width="28" height="18" viewBox="0 0 22 14" fill="none" aria-hidden="true">
               <path d="M2 11h18v2H2z" fill="#fff" />
               <path d="M4 11V8a7 7 0 0 1 14 0v3" fill="#fff" />
-              <rect x="10" y="3" width="2" height="6" fill="#16a34a" />
+              <rect x="10" y="3" width="2" height="6" fill="#242424" />
             </svg>
           </span>
           <span className="text-xl font-semibold tracking-tight">
             Deva <span className="font-normal text-white/85">Construction</span>
           </span>
         </div>
-        <div className="max-w-md">
-          <h2 className="text-3xl font-semibold leading-tight">
+        <div className="relative max-w-md">
+          <h2 className="font-serif text-4xl font-semibold leading-tight">
             Run every site from one screen.
           </h2>
           <p className="mt-4 text-forest-100/80 leading-relaxed">
             Projects, materials, labour, payments. One platform for admin, manager, client and supplier.
           </p>
         </div>
-        <div className="text-xs text-forest-100/60">
+        <div className="relative text-xs text-forest-100/60">
           © Deva Construction
         </div>
       </aside>
@@ -45,7 +51,7 @@ export default async function LoginPage({
       <section className="flex items-center justify-center px-6 py-12">
         <div className="w-full max-w-md">
           <header className="mb-8">
-            <h1 className="text-2xl font-semibold tracking-tight text-ink">
+            <h1 className="font-serif text-3xl font-semibold tracking-tight text-ink">
               {isSignUp ? "Create your account" : isMagicLink ? "Sign in with a magic link" : "Sign in to Deva Construction"}
             </h1>
             <p className="mt-1 text-sm text-slate-600">

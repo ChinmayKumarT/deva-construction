@@ -1,7 +1,7 @@
 export function AdminPageHeader({ title, subtitle }: { title: string; subtitle?: string }) {
   return (
     <header className="mb-8">
-      <h1 className="text-2xl font-semibold tracking-tight text-ink">{title}</h1>
+      <h1 className="font-serif text-3xl font-semibold tracking-tight text-ink">{title}</h1>
       {subtitle && <p className="mt-1 text-sm text-slate-600">{subtitle}</p>}
     </header>
   );
@@ -87,14 +87,14 @@ export function CostBox({ label, value, accent }: { label: string; value: number
   return (
     <div
       className={
-        "rounded-xl p-5 transition " +
-        (accent ? "bg-brand text-white shadow-sm" : "border border-[var(--line)] bg-white hover:border-brand/40")
+        "rounded-2xl p-5 transition " +
+        (accent ? "bg-forest text-white shadow-sm" : "border border-[var(--line)] bg-white hover:border-brand/40")
       }
     >
-      <div className={"text-[11px] uppercase tracking-[0.12em] " + (accent ? "text-white/80" : "text-slate-500")}>
+      <div className={"text-[11px] uppercase tracking-[0.12em] " + (accent ? "text-white/60" : "text-slate-500")}>
         {label}
       </div>
-      <div className={"mt-2 text-2xl font-semibold " + (accent ? "text-white" : "text-ink")}>
+      <div className={"mt-2 font-serif text-3xl font-semibold " + (accent ? "text-white" : "text-ink")}>
         ₹{value.toLocaleString()}
       </div>
     </div>

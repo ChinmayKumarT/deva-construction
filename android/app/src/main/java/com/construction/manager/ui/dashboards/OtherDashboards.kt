@@ -20,6 +20,7 @@ import com.construction.manager.ui.SectionTitle
 import com.construction.manager.ui.StatCard
 import com.construction.manager.ui.lineTotal
 import com.construction.manager.ui.money
+import com.construction.manager.ui.RoleScaffold
 import com.construction.manager.util.CsvExporter
 import com.construction.manager.util.PdfExporter
 import com.construction.manager.util.PdfSiteDetail
@@ -27,23 +28,6 @@ import com.construction.manager.util.PdfTransaction
 import com.construction.manager.util.PdfUpdate
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun RoleScaffold(title: String, vm: AuthViewModel,
-                         content: @Composable (PaddingValues) -> Unit) {
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text(title) },
-                actions = {
-                    TextButton(onClick = { vm.signOut() }) { Text("Sign out") }
-                    DeleteAccountButton(vm)
-                },
-            )
-        },
-    ) { padding -> content(padding) }
-}
 
 // ---------- Labour ----------
 // Deliberately a dead end: labourers are records the site manager maintains,

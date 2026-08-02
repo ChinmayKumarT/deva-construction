@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Same blob path as components/ui/OrganicBlob.tsx on web, so the shape
+     matches across platforms. Tinted at runtime via ColorFilter, not a fixed
+     fillColor, so one drawable serves every accent color. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="200dp"
+    android:height="200dp"
+    android:viewportWidth="200"
+    android:viewportHeight="200">
+    <group android:translateX="100" android:translateY="100">
+        <path
+            android:fillColor="#FFFFFF"
+            android:pathData="M45.5,-58.6C58.4,-51.1,68,-36.9,72.6,-21.2C77.2,-5.4,76.8,11.8,70.2,26.1C63.6,40.3,50.8,51.5,36.4,59.6C22,67.6,6,72.5,-10.9,73.6C-27.8,74.7,-45.6,71.9,-58.1,61.8C-70.6,51.7,-77.8,34.2,-79.9,16.2C-82,-1.9,-79,-20.6,-70.1,-35.4C-61.2,-50.3,-46.4,-61.4,-31,-67.4C-15.6,-73.4,0.4,-74.3,15.4,-70.4C30.4,-66.5,45.5,-58.6,45.5,-58.6Z" />
+    </group>
+</vector>

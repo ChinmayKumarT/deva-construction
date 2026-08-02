@@ -8,15 +8,18 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 
 // Brand palette, kept in sync with tailwind.config.ts on the web app.
-private val Brand = Color(0xFF16A34A)      // brand.DEFAULT / brand.600
-private val Brand400 = Color(0xFF4ADE80)
-private val Brand700 = Color(0xFF15803D)
-private val Brand800 = Color(0xFF166534)
-private val Brand100 = Color(0xFFDCFCE7)
-private val Forest = Color(0xFF0F1F17)     // forest.DEFAULT / forest.900
-private val Forest800 = Color(0xFF15301F)
-private val Forest100 = Color(0xFFDBE5DD)
-private val Ink = Color(0xFF0F172A)
+// Blue accent replaces the old green identity; "Forest" now names the
+// near-black dark-card tone (same slot, new color) rather than a dark green.
+private val Brand = Color(0xFF7DA3D6)      // brand.DEFAULT / brand.500
+private val Brand400 = Color(0xFF93B6DE)
+private val Brand700 = Color(0xFF5C89C4)
+private val Brand800 = Color(0xFF4A70A3)
+private val Brand100 = Color(0xFFDCE7F3)
+val Forest = Color(0xFF242424)             // forest.DEFAULT -- dark stat-card bg
+private val Forest800 = Color(0xFF1A1A1A)
+private val Forest100 = Color(0xFFDCDAD7)
+private val Ink = Color(0xFF232323)
+private val Cream = Color(0xFFE8E1DA)
 
 private val LightColors = lightColorScheme(
     primary = Brand,
@@ -29,34 +32,35 @@ private val LightColors = lightColorScheme(
     onSecondaryContainer = Forest,
     surface = Color.White,
     onSurface = Ink,
-    background = Color(0xFFF4F7F5),        // forest.50
+    background = Cream,
     onBackground = Ink,
 )
 
 private val DarkColors = darkColorScheme(
     primary = Brand400,
-    onPrimary = Color(0xFF06210F),
+    onPrimary = Color(0xFF16222E),
     primaryContainer = Brand700,
     onPrimaryContainer = Color.White,
     secondary = Forest100,
     onSecondary = Forest,
     secondaryContainer = Forest800,
     onSecondaryContainer = Forest100,
-    surface = Color(0xFF11221A),
-    onSurface = Color(0xFFE2E8F0),
-    background = Color(0xFF081210),        // forest.950
-    onBackground = Color(0xFFE2E8F0),
+    surface = Color(0xFF1E1E1E),
+    onSurface = Cream,
+    background = Color(0xFF141414),
+    onBackground = Cream,
 )
 
 /**
  * Material You dynamic color is deliberately not used: the app is branded
- * Deva Construction green, and device-derived palettes would make that vary
- * per phone.
+ * Deva Construction blue/cream/near-black, and device-derived palettes would
+ * make that vary per phone.
  */
 @Composable
 fun AppTheme(content: @Composable () -> Unit) {
     MaterialTheme(
         colorScheme = if (isSystemInDarkTheme()) DarkColors else LightColors,
+        typography = AppTypography,
         content = content,
     )
 }

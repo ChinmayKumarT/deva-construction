@@ -9,6 +9,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import java.time.Instant
 import java.time.LocalDate
 import java.time.OffsetDateTime
@@ -16,8 +17,39 @@ import java.time.ZoneId
 import java.time.ZoneOffset
 import java.time.format.DateTimeFormatter
 
+// `accent` mirrors CostBox's prop of the same name in components/admin/Page.tsx
+// on web -- a near-black dark-card treatment with an oversized serif number,
+// used for exactly one headline metric per screen (its "Total cost" stat);
+// everything else stays the plain ElevatedCard look.
 @Composable
-fun StatCard(label: String, value: String, modifier: Modifier = Modifier) {
+fun StatCard(label: String, value: String, modifier: Modifier = Modifier, accent: Boolean = false) {
+    if (accent) {
+        Card(
+            modifier = modifier.fillMaxWidth(),
+            shape = androidx.compose.foundation.shape.RoundedCornerShape(16.dp),
+            colors = CardDefaults.cardColors(
+                containerColor = com.construction.manager.ui.theme.Forest,
+                contentColor = androidx.compose.ui.graphics.Color.White,
+            ),
+        ) {
+            Column(Modifier.padding(16.dp)) {
+                Text(
+                    label.uppercase(),
+                    style = MaterialTheme.typography.labelSmall.copy(letterSpacing = 1.2.sp),
+                    color = androidx.compose.ui.graphics.Color.White.copy(alpha = 0.6f),
+                )
+                Spacer(Modifier.height(6.dp))
+                Text(
+                    value,
+                    style = MaterialTheme.typography.headlineSmall.copy(
+                        fontFamily = com.construction.manager.ui.theme.Fraunces,
+                        fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold,
+                    ),
+                )
+            }
+        }
+        return
+    }
     ElevatedCard(modifier = modifier.fillMaxWidth()) {
         Column(Modifier.padding(16.dp)) {
             Text(label, style = MaterialTheme.typography.labelMedium)

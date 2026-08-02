@@ -8,6 +8,7 @@ import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.PasswordVisualTransformation
@@ -18,6 +19,8 @@ import androidx.credentials.GetCredentialRequest
 import androidx.credentials.exceptions.GetCredentialException
 import com.construction.manager.BuildConfig
 import com.construction.manager.data.Role
+import com.construction.manager.ui.components.OrganicBlob
+import com.construction.manager.ui.theme.Forest
 import com.google.android.libraries.identity.googleid.GetGoogleIdOption
 import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential
 import kotlinx.coroutines.launch
@@ -71,14 +74,19 @@ private fun AuthForm(
     onForgotPassword: () -> Unit,
     onMagicLink: () -> Unit,
 ) {
-    Column(
-        Modifier.fillMaxSize().padding(24.dp).verticalScroll(rememberScrollState()),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
-    ) {
-        Spacer(Modifier.height(48.dp))
-        Text("Deva Construction", style = MaterialTheme.typography.headlineMedium)
-        Text(if (mode == "signin") "Sign in" else "Create an account",
-            style = MaterialTheme.typography.titleMedium)
+    Box(Modifier.fillMaxSize()) {
+        OrganicBlob(
+            tint = Forest.copy(alpha = 0.06f),
+            modifier = Modifier.size(280.dp).align(Alignment.TopEnd).offset(x = 80.dp, y = (-60).dp),
+        )
+        Column(
+            Modifier.fillMaxSize().padding(24.dp).verticalScroll(rememberScrollState()),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            Spacer(Modifier.height(48.dp))
+            Text("Deva Construction", style = MaterialTheme.typography.headlineMedium)
+            Text(if (mode == "signin") "Sign in" else "Create an account",
+                style = MaterialTheme.typography.titleMedium)
 
         if (mode == "signup") {
             OutlinedTextField(fullName, onFullNameChange, label = { Text("Full name") },
@@ -152,6 +160,7 @@ private fun AuthForm(
             TextButton(onClick = { onOpenLegal(LegalPage.DeleteAccount) }) {
                 Text("Delete account", style = MaterialTheme.typography.bodySmall)
             }
+        }
         }
     }
 }

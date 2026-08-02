@@ -5,27 +5,36 @@ export default {
   theme: {
     extend: {
       colors: {
+        // Blue accent -- replaces the old green brand identity.
         brand: {
-          DEFAULT: "#16a34a",
-          50: "#f0fdf4",
-          100: "#dcfce7",
-          200: "#bbf7d0",
-          400: "#4ade80",
-          500: "#22c55e",
-          600: "#16a34a",
-          700: "#15803d",
-          800: "#166534",
-          900: "#14532d",
+          DEFAULT: "#7da3d6",
+          50: "#eff4fa",
+          100: "#dce7f3",
+          200: "#bfd4ea",
+          400: "#93b6de",
+          500: "#7da3d6",
+          600: "#6c93c9",
+          700: "#5c89c4",
+          800: "#4a70a3",
+          900: "#395580",
         },
+        // Near-black dark-card tone -- used for the stat-card / dark-panel
+        // treatment (UNIX-style bold numbers on dark background). Same slot
+        // that used to hold the green "forest" dark accent.
         forest: {
-          DEFAULT: "#0f1f17",
-          50: "#f4f7f5",
-          100: "#dbe5dd",
-          800: "#15301f",
-          900: "#0f1f17",
-          950: "#081210",
+          DEFAULT: "#242424",
+          50: "#f2f1ef",
+          100: "#dcdad7",
+          800: "#1a1a1a",
+          900: "#141414",
+          950: "#0d0d0d",
         },
-        ink: "#0f172a",
+        ink: "#232323",
+        cream: {
+          DEFAULT: "#e8e1da",
+          50: "#f6f3ef",
+          100: "#efe9e2",
+        },
       },
       fontFamily: {
         sans: [
@@ -37,6 +46,8 @@ export default {
           "Arial",
           "sans-serif",
         ],
+        // Wired to next/font/google in app/layout.tsx as --font-fraunces.
+        serif: ["var(--font-fraunces)", "Georgia", "serif"],
       },
     },
   },

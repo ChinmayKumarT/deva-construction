@@ -127,7 +127,7 @@ fun AdminOverview() {
             else -> {
                 StatCard("Total Projects", m!!.totalProjects.toString())
                 StatCard("Active Projects", m!!.activeProjects.toString())
-                StatCard("Total Cost", money(m!!.totalCost))
+                StatCard("Total Cost", money(m!!.totalCost), accent = true)
                 StatCard("Pending Payments", money(m!!.pendingPayments))
                 StatCard("Material Stock", "%,.0f".format(m!!.materialStock))
                 StatCard("Labour Count", m!!.labourCount.toString())
