@@ -255,7 +255,7 @@ fun AdminProjects(isOwner: Boolean = false) {
 
         if (!showArchived) {
             if (rows.isNotEmpty()) {
-                StatCard("Total cost", money(rows.sumOf { it.totalCost }), modifier = Modifier.padding(horizontal = 16.dp))
+                StatCard("Total cost", money(rows.sumOf { it.totalCost }), modifier = Modifier.padding(horizontal = 16.dp), accent = true)
                 Spacer(Modifier.height(8.dp))
                 rows.forEach { p ->
                     StatCard(
@@ -1221,7 +1221,7 @@ private fun MaterialsProjectPicker(
         error?.let { Text(it, color = MaterialTheme.colorScheme.error,
             modifier = Modifier.padding(16.dp)) }
         Divider()
-        StatCard("Total cost", money(totalCost), modifier = Modifier.padding(horizontal = 16.dp))
+        StatCard("Total cost", money(totalCost), modifier = Modifier.padding(horizontal = 16.dp), accent = true)
         Spacer(Modifier.height(8.dp))
         if (projects.isEmpty()) {
             Text("No projects yet.", Modifier.padding(16.dp))
@@ -1531,7 +1531,7 @@ private fun PaymentsProjectPicker(
             modifier = Modifier.padding(horizontal = 16.dp),
         )
         Spacer(Modifier.height(8.dp))
-        StatCard("Total cost", money(totalCost), modifier = Modifier.padding(horizontal = 16.dp))
+        StatCard("Total cost", money(totalCost), modifier = Modifier.padding(horizontal = 16.dp), accent = true)
         Spacer(Modifier.height(8.dp))
         if (projects.isEmpty()) {
             Text("No projects yet.", Modifier.padding(16.dp))
@@ -2096,6 +2096,16 @@ fun AdminTeamAccess() {
                             busyId = null
                         }
                     },
+                    onDelete = {
+                        busyId = p.id
+                        scope.launch {
+                            safe({
+                                Repo.deleteUser(p.id)
+                                version++
+                            }) { error = it }
+                            busyId = null
+                        }
+                    },
                 )
             }
         }
@@ -2108,10 +2118,23 @@ private fun TeamAccessRow(
     assignableRoles: List<Role>,
     busy: Boolean,
     onSave: (Role) -> Unit,
+    onDelete: () -> Unit,
 ) {
     var pendingRole by remember { mutableStateOf(Role.fromString(profile.role) ?: Role.client) }
+    var confirmDelete by remember { mutableStateOf(false) }
+    val displayName = profile.fullName?.ifBlank { null } ?: profile.id.take(8)
+
+    if (confirmDelete) {
+        DeleteForeverConfirmDialog(
+            name = displayName,
+            warning = "Their login is removed, but their projects, materials, and payment history stay on record.",
+            onDismiss = { confirmDelete = false },
+            onConfirm = { confirmDelete = false; onDelete() },
+        )
+    }
+
     ItemCard(
-        profile.fullName?.ifBlank { null } ?: profile.id.take(8),
+        displayName,
         "Current role: ${profile.role}" + if (profile.isOwner) " · owner" else "",
         actions = {
             Dropdown(
@@ -2123,6 +2146,12 @@ private fun TeamAccessRow(
                 enabled = !busy && pendingRole.name != profile.role,
                 onClick = { onSave(pendingRole) },
             ) { Text(if (busy) "Saving…" else "Save") }
+            if (!profile.isOwner) {
+                TextButton(
+                    enabled = !busy,
+                    onClick = { confirmDelete = true },
+                ) { Text("Delete", color = MaterialTheme.colorScheme.error) }
+            }
         },
     )
 }

@@ -518,6 +518,19 @@ export async function setUserRole(fd: FormData) {
   revalidatePath("/admin/team");
 }
 
+// Permanent -- admin_delete_user() (20_admin_delete_user.sql) re-checks
+// is_owner() and rejects self-deletion server-side, so this is a thin
+// wrapper, not the actual security boundary. Deletes the login only;
+// business records (projects, materials, payments) are preserved.
+export async function deleteUser(fd: FormData) {
+  const supabase = createSupabaseServerClient();
+  const target_id = str(fd, "id");
+  if (!target_id) throw new Error("target required");
+  const { error } = await supabase.rpc("admin_delete_user", { target_id });
+  if (error) throw new Error(error.message);
+  revalidatePath("/admin/team");
+}
+
 export async function createLabourer(fd: FormData) {
   const supabase = createSupabaseServerClient();
   const { error } = await supabase.from("labourers").insert({

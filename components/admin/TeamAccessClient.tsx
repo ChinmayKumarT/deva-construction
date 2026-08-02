@@ -1,7 +1,8 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { setUserRole } from "@/app/admin/actions";
+import { setUserRole, deleteUser } from "@/app/admin/actions";
+import { DeleteForeverButton } from "@/components/admin/RowActions";
 
 type Profile = { id: string; full_name: string | null; role: string; is_owner: boolean };
 
@@ -36,12 +37,13 @@ export function TeamAccessClient({ profiles }: { profiles: Profile[] }) {
               <th className="px-4 py-3 font-medium">Name</th>
               <th className="px-4 py-3 font-medium">Current role</th>
               <th className="px-4 py-3 font-medium">Set role</th>
+              <th className="px-4 py-3 font-medium">Delete</th>
             </tr>
           </thead>
           <tbody>
             {filtered.length === 0 && (
               <tr>
-                <td colSpan={3} className="px-4 py-6 text-center text-slate-500">No matches.</td>
+                <td colSpan={4} className="px-4 py-6 text-center text-slate-500">No matches.</td>
               </tr>
             )}
             {filtered.map((p) => (
@@ -70,6 +72,18 @@ export function TeamAccessClient({ profiles }: { profiles: Profile[] }) {
                       Save
                     </button>
                   </form>
+                </td>
+                <td className="px-4 py-3">
+                  {p.is_owner ? (
+                    <span className="text-xs text-slate-400">Owner — can&apos;t delete</span>
+                  ) : (
+                    <DeleteForeverButton
+                      id={p.id}
+                      name={p.full_name || "this user"}
+                      action={deleteUser}
+                      warning="Their login is removed, but their projects, materials, and payment history stay on record."
+                    />
+                  )}
                 </td>
               </tr>
             ))}

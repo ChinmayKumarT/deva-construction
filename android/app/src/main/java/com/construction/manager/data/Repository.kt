@@ -176,6 +176,14 @@ object Repo {
             put("new_role", role.name)
         })
     }
+    // Owner-only permanent account deletion; admin_delete_user() (see
+    // 20_admin_delete_user.sql) re-checks is_owner() and rejects self-deletion
+    // server-side. Removes the login only -- business records are preserved.
+    suspend fun deleteUser(targetId: String) {
+        supabase.postgrest.rpc("admin_delete_user", buildJsonObject {
+            put("target_id", targetId)
+        })
+    }
 
     // Permanent, owner-only delete -- enforcement is in Postgres
     // (owner_delete_row in 12_owner_delete.sql rejects non-owners regardless
