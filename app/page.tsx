@@ -1,3 +1,4 @@
+import Image from "next/image";
 import { redirect } from "next/navigation";
 import { signIn, signUp, signInWithGoogle, signInWithMagicLink } from "./actions/auth";
 import { getSessionAndRole } from "@/lib/supabase/server";
@@ -24,13 +25,10 @@ export default async function LoginPage({
         <OrganicBlob className="absolute -right-16 -top-20 h-72 w-72 text-brand/15" />
 
         <div className="relative flex items-center gap-2">
-          <span className="inline-flex items-center justify-center h-9 w-12 rounded-md bg-brand">
-            <svg width="28" height="18" viewBox="0 0 22 14" fill="none" aria-hidden="true">
-              <path d="M2 11h18v2H2z" fill="#fff" />
-              <path d="M4 11V8a7 7 0 0 1 14 0v3" fill="#fff" />
-              <rect x="10" y="3" width="2" height="6" fill="#242424" />
-            </svg>
-          </span>
+          <Image
+            src="/icon.png" alt="" width={36} height={36}
+            className="rounded-md" style={{ objectFit: "contain" }}
+          />
           <span className="text-xl font-semibold tracking-tight">
             Deva <span className="font-normal text-white/85">Construction</span>
           </span>

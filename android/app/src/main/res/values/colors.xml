@@ -1,10 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Kept in sync with tailwind.config.ts (brand green / forest) and ui/theme/Theme.kt. -->
+<!-- Kept in sync with tailwind.config.ts (brand blue / forest dark-card) and ui/theme/Theme.kt. -->
 <resources>
-    <color name="brand_primary">#16A34A</color>
-    <color name="brand_primary_dark">#15803D</color>
-    <color name="brand_surface">#0F1F17</color>
+    <color name="brand_primary">#7DA3D6</color>
+    <color name="brand_primary_dark">#5C89C4</color>
+    <color name="brand_surface">#242424</color>
     <color name="brand_on_primary">#FFFFFF</color>
-    <color name="splash_background">#0F1F17</color>
-    <color name="ic_launcher_background">#16A34A</color>
+    <color name="splash_background">#7DA3D6</color>
+    <color name="ic_launcher_background">#7DA3D6</color>
 </resources>
