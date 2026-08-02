@@ -160,6 +160,13 @@ export default async function LoginPage({
             </button>
           </form>
 
+          <a
+            href="/download"
+            className="mt-3 flex w-full items-center justify-center gap-2 rounded-lg border border-[var(--line)] bg-white px-4 py-2.5 font-medium text-slate-700 hover:bg-slate-50 transition"
+          >
+            Download app
+          </a>
+
           <p className="mt-5 text-center text-sm text-slate-600">
             {isSignUp ? (
               <>
@@ -175,8 +182,6 @@ export default async function LoginPage({
           </p>
 
           <p className="mt-10 text-center text-xs text-slate-500">
-            <a href="/download" className="hover:underline">Download app</a>
-            <span className="mx-2">·</span>
             <a href="/privacy" className="hover:underline">Privacy policy</a>
             <span className="mx-2">·</span>
             <a href="/delete-account" className="hover:underline">Delete account</a>
