@@ -51,6 +51,8 @@ object Repo {
     suspend fun unarchivePayment(id: String) = setArchived("payments", id, false)
     suspend fun archiveUpdate(id: String) = setArchived("project_updates", id, true)
     suspend fun unarchiveUpdate(id: String) = setArchived("project_updates", id, false)
+    suspend fun archivePersonalTransaction(id: String) = setArchived("personal_transactions", id, true)
+    suspend fun unarchivePersonalTransaction(id: String) = setArchived("personal_transactions", id, false)
 
     // ---------- Updates (edit) ----------
     suspend fun updateClient(id: String, name: String, email: String?, phone: String?) {
@@ -202,6 +204,7 @@ object Repo {
     suspend fun deleteMaterialForever(id: String) = ownerDeleteRow("materials", id)
     suspend fun deletePaymentForever(id: String) = ownerDeleteRow("payments", id)
     suspend fun deleteUpdateForever(id: String) = ownerDeleteRow("project_updates", id)
+    suspend fun deletePersonalTransactionForever(id: String) = ownerDeleteRow("personal_transactions", id)
 
     // ---------- Admin metrics ----------
     data class AdminMetrics(
@@ -271,6 +274,8 @@ object Repo {
     suspend fun listUpdates() = supabase.from("project_updates")
         .select { activeOnly(); order("created_at", Order.DESCENDING); limit(50) }
         .decodeList<ProjectUpdateRow>()
+    suspend fun listPersonalTransactions() = supabase.from("personal_transactions")
+        .select { activeOnly(); order("occurred_at", Order.DESCENDING) }.decodeList<PersonalTransactionRow>()
 
     // ---------- Archived lists ----------
     suspend fun listArchivedClients() = supabase.from("clients")
@@ -286,6 +291,8 @@ object Repo {
     suspend fun listArchivedUpdates() = supabase.from("project_updates")
         .select { archivedOnly(); order("created_at", Order.DESCENDING); limit(50) }
         .decodeList<ProjectUpdateRow>()
+    suspend fun listArchivedPersonalTransactions() = supabase.from("personal_transactions")
+        .select { archivedOnly(); order("occurred_at", Order.DESCENDING) }.decodeList<PersonalTransactionRow>()
     suspend fun listAttendance(date: String) =
         supabase.from("attendance").select { filter { eq("date", date) } }.decodeList<AttendanceRow>()
     suspend fun listAttendanceSince(sinceDate: String) =
@@ -387,6 +394,14 @@ object Repo {
             put("daily_wage", dailyWage)
             put("active", active)
             if (category != null) put("category", category)
+        })
+    }
+    suspend fun createPersonalTransaction(type: String, amount: Double, description: String?, occurredAt: String?) {
+        supabase.from("personal_transactions").insert(buildJsonObject {
+            put("type", type)
+            put("amount", amount)
+            if (description != null) put("description", description)
+            if (occurredAt != null) put("occurred_at", occurredAt)
         })
     }
     suspend fun createMaterial(projectId: String, supplierId: String?, name: String,

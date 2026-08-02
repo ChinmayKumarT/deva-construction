@@ -31,6 +31,7 @@ enum class AdminSection(val label: String) {
     Reports("Reports"),
     CashFlow("Cash flow"),
     TeamAccess("Team access"),
+    Personal("Personal"),
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -106,6 +107,7 @@ fun AdminHome(vm: AuthViewModel, isAdmin: Boolean = true, isOwner: Boolean = fal
                     AdminSection.Reports -> AdminReports()
                     AdminSection.CashFlow -> AdminCashFlow()
                     AdminSection.TeamAccess -> AdminTeamAccess()
+                    AdminSection.Personal -> AdminPersonal(isOwner)
                 }
             }
         }

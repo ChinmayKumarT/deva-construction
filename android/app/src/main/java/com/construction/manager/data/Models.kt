@@ -57,6 +57,18 @@ data class LabourerRow(
     @SerialName("archived_at") val archivedAt: String? = null,
 )
 
+// Admin's own income/expenses -- unrelated to any project, never counted in
+// cost/cash-flow figures elsewhere. See supabase/21_personal_transactions.sql.
+@Serializable
+data class PersonalTransactionRow(
+    val id: String,
+    val type: String = "income",
+    val amount: Double = 0.0,
+    val description: String? = null,
+    @SerialName("occurred_at") val occurredAt: String? = null,
+    @SerialName("archived_at") val archivedAt: String? = null,
+)
+
 @Serializable
 data class ProjectRow(
     val id: String,

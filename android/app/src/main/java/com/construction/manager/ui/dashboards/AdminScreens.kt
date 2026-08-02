@@ -2156,6 +2156,111 @@ private fun TeamAccessRow(
     )
 }
 
+// ---------- Personal transactions ----------
+// The admin's own income/expenses -- unrelated to any project, never counted
+// in cost/cash-flow figures elsewhere. See supabase/21_personal_transactions.sql
+// for the RLS boundary: no client/supplier/labour policy exists on this
+// table at all, so this is a private ledger regardless of what the UI does.
+@Composable
+fun AdminPersonal(isOwner: Boolean = false) {
+    var rows by remember { mutableStateOf<List<PersonalTransactionRow>>(emptyList()) }
+    var version by remember { mutableStateOf(0) }
+    var error by remember { mutableStateOf<String?>(null) }
+    var showArchived by remember { mutableStateOf(false) }
+    var archiving by remember { mutableStateOf<PersonalTransactionRow?>(null) }
+    var deleting by remember { mutableStateOf<PersonalTransactionRow?>(null) }
+    val scope = rememberCoroutineScope()
+    LaunchedEffect(version, showArchived) {
+        safe({
+            rows = if (showArchived) Repo.listArchivedPersonalTransactions() else Repo.listPersonalTransactions()
+        }) { error = it }
+    }
+    var type by remember { mutableStateOf("income") }
+    var amount by remember { mutableStateOf("") }
+    var description by remember { mutableStateOf("") }
+    var occurredAt by remember { mutableStateOf("") }
+
+    val netBalance = rows.sumOf { if (it.type == "income") it.amount else -it.amount }
+
+    FormColumn {
+        ArchivedSwitch(showArchived) { showArchived = !showArchived }
+        if (!showArchived) {
+            StatCard("Net balance", money(netBalance), modifier = Modifier.padding(horizontal = 16.dp), accent = true)
+            SectionTitle("Add transaction")
+            Dropdown("Type", listOf("income", "expense"), type, { it }, { type = it })
+            NumberField(amount, { amount = it }, "Amount")
+            DateField(occurredAt, { occurredAt = it }, "Date")
+            TextField(description, { description = it }, "Description")
+            Button(onClick = {
+                scope.launch {
+                    safe({
+                        Repo.createPersonalTransaction(
+                            type, amount.toDoubleOrNull() ?: 0.0,
+                            description.ifBlank { null }, occurredAt.ifBlank { null },
+                        )
+                        amount = ""; description = ""; occurredAt = ""; type = "income"; version++
+                    }) { error = it }
+                }
+            }, modifier = Modifier.padding(16.dp)) { Text("Add transaction") }
+        }
+        error?.let { Text(it, color = MaterialTheme.colorScheme.error,
+            modifier = Modifier.padding(16.dp)) }
+        Divider()
+        SectionTitle(
+            if (showArchived) "Archived transactions (${rows.size})" else "Transactions (${rows.size})",
+        )
+        if (rows.isEmpty()) {
+            Text(if (showArchived) "No archived transactions." else "No personal transactions yet.",
+                Modifier.padding(16.dp))
+        }
+        rows.forEach { t ->
+            ItemCard(
+                t.description?.ifBlank { null } ?: if (t.type == "income") "Income" else "Expense",
+                "${t.occurredAt ?: "—"} · ${t.type}",
+                (if (t.type == "income") "+" else "-") + money(t.amount),
+                actions = {
+                    if (showArchived) {
+                        TextButton(onClick = {
+                            scope.launch {
+                                safe({ Repo.unarchivePersonalTransaction(t.id); version++ }) { error = it }
+                            }
+                        }) { Text("Restore") }
+                        if (isOwner) {
+                            TextButton(onClick = { deleting = t }) {
+                                Text("Delete forever", color = MaterialTheme.colorScheme.error)
+                            }
+                        }
+                    } else {
+                        TextButton(onClick = { archiving = t }) { Text("Archive") }
+                    }
+                },
+            )
+        }
+    }
+
+    archiving?.let { t ->
+        ArchiveConfirmDialog(
+            t.description?.ifBlank { null } ?: "this transaction",
+            "It will be hidden from your ledger.",
+            onDismiss = { archiving = null },
+            onConfirm = {
+                archiving = null
+                scope.launch { safe({ Repo.archivePersonalTransaction(t.id); version++ }) { error = it } }
+            },
+        )
+    }
+    deleting?.let { t ->
+        DeleteForeverConfirmDialog(
+            t.description?.ifBlank { null } ?: "this transaction",
+            onDismiss = { deleting = null },
+            onConfirm = {
+                deleting = null
+                scope.launch { safe({ Repo.deletePersonalTransactionForever(t.id); version++ }) { error = it } }
+            },
+        )
+    }
+}
+
 // ---------- Reports ----------
 @Composable
 fun AdminReports() {

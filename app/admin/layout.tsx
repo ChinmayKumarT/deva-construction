@@ -33,6 +33,10 @@ function buildGroups(isOwner: boolean): NavGroup[] {
           : []),
       ],
     },
+    {
+      title: "Personal",
+      items: [{ href: "/admin/personal", label: "Personal", icon: "wallet" }],
+    },
   ];
 }
 

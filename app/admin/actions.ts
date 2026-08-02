@@ -544,3 +544,33 @@ export async function createLabourer(fd: FormData) {
   revalidatePath("/admin/labourers");
   revalidatePath("/admin");
 }
+
+// ---------- Personal transactions ----------
+// The admin's own income/expenses, unrelated to any project -- kept out of
+// every cost/cash-flow calculation elsewhere by design (see
+// supabase/21_personal_transactions.sql for the RLS boundary: no
+// client/supplier/labour policy exists on this table at all).
+export async function createPersonalTransaction(fd: FormData) {
+  const supabase = createSupabaseServerClient();
+  const type = str(fd, "type") === "expense" ? "expense" : "income";
+  const { error } = await supabase.from("personal_transactions").insert({
+    type,
+    amount: nonNegNum(fd, "amount", "Amount") ?? 0,
+    description: str(fd, "description"),
+    occurred_at: str(fd, "occurred_at") || undefined,
+  });
+  if (error) throw new Error(error.message);
+  revalidatePath("/admin/personal");
+}
+export async function archivePersonalTransaction(fd: FormData) {
+  await setArchived("personal_transactions", str(fd, "id"), true);
+  revalidatePath("/admin/personal");
+}
+export async function unarchivePersonalTransaction(fd: FormData) {
+  await setArchived("personal_transactions", str(fd, "id"), false);
+  revalidatePath("/admin/personal");
+}
+export async function deletePersonalTransaction(fd: FormData) {
+  await ownerDeleteRow("personal_transactions", str(fd, "id"));
+  revalidatePath("/admin/personal");
+}
