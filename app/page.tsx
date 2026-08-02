@@ -175,6 +175,8 @@ export default async function LoginPage({
           </p>
 
           <p className="mt-10 text-center text-xs text-slate-500">
+            <a href="/download" className="hover:underline">Download app</a>
+            <span className="mx-2">·</span>
             <a href="/privacy" className="hover:underline">Privacy policy</a>
             <span className="mx-2">·</span>
             <a href="/delete-account" className="hover:underline">Delete account</a>
