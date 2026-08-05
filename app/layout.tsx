@@ -24,7 +24,7 @@ export const metadata: Metadata = {
   // square favicon size. This just serves the public/ file as-is.
   icons: {
     icon: "/icon.png",
-    apple: "/icon.png",
+    apple: "/apple-touch-icon.png",
   },
 };
 
