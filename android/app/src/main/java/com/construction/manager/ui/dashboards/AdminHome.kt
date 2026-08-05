@@ -127,13 +127,23 @@ fun AdminOverview() {
             err != null -> Text("Error: $err")
             m == null -> CircularProgressIndicator()
             else -> {
-                StatCard("Total Projects", m!!.totalProjects.toString())
-                StatCard("Active Projects", m!!.activeProjects.toString())
+                // Headline metric full-width, the rest paired 2-up so the
+                // dashboard stays compact on a phone instead of a long column
+                // of oversized cards. Mirrors web's grid sm:grid-cols-2.
                 StatCard("Total Cost", money(m!!.totalCost), accent = true)
-                StatCard("Pending Payments", money(m!!.pendingPayments))
-                StatCard("Material Stock", "%,.0f".format(m!!.materialStock))
-                StatCard("Labour Count", m!!.labourCount.toString())
-                StatCard("Completion %", "%.1f%%".format(m!!.completion))
+                val two = Arrangement.spacedBy(12.dp)
+                Row(horizontalArrangement = two) {
+                    StatCard("Total Projects", m!!.totalProjects.toString(), Modifier.weight(1f))
+                    StatCard("Active Projects", m!!.activeProjects.toString(), Modifier.weight(1f))
+                }
+                Row(horizontalArrangement = two) {
+                    StatCard("Pending Payments", money(m!!.pendingPayments), Modifier.weight(1f))
+                    StatCard("Material Stock", "%,.0f".format(m!!.materialStock), Modifier.weight(1f))
+                }
+                Row(horizontalArrangement = two) {
+                    StatCard("Labour Count", m!!.labourCount.toString(), Modifier.weight(1f))
+                    StatCard("Completion %", "%.1f%%".format(m!!.completion), Modifier.weight(1f))
+                }
             }
         }
     }

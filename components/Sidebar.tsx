@@ -30,12 +30,25 @@ export function Sidebar({
   const rail = groups.flatMap((g) => g.items);
 
   return (
-    <aside
-      className={
-        "sticky top-0 h-screen bg-[#0f0f0f] text-white flex flex-col z-40 transition-[width] duration-150 " +
-        (expanded ? "w-[240px]" : "w-[72px]")
-      }
-    >
+    <>
+      {/* On phones the expanded panel floats over the content instead of
+          squeezing it into a sliver; tap the backdrop to close. On lg+ the
+          sidebar stays in flow and pushes content as before. */}
+      {expanded && (
+        <div
+          onClick={() => setExpanded(false)}
+          aria-hidden
+          className="fixed inset-0 z-40 bg-black/40 lg:hidden"
+        />
+      )}
+      <aside
+        className={
+          "h-screen bg-[#0f0f0f] text-white flex flex-col transition-[width] duration-150 " +
+          (expanded
+            ? "w-[240px] fixed inset-y-0 left-0 z-50 lg:sticky lg:top-0 lg:z-40"
+            : "w-[72px] sticky top-0 z-40")
+        }
+      >
       {/* Header */}
       <div className="flex items-center h-14 px-2 shrink-0">
         <button
@@ -84,7 +97,8 @@ export function Sidebar({
           </>
         )}
       </div>
-    </aside>
+      </aside>
+    </>
   );
 }
 

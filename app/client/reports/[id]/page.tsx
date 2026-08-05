@@ -136,7 +136,7 @@ export default async function ClientSiteReportPage({ params }: { params: { id: s
   };
 
   return (
-    <main className="mx-auto max-w-5xl p-8">
+    <main className="mx-auto max-w-5xl p-4 sm:p-6 lg:p-8">
       <Link href="/client/reports" className="text-sm text-slate-600 hover:underline">← Reports</Link>
       <div className="mt-2 flex items-start justify-between gap-4">
         <div>

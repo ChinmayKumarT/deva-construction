@@ -64,7 +64,7 @@ export default async function ClientReportsPage() {
   }
 
   return (
-    <main className="mx-auto max-w-5xl p-8">
+    <main className="mx-auto max-w-5xl p-4 sm:p-6 lg:p-8">
       <div className="mb-8">
         <p className="text-xs uppercase tracking-wide text-slate-500">Reports</p>
         <h1 className="text-2xl font-bold">Your project reports</h1>
