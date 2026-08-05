@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { AdminPage, AdminPageHeader } from "@/components/admin/Page";
-import { markAttendance } from "../../actions";
+import { AttendanceMarkForm } from "@/components/admin/AttendanceMarkForm";
 
 export default async function ProjectAttendancePage({
   params,
@@ -119,26 +119,12 @@ export default async function ProjectAttendancePage({
                     </span>
                   </td>
                   <td className="px-4 py-2">
-                    <div className="flex gap-1">
-                      {(["present", "half_day", "absent"] as const).map((s) => (
-                        <form key={s} action={markAttendance}>
-                          <input type="hidden" name="labourer_id" value={l.id} />
-                          <input type="hidden" name="project_id" value={project.id} />
-                          <input type="hidden" name="date" value={date} />
-                          <input type="hidden" name="status" value={s} />
-                          <button
-                            className={
-                              "rounded-md border px-2 py-1 text-xs " +
-                              (status === s
-                                ? "border-slate-800 bg-slate-900 text-white"
-                                : "border-slate-300 bg-white text-slate-700 hover:bg-slate-100")
-                            }
-                          >
-                            {s.replace("_", " ")}
-                          </button>
-                        </form>
-                      ))}
-                    </div>
+                    <AttendanceMarkForm
+                      labourerId={l.id}
+                      projectId={project.id}
+                      date={date}
+                      currentStatus={status}
+                    />
                   </td>
                 </tr>
               );

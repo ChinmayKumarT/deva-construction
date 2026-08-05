@@ -327,14 +327,26 @@ export async function markMaterialDelivered(fd: FormData) {
   revalidatePath("/admin");
 }
 
-export async function markAttendance(fd: FormData) {
+export type MarkAttendanceState = { error: string | null };
+
+// Returns its error instead of throwing, and is called via useFormState
+// (components/admin/AttendanceMarkForm.tsx) rather than a bare
+// <form action={...}>. Next.js redacts thrown Server Action error messages
+// in production builds (shows only a generic "Server Components render"
+// message + digest) -- returning the message as state is the supported way
+// to actually surface a validation message like the overlap guard below to
+// the client in production, not just in dev.
+export async function markAttendance(
+  _prevState: MarkAttendanceState,
+  fd: FormData,
+): Promise<MarkAttendanceState> {
   const supabase = createSupabaseServerClient();
   const date = str(fd, "date") ?? new Date().toISOString().slice(0, 10);
   const labourer_id = str(fd, "labourer_id");
   const project_id = uuidOrNull(fd, "project_id");
   const status = (str(fd, "status") ?? "present") as "present" | "absent" | "half_day";
-  if (!labourer_id) throw new Error("labourer_id required");
-  if (!project_id) throw new Error("project_id required");
+  if (!labourer_id) return { error: "labourer_id required" };
+  if (!project_id) return { error: "project_id required" };
 
   // A labourer can have one attendance row per project per day (see
   // 25_multi_site_attendance.sql), to record a day split across sites.
@@ -355,17 +367,18 @@ export async function markAttendance(fd: FormData) {
       .map((r) => r.projects?.name)
       .filter(Boolean)
       .join(", ");
-    throw new Error(
-      `This would total ${newTotal} days of pay for ${date}${otherNames ? ` -- already marked at ${otherNames}` : ""}. Reduce the other entry first.`,
-    );
+    return {
+      error: `This would total ${newTotal} days of pay for ${date}${otherNames ? ` -- already marked at ${otherNames}` : ""}. Reduce the other entry first.`,
+    };
   }
 
   const { error } = await supabase
     .from("attendance")
     .upsert({ labourer_id, project_id, date, status }, { onConflict: "labourer_id,date,project_id" });
-  if (error) throw new Error(error.message);
+  if (error) return { error: error.message };
   revalidatePath("/admin/attendance");
   revalidatePath(`/admin/attendance/${project_id}`);
+  return { error: null };
 }
 
 export async function assignLabourer(fd: FormData) {
