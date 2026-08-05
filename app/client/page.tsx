@@ -27,7 +27,7 @@ export default async function ClientDashboard() {
   const { data: projects } = await supabase
     .from("projects")
     .select(
-      "id, name, status, current_stage, completion_pct, total_cost, start_date, end_date, original_end_date, extension_reason, next_payment_date",
+      "id, name, status, current_stage, completion_pct, total_cost, start_date, end_date, original_end_date, extension_reason, next_payment_date, next_payment_amount",
     )
     .eq("client_id", client.id)
     .is("archived_at", null)
@@ -135,6 +135,7 @@ export default async function ClientDashboard() {
                   {p.next_payment_date && (
                     <div className="mt-2 rounded-lg border border-amber-200 bg-amber-50 px-2.5 py-1.5 text-xs font-medium text-amber-800">
                       Next payment due: {p.next_payment_date}
+                      {p.next_payment_amount != null && ` · ₹${Number(p.next_payment_amount).toLocaleString()}`}
                     </div>
                   )}
                   {labourCounts && labourCounts.size > 0 && (

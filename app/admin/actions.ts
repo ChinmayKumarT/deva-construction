@@ -496,9 +496,12 @@ export async function setNextPaymentDate(fd: FormData) {
   const supabase = createSupabaseServerClient();
   const id = str(fd, "id");
   if (!id) throw new Error("project required");
+  const date = str(fd, "next_payment_date") || null;
+  // No due date means no due amount either -- clear both together.
+  const amount = date ? nonNegNum(fd, "next_payment_amount", "Amount") : null;
   const { error } = await supabase
     .from("projects")
-    .update({ next_payment_date: str(fd, "next_payment_date") || null })
+    .update({ next_payment_date: date, next_payment_amount: amount })
     .eq("id", id);
   if (error) throw new Error(error.message);
   revalidatePath("/admin/projects");
@@ -579,14 +582,40 @@ export async function createClientPayment(fd: FormData) {
   const supabase = createSupabaseServerClient();
   const projectId = str(fd, "project_id");
   if (!projectId) throw new Error("Project is required");
+  const amount = nonNegNum(fd, "amount", "Amount") ?? 0;
   const { error } = await supabase.from("client_payments").insert({
     project_id: projectId,
-    amount: nonNegNum(fd, "amount", "Amount") ?? 0,
+    amount,
     description: str(fd, "description"),
     paid_on: str(fd, "paid_on") || undefined,
   });
   if (error) throw new Error(error.message);
+
+  // If a "next payment due" reminder is showing, this payment reduces its
+  // outstanding balance instead of blindly clearing it -- a partial payment
+  // just lowers the remaining balance and the reminder stays up. Only
+  // clears once the balance reaches zero. A due date with no amount set
+  // (e.g. from before this balance tracking existed) has nothing to check
+  // against, so any payment clears it, same as before.
+  const { data: project } = await supabase
+    .from("projects")
+    .select("next_payment_date, next_payment_amount")
+    .eq("id", projectId)
+    .single();
+  if (project?.next_payment_date) {
+    const remaining = Number(project.next_payment_amount ?? 0) - amount;
+    await supabase
+      .from("projects")
+      .update(
+        remaining > 0
+          ? { next_payment_amount: remaining }
+          : { next_payment_date: null, next_payment_amount: null },
+      )
+      .eq("id", projectId);
+  }
   revalidatePath(`/admin/payments/${projectId}`);
+  revalidatePath("/admin/projects");
+  revalidatePath("/client");
 }
 export async function archiveClientPayment(fd: FormData) {
   await setArchived("client_payments", str(fd, "id"), true);

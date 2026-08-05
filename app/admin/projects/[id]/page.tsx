@@ -15,7 +15,7 @@ export default async function ManageProjectPage({ params }: { params: { id: stri
   const { data: project } = await supabase
     .from("projects")
     .select(
-      "id, name, status, current_stage, completion_pct, total_cost, end_date, original_end_date, extension_reason, next_payment_date, archived_at, clients(name)",
+      "id, name, status, current_stage, completion_pct, total_cost, end_date, original_end_date, extension_reason, next_payment_date, next_payment_amount, archived_at, clients(name)",
     )
     .eq("id", params.id)
     .single();
@@ -139,6 +139,15 @@ export default async function ManageProjectPage({ params }: { params: { id: stri
                     className="rounded-lg border border-[var(--line)] bg-white px-2 py-1.5 text-sm"
                   />
                 </label>
+                <label className="text-sm">
+                  <span className="mb-1 block text-slate-600">Amount due (optional)</span>
+                  <input
+                    type="number" step="0.01" min="0"
+                    name="next_payment_amount"
+                    defaultValue={project.next_payment_amount ?? ""}
+                    className="w-32 rounded-lg border border-[var(--line)] bg-white px-2 py-1.5 text-sm"
+                  />
+                </label>
                 <button
                   type="submit"
                   className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-100"
@@ -146,6 +155,10 @@ export default async function ManageProjectPage({ params }: { params: { id: stri
                   Save
                 </button>
               </div>
+              <p className="mt-1.5 text-xs text-slate-500">
+                If an amount is set, a client payment only clears this reminder once the full amount has been paid
+                (a partial payment lowers the remaining balance instead). Left blank, any payment clears it.
+              </p>
             </form>
           </>
         )}

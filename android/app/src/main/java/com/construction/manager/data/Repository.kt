@@ -368,9 +368,12 @@ object Repo {
             if (reason != null) put("extension_reason", reason)
         }) { filter { eq("id", projectId) } }
     }
-    suspend fun setNextPaymentDate(projectId: String, date: String?) {
+    suspend fun setNextPaymentDate(projectId: String, date: String?, amount: Double? = null) {
         supabase.from("projects").update(buildJsonObject {
             if (date != null) put("next_payment_date", date) else put("next_payment_date", JsonNull)
+            // No due date means no due amount either -- clear both together.
+            if (date != null && amount != null) put("next_payment_amount", amount)
+            else put("next_payment_amount", JsonNull)
         }) { filter { eq("id", projectId) } }
     }
     suspend fun createClient(name: String, email: String?, phone: String?, profileId: String?) {
@@ -418,6 +421,19 @@ object Repo {
             if (description != null) put("description", description)
             if (paidOn != null) put("paid_on", paidOn)
         })
+        // If a "next payment due" reminder is showing, this payment reduces
+        // its outstanding balance instead of blindly clearing it -- a
+        // partial payment just lowers the remaining balance and the
+        // reminder stays up. Only clears once the balance reaches zero. A
+        // due date with no amount set has nothing to check against, so any
+        // payment clears it (setNextPaymentDate's default amount = null).
+        val project = supabase.from("projects").select { filter { eq("id", projectId) } }
+            .decodeSingleOrNull<ProjectRow>()
+        if (project?.nextPaymentDate != null) {
+            val remaining = (project.nextPaymentAmount ?: 0.0) - amount
+            if (remaining > 0) setNextPaymentDate(projectId, project.nextPaymentDate, remaining)
+            else setNextPaymentDate(projectId, null)
+        }
     }
     suspend fun createMaterial(projectId: String, supplierId: String?, name: String,
                                unit: String, quantity: Double, unitCost: Double, status: String,

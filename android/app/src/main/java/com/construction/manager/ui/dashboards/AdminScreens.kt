@@ -551,6 +551,7 @@ private fun ExtendFinishDateDialog(project: ProjectRow, onDismiss: () -> Unit, o
 @Composable
 private fun NextPaymentDateDialog(project: ProjectRow, onDismiss: () -> Unit, onSaved: () -> Unit) {
     var date by remember { mutableStateOf(project.nextPaymentDate ?: "") }
+    var amount by remember { mutableStateOf(project.nextPaymentAmount?.toString() ?: "") }
     var error by remember { mutableStateOf<String?>(null) }
     var busy by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
@@ -565,6 +566,13 @@ private fun NextPaymentDateDialog(project: ProjectRow, onDismiss: () -> Unit, on
                     style = MaterialTheme.typography.bodySmall,
                 )
                 DateField(date, { date = it }, "Next payment date")
+                NumberField(amount, { amount = it }, "Amount due (optional)")
+                Text(
+                    "If an amount is set, a client payment only clears this reminder once the full " +
+                        "amount has been paid (a partial payment lowers the remaining balance instead). " +
+                        "Left blank, any payment clears it.",
+                    style = MaterialTheme.typography.bodySmall,
+                )
                 error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
             }
         },
@@ -575,7 +583,7 @@ private fun NextPaymentDateDialog(project: ProjectRow, onDismiss: () -> Unit, on
                     busy = true
                     scope.launch {
                         safe({
-                            Repo.setNextPaymentDate(project.id, date.ifBlank { null })
+                            Repo.setNextPaymentDate(project.id, date.ifBlank { null }, amount.toDoubleOrNull())
                             onSaved()
                         }) { error = it }
                         busy = false

@@ -284,7 +284,8 @@ fun ClientDashboard(vm: AuthViewModel) = RoleScaffold("Client", vm) { padding ->
                         }
                         p.nextPaymentDate?.let { due ->
                             Text(
-                                "Next payment due: $due",
+                                "Next payment due: $due" +
+                                    (p.nextPaymentAmount?.let { " · ${money(it)}" } ?: ""),
                                 style = MaterialTheme.typography.bodySmall,
                                 color = androidx.compose.ui.graphics.Color(0xFFF59E0B),
                                 modifier = Modifier.padding(top = 4.dp),
