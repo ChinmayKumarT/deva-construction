@@ -509,15 +509,31 @@ object Repo {
     }
 
     // ---------- Attendance ----------
-    suspend fun upsertAttendance(labourerId: String, projectId: String?, date: String, status: String) {
+    // A labourer can have one attendance row per project per day (see
+    // 25_multi_site_attendance.sql), to record a day split across sites.
+    private val AttendanceWageFactor = mapOf("present" to 1.0, "half_day" to 0.5, "absent" to 0.0)
+
+    suspend fun upsertAttendance(labourerId: String, projectId: String, date: String, status: String) {
+        // Guard against accidentally paying for more than one full day: sum
+        // this status against whatever's already recorded for this labourer
+        // on this date at OTHER projects.
+        val otherRows = supabase.from("attendance")
+            .select { filter { eq("labourer_id", labourerId); eq("date", date); neq("project_id", projectId) } }
+            .decodeList<AttendanceRow>()
+        val otherTotal = otherRows.sumOf { AttendanceWageFactor[it.status] ?: 0.0 }
+        val newTotal = otherTotal + (AttendanceWageFactor[status] ?: 0.0)
+        if (newTotal > 1.0) {
+            throw Exception("This would total $newTotal days of pay for $date -- reduce their status at the other site first.")
+        }
+
         supabase.from("attendance").upsert(
             buildJsonObject {
                 put("labourer_id", labourerId)
-                if (projectId != null) put("project_id", projectId)
+                put("project_id", projectId)
                 put("date", date); put("status", status)
             }
         ) {
-            onConflict = "labourer_id,date"
+            onConflict = "labourer_id,date,project_id"
         }
     }
 

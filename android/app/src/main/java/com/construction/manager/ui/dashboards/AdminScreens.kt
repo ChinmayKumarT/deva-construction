@@ -1743,6 +1743,10 @@ private fun EditPaymentDialog(
 }
 
 // ---------- Attendance ----------
+// Marking is scoped by project first (pick a site, then mark who worked
+// there that day) rather than one global labourer list keyed only by
+// "current site" -- a labourer can now be marked at more than one project
+// on the same date. Mirrors AdminPayments' projectFilter/picker pattern.
 @Composable
 fun AdminAttendance() {
     val todayStr = remember { LocalDate.now().toString() }
@@ -1750,23 +1754,69 @@ fun AdminAttendance() {
     var labourers by remember { mutableStateOf<List<LabourerRow>>(emptyList()) }
     var projects by remember { mutableStateOf<List<ProjectRow>>(emptyList()) }
     var assignments by remember { mutableStateOf<List<ProjectLabourerRow>>(emptyList()) }
-    var marks by remember { mutableStateOf<Map<String, String>>(emptyMap()) }
+    var dayRows by remember { mutableStateOf<List<AttendanceRow>>(emptyList()) }
     var error by remember { mutableStateOf<String?>(null) }
     var version by remember { mutableStateOf(0) }
+    var projectFilter by remember { mutableStateOf<ProjectRow?>(null) }
     val scope = rememberCoroutineScope()
     LaunchedEffect(version, date) {
         safe({
             labourers = Repo.listLabourers().filter { it.active }
             projects = Repo.listProjects()
             assignments = Repo.listActiveAssignments()
-            marks = Repo.listAttendance(date).associate { it.labourerId to it.status }
+            dayRows = Repo.listAttendance(date)
         }) { error = it }
     }
     val projectName = projects.associate { it.id to it.name }
     val currentSite = assignments.associate { it.labourerId to it.projectId }
 
+    val filter = projectFilter
+    if (filter == null) {
+        val markedTodayByProject = remember(dayRows) {
+            dayRows.filter { it.date == todayStr }.groupingBy { it.projectId }.eachCount()
+        }
+        FormColumn {
+            SectionTitle("Attendance")
+            Text(
+                "Pick a site to mark attendance. A labourer can be marked at more than one site the same day.",
+                style = MaterialTheme.typography.bodySmall,
+                modifier = Modifier.padding(horizontal = 16.dp),
+            )
+            error?.let { Text(it, color = MaterialTheme.colorScheme.error,
+                modifier = Modifier.padding(16.dp)) }
+            if (projects.isEmpty()) {
+                Text("No projects yet.", Modifier.padding(16.dp))
+            }
+            projects.forEach { p ->
+                ItemCard(
+                    p.name,
+                    "${markedTodayByProject[p.id] ?: 0} marked today",
+                    actions = { TextButton(onClick = { projectFilter = p }) { Text("Mark attendance") } },
+                )
+            }
+        }
+        return
+    }
+
+    val hereStatus = remember(dayRows, filter) {
+        dayRows.filter { it.projectId == filter.id }.associate { it.labourerId to it.status }
+    }
+    val elsewhere = remember(dayRows, filter, projectName) {
+        dayRows.filter { it.projectId != null && it.projectId != filter.id }
+            .groupBy { it.labourerId }
+            .mapValues { (_, rows) ->
+                rows.joinToString(", ") { r -> "${r.status.replace("_", " ")} at ${projectName[r.projectId] ?: "another site"}" }
+            }
+    }
+
     FormColumn {
-        SectionTitle("Attendance")
+        Row(
+            Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(filter.name, style = MaterialTheme.typography.titleSmall, modifier = Modifier.weight(1f))
+            TextButton(onClick = { projectFilter = null }) { Text("← All sites") }
+        }
         Row(
             Modifier.padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -1783,16 +1833,18 @@ fun AdminAttendance() {
         }
         labourers.forEach { l ->
             val siteId = currentSite[l.id]
+            val elsewhereText = elsewhere[l.id]
             ItemCard(
                 l.name,
                 "${siteId?.let { projectName[it] } ?: "unassigned"} · ${money(l.dailyWage)} · " +
-                    (marks[l.id]?.replace("_", " ") ?: "not marked"),
+                    (hereStatus[l.id]?.replace("_", " ") ?: "not marked") +
+                    (elsewhereText?.let { " · Also $it today" } ?: ""),
                 actions = {
                     listOf("present","half_day","absent").forEach { s ->
                         TextButton(onClick = {
                             scope.launch {
                                 safe({
-                                    Repo.upsertAttendance(l.id, siteId, date, s); version++
+                                    Repo.upsertAttendance(l.id, filter.id, date, s); version++
                                 }) { error = it }
                             }
                         }) { Text(s.replace("_"," ")) }

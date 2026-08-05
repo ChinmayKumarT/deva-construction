@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { WAGE_FACTOR } from "@/lib/wages";
 
 function str(fd: FormData, k: string) {
   const v = fd.get(k);
@@ -333,12 +334,38 @@ export async function markAttendance(fd: FormData) {
   const project_id = uuidOrNull(fd, "project_id");
   const status = (str(fd, "status") ?? "present") as "present" | "absent" | "half_day";
   if (!labourer_id) throw new Error("labourer_id required");
+  if (!project_id) throw new Error("project_id required");
+
+  // A labourer can have one attendance row per project per day (see
+  // 25_multi_site_attendance.sql), to record a day split across sites.
+  // Guard against accidentally paying for more than one full day: sum this
+  // status against whatever's already recorded for this labourer on this
+  // date at OTHER projects.
+  const { data: otherRows } = await supabase
+    .from("attendance")
+    .select("status, projects(name)")
+    .eq("labourer_id", labourer_id)
+    .eq("date", date)
+    .neq("project_id", project_id);
+  const otherTotal = (otherRows ?? []).reduce((sum, r) => sum + (WAGE_FACTOR[r.status] ?? 0), 0);
+  const newTotal = otherTotal + (WAGE_FACTOR[status] ?? 0);
+  if (newTotal > 1) {
+    const otherNames = (otherRows ?? [])
+      // @ts-expect-error relation
+      .map((r) => r.projects?.name)
+      .filter(Boolean)
+      .join(", ");
+    throw new Error(
+      `This would total ${newTotal} days of pay for ${date}${otherNames ? ` -- already marked at ${otherNames}` : ""}. Reduce the other entry first.`,
+    );
+  }
 
   const { error } = await supabase
     .from("attendance")
-    .upsert({ labourer_id, project_id, date, status }, { onConflict: "labourer_id,date" });
+    .upsert({ labourer_id, project_id, date, status }, { onConflict: "labourer_id,date,project_id" });
   if (error) throw new Error(error.message);
   revalidatePath("/admin/attendance");
+  revalidatePath(`/admin/attendance/${project_id}`);
 }
 
 export async function assignLabourer(fd: FormData) {
