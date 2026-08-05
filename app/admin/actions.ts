@@ -574,3 +574,26 @@ export async function deletePersonalTransaction(fd: FormData) {
   await ownerDeleteRow("personal_transactions", str(fd, "id"));
   revalidatePath("/admin/personal");
 }
+
+export async function createClientPayment(fd: FormData) {
+  const supabase = createSupabaseServerClient();
+  const projectId = str(fd, "project_id");
+  if (!projectId) throw new Error("Project is required");
+  const { error } = await supabase.from("client_payments").insert({
+    project_id: projectId,
+    amount: nonNegNum(fd, "amount", "Amount") ?? 0,
+    description: str(fd, "description"),
+    paid_on: str(fd, "paid_on") || undefined,
+  });
+  if (error) throw new Error(error.message);
+  revalidatePath(`/admin/payments/${projectId}`);
+}
+export async function archiveClientPayment(fd: FormData) {
+  await setArchived("client_payments", str(fd, "id"), true);
+}
+export async function unarchiveClientPayment(fd: FormData) {
+  await setArchived("client_payments", str(fd, "id"), false);
+}
+export async function deleteClientPayment(fd: FormData) {
+  await ownerDeleteRow("client_payments", str(fd, "id"));
+}

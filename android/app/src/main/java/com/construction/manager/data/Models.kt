@@ -122,6 +122,18 @@ data class PaymentRow(
     @SerialName("archived_at") val archivedAt: String? = null,
 )
 
+// Money the client has paid the business, recorded by admin -- a fact being
+// logged, not a request needing approval (no status field, unlike PaymentRow).
+@Serializable
+data class ClientPaymentRow(
+    val id: String,
+    @SerialName("project_id") val projectId: String,
+    val amount: Double = 0.0,
+    val description: String? = null,
+    @SerialName("paid_on") val paidOn: String? = null,
+    @SerialName("archived_at") val archivedAt: String? = null,
+)
+
 @Serializable
 data class AttendanceRow(
     val id: String? = null,

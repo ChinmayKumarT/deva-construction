@@ -1294,6 +1294,7 @@ private fun EditMaterialDialog(material: MaterialRow, onDismiss: () -> Unit, onS
 @Composable
 fun AdminPayments(isOwner: Boolean = false, initialProjectFilter: ProjectRow? = null) {
     var rows by remember { mutableStateOf<List<PaymentRow>>(emptyList()) }
+    var clientPaymentRows by remember { mutableStateOf<List<ClientPaymentRow>>(emptyList()) }
     var projects by remember { mutableStateOf<List<ProjectRow>>(emptyList()) }
     var suppliers by remember { mutableStateOf<List<SupplierRow>>(emptyList()) }
     var labourers by remember { mutableStateOf<List<LabourerRow>>(emptyList()) }
@@ -1306,12 +1307,17 @@ fun AdminPayments(isOwner: Boolean = false, initialProjectFilter: ProjectRow? = 
     var editing by remember { mutableStateOf<PaymentRow?>(null) }
     var archiving by remember { mutableStateOf<PaymentRow?>(null) }
     var deleting by remember { mutableStateOf<PaymentRow?>(null) }
+    var clientPaymentArchiving by remember { mutableStateOf<ClientPaymentRow?>(null) }
+    var clientPaymentDeleting by remember { mutableStateOf<ClientPaymentRow?>(null) }
+    var cpAmount by remember { mutableStateOf("") }
+    var cpDesc by remember { mutableStateOf("") }
     var projectFilter by remember { mutableStateOf(initialProjectFilter) }
     var showUnassigned by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
     LaunchedEffect(version, showArchived) {
         safe({
             rows = if (showArchived) Repo.listArchivedPayments() else Repo.listPayments()
+            clientPaymentRows = if (showArchived) Repo.listArchivedClientPayments() else Repo.listClientPayments()
             projects = Repo.listProjects()
             suppliers = Repo.listSuppliers()
             labourers = Repo.listLabourers()
@@ -1333,6 +1339,10 @@ fun AdminPayments(isOwner: Boolean = false, initialProjectFilter: ProjectRow? = 
 
     val visibleRows = if (showUnassigned) rows.filter { it.projectId == null }
         else rows.filter { it.projectId == projectFilter?.id }
+    // Client payments always belong to a real project -- nothing to show
+    // for the "no project" pseudo-bucket.
+    val visibleClientPayments = if (showUnassigned) emptyList()
+        else clientPaymentRows.filter { it.projectId == projectFilter?.id }
     var payeeType by remember { mutableStateOf("supplier") }
     var amount by remember { mutableStateOf("") }
     var desc by remember { mutableStateOf("") }
@@ -1467,6 +1477,53 @@ fun AdminPayments(isOwner: Boolean = false, initialProjectFilter: ProjectRow? = 
                 },
             )
         }
+
+        if (!showUnassigned) {
+            Divider()
+            SectionTitle(
+                if (showArchived) "Archived client payments (${visibleClientPayments.size})"
+                else "Client payments received (${visibleClientPayments.size})",
+            )
+            if (!showArchived) {
+                NumberField(cpAmount, { cpAmount = it }, "Amount")
+                TextField(cpDesc, { cpDesc = it }, "Description")
+                Button(onClick = {
+                    val pid = projectFilter?.id ?: return@Button
+                    scope.launch {
+                        safe({
+                            Repo.createClientPayment(pid, cpAmount.toDoubleOrNull() ?: 0.0, cpDesc.ifBlank { null }, null)
+                            cpAmount = ""; cpDesc = ""; version++
+                        }) { error = it }
+                    }
+                }, modifier = Modifier.padding(16.dp)) { Text("Record payment") }
+            }
+            if (visibleClientPayments.isEmpty()) {
+                Text(if (showArchived) "No archived client payments." else "No client payments recorded yet.",
+                    Modifier.padding(16.dp))
+            }
+            visibleClientPayments.forEach { cp ->
+                ItemCard(
+                    cp.description?.ifBlank { null } ?: "Client payment",
+                    cp.paidOn ?: "—", money(cp.amount),
+                    actions = {
+                        if (showArchived) {
+                            TextButton(onClick = {
+                                scope.launch {
+                                    safe({ Repo.unarchiveClientPayment(cp.id); version++ }) { error = it }
+                                }
+                            }) { Text("Restore") }
+                            if (isOwner) {
+                                TextButton(onClick = { clientPaymentDeleting = cp }) {
+                                    Text("Delete forever", color = MaterialTheme.colorScheme.error)
+                                }
+                            }
+                        } else {
+                            TextButton(onClick = { clientPaymentArchiving = cp }) { Text("Archive") }
+                        }
+                    },
+                )
+            }
+        }
     }
 
     editing?.let { p ->
@@ -1493,6 +1550,27 @@ fun AdminPayments(isOwner: Boolean = false, initialProjectFilter: ProjectRow? = 
             onConfirm = {
                 deleting = null
                 scope.launch { safe({ Repo.deletePaymentForever(p.id); version++ }) { error = it } }
+            },
+        )
+    }
+    clientPaymentArchiving?.let { cp ->
+        ArchiveConfirmDialog(
+            "this client payment",
+            "It will be hidden from lists.",
+            onDismiss = { clientPaymentArchiving = null },
+            onConfirm = {
+                clientPaymentArchiving = null
+                scope.launch { safe({ Repo.archiveClientPayment(cp.id); version++ }) { error = it } }
+            },
+        )
+    }
+    clientPaymentDeleting?.let { cp ->
+        DeleteForeverConfirmDialog(
+            "this client payment",
+            onDismiss = { clientPaymentDeleting = null },
+            onConfirm = {
+                clientPaymentDeleting = null
+                scope.launch { safe({ Repo.deleteClientPaymentForever(cp.id); version++ }) { error = it } }
             },
         )
     }

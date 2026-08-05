@@ -53,6 +53,8 @@ object Repo {
     suspend fun unarchiveUpdate(id: String) = setArchived("project_updates", id, false)
     suspend fun archivePersonalTransaction(id: String) = setArchived("personal_transactions", id, true)
     suspend fun unarchivePersonalTransaction(id: String) = setArchived("personal_transactions", id, false)
+    suspend fun archiveClientPayment(id: String) = setArchived("client_payments", id, true)
+    suspend fun unarchiveClientPayment(id: String) = setArchived("client_payments", id, false)
 
     // ---------- Updates (edit) ----------
     suspend fun updateClient(id: String, name: String, email: String?, phone: String?) {
@@ -205,6 +207,7 @@ object Repo {
     suspend fun deletePaymentForever(id: String) = ownerDeleteRow("payments", id)
     suspend fun deleteUpdateForever(id: String) = ownerDeleteRow("project_updates", id)
     suspend fun deletePersonalTransactionForever(id: String) = ownerDeleteRow("personal_transactions", id)
+    suspend fun deleteClientPaymentForever(id: String) = ownerDeleteRow("client_payments", id)
 
     // ---------- Admin metrics ----------
     data class AdminMetrics(
@@ -276,6 +279,8 @@ object Repo {
         .decodeList<ProjectUpdateRow>()
     suspend fun listPersonalTransactions() = supabase.from("personal_transactions")
         .select { activeOnly(); order("occurred_at", Order.DESCENDING) }.decodeList<PersonalTransactionRow>()
+    suspend fun listClientPayments() = supabase.from("client_payments")
+        .select { activeOnly(); order("paid_on", Order.DESCENDING) }.decodeList<ClientPaymentRow>()
 
     // ---------- Archived lists ----------
     suspend fun listArchivedClients() = supabase.from("clients")
@@ -293,6 +298,8 @@ object Repo {
         .decodeList<ProjectUpdateRow>()
     suspend fun listArchivedPersonalTransactions() = supabase.from("personal_transactions")
         .select { archivedOnly(); order("occurred_at", Order.DESCENDING) }.decodeList<PersonalTransactionRow>()
+    suspend fun listArchivedClientPayments() = supabase.from("client_payments")
+        .select { archivedOnly(); order("paid_on", Order.DESCENDING) }.decodeList<ClientPaymentRow>()
     suspend fun listAttendance(date: String) =
         supabase.from("attendance").select { filter { eq("date", date) } }.decodeList<AttendanceRow>()
     suspend fun listAttendanceSince(sinceDate: String) =
@@ -402,6 +409,14 @@ object Repo {
             put("amount", amount)
             if (description != null) put("description", description)
             if (occurredAt != null) put("occurred_at", occurredAt)
+        })
+    }
+    suspend fun createClientPayment(projectId: String, amount: Double, description: String?, paidOn: String?) {
+        supabase.from("client_payments").insert(buildJsonObject {
+            put("project_id", projectId)
+            put("amount", amount)
+            if (description != null) put("description", description)
+            if (paidOn != null) put("paid_on", paidOn)
         })
     }
     suspend fun createMaterial(projectId: String, supplierId: String?, name: String,
@@ -548,6 +563,17 @@ object Repo {
                     filter("archived_at", FilterOperator.IS, "null")
                 }
                 order("created_at", Order.DESCENDING)
+            }.decodeList()
+    }
+    suspend fun myClientPayments(projectIds: List<String>): List<ClientPaymentRow> {
+        if (projectIds.isEmpty()) return emptyList()
+        return supabase.from("client_payments")
+            .select {
+                filter {
+                    isIn("project_id", projectIds)
+                    filter("archived_at", FilterOperator.IS, "null")
+                }
+                order("paid_on", Order.DESCENDING)
             }.decodeList()
     }
     suspend fun supplierMaterials(supplierId: String) = supabase.from("materials")

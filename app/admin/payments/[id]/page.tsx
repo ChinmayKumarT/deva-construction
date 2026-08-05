@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createSupabaseServerClient, getSessionAndRole } from "@/lib/supabase/server";
-import { AdminPage, AdminPageHeader } from "@/components/admin/Page";
+import { AdminPage, AdminPageHeader, Field, SubmitButton } from "@/components/admin/Page";
 import { ArchivedToggle, DeleteForeverButton, RestoreAction } from "@/components/admin/RowActions";
 import { CreatePaymentForm } from "@/components/admin/PaymentForm";
 import { computeWagesDue } from "@/lib/wages";
@@ -9,6 +9,7 @@ import { formatDateTime } from "@/lib/dateFormat";
 import {
   approvePayment, createPayment, markPaymentPaid, rejectPayment,
   archivePayment, unarchivePayment, deletePayment,
+  createClientPayment, archiveClientPayment, unarchiveClientPayment, deleteClientPayment,
 } from "../../actions";
 
 export const dynamic = "force-dynamic";
@@ -42,10 +43,16 @@ export default async function ProjectPaymentsPage({
   let archivedCountQuery = supabase.from("payments").select("id", { count: "exact", head: true }).not("archived_at", "is", null);
   archivedCountQuery = isUnassigned ? archivedCountQuery.is("project_id", null) : archivedCountQuery.eq("project_id", params.id);
 
+  let clientPaymentsBase = supabase
+    .from("client_payments")
+    .select("id, amount, description, paid_on, archived_at")
+    .eq("project_id", params.id)
+    .order("paid_on", { ascending: false });
+
   const [
     { data: project }, { data: payments }, { data: projects }, { data: suppliers }, { data: labourers },
     { data: materials }, { data: assignments }, { data: allLabourPayments }, { data: attendance },
-    { count: archivedCount },
+    { count: archivedCount }, { data: clientPayments },
   ] = await Promise.all([
     isUnassigned
       ? Promise.resolve({ data: null as { id: string; name: string } | null })
@@ -68,6 +75,11 @@ export default async function ProjectPaymentsPage({
       .eq("payee_type", "labour"),
     supabase.from("attendance").select("project_id, labourer_id, status"),
     archivedCountQuery,
+    isUnassigned
+      ? Promise.resolve({ data: [] as { id: string; amount: number; description: string | null; paid_on: string; archived_at: string | null }[] })
+      : showArchived
+        ? clientPaymentsBase.not("archived_at", "is", null)
+        : clientPaymentsBase.is("archived_at", null),
   ]);
 
   if (!isUnassigned && !project) notFound();
@@ -185,6 +197,67 @@ export default async function ProjectPaymentsPage({
           </tbody>
         </table>
       </div>
+
+      {!isUnassigned && (
+        <>
+          <h2 className="mt-10 mb-3 text-sm font-semibold uppercase tracking-wide text-slate-500">
+            Client payments received
+          </h2>
+
+          {!showArchived && (
+            <form action={createClientPayment} className="mb-6 grid gap-4 rounded-xl border border-slate-200 bg-white p-6 sm:grid-cols-2 lg:grid-cols-4">
+              <input type="hidden" name="project_id" value={project!.id} />
+              <Field label="Date" name="paid_on" type="date" defaultValue={new Date().toISOString().slice(0, 10)} required />
+              <Field label="Amount" name="amount" type="number" step="0.01" min={0} required />
+              <Field label="Description" name="description" />
+              <div className="flex items-end">
+                <SubmitButton>Record payment</SubmitButton>
+              </div>
+            </form>
+          )}
+
+          <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white">
+            <table className="w-full text-sm">
+              <thead className="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
+                <tr>
+                  <th className="px-4 py-2 font-medium">Date</th>
+                  <th className="px-4 py-2 font-medium">Amount</th>
+                  <th className="px-4 py-2 font-medium">Description</th>
+                  <th className="px-4 py-2 font-medium">Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                {(clientPayments ?? []).length === 0 && (
+                  <tr><td colSpan={4} className="px-4 py-6 text-center text-slate-500">
+                    {showArchived ? "No archived client payments." : "No client payments recorded for this project yet."}
+                  </td></tr>
+                )}
+                {clientPayments?.map((cp) => (
+                  <tr key={cp.id} className="border-t border-slate-100">
+                    <td className="px-4 py-2 text-slate-600">{cp.paid_on}</td>
+                    <td className="px-4 py-2 font-medium">₹{Number(cp.amount).toLocaleString()}</td>
+                    <td className="px-4 py-2 text-slate-600">{cp.description ?? "—"}</td>
+                    <td className="px-4 py-2">
+                      <div className="flex flex-wrap gap-1">
+                        {showArchived ? (
+                          <>
+                            <RestoreAction id={cp.id} action={unarchiveClientPayment} />
+                            {isOwner && (
+                              <DeleteForeverButton id={cp.id} name="this client payment" action={deleteClientPayment} />
+                            )}
+                          </>
+                        ) : (
+                          <ActionButton id={cp.id} action={archiveClientPayment} label="Archive" variant="ghost" />
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </>
+      )}
     </AdminPage>
   );
 }

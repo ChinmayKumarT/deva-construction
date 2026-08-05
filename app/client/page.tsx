@@ -1,15 +1,7 @@
 import Image from "next/image";
 import { requireRole } from "@/lib/guard";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { lineTotal } from "@/lib/money";
-import { formatDateTime } from "@/lib/dateFormat";
-
-const STATUS_STYLE: Record<string, string> = {
-  pending: "bg-amber-50 text-amber-700 border-amber-200",
-  approved: "bg-blue-50 text-blue-700 border-blue-200",
-  paid: "bg-emerald-50 text-emerald-700 border-emerald-200",
-  rejected: "bg-red-50 text-red-700 border-red-200",
-};
+import { formatDateOnly } from "@/lib/dateFormat";
 
 export default async function ClientDashboard() {
   const { user } = await requireRole("client");
@@ -43,7 +35,7 @@ export default async function ClientDashboard() {
 
   const projectIds = (projects ?? []).map((p) => p.id);
 
-  const [{ data: updates }, { data: materials }, { data: payments }, { data: wageTotals }, { data: projectLabourers }] = projectIds.length
+  const [{ data: updates }, { data: clientPayments }, { data: projectLabourers }] = projectIds.length
     ? await Promise.all([
         supabase
           .from("project_updates")
@@ -53,54 +45,34 @@ export default async function ClientDashboard() {
           .order("created_at", { ascending: false })
           .limit(20),
         supabase
-          .from("materials")
-          .select("project_id, quantity, unit_cost, status")
-          .in("project_id", projectIds)
-          .is("archived_at", null),
-        supabase
-          .from("payments")
-          .select("id, amount, status, description, created_at, project_id, payee_type")
+          .from("client_payments")
+          .select("id, amount, description, paid_on, project_id")
           .in("project_id", projectIds)
           .is("archived_at", null)
-          .order("created_at", { ascending: false }),
-        // Attendance wages per project (total only, no labourer detail) via a
-        // security-definer RPC -- clients can't read the attendance table.
-        supabase.rpc("my_project_wage_totals"),
+          .order("paid_on", { ascending: false }),
         // Which labourers worked each project (names/trade only, no wages) --
-        // same security-definer scoping as the wage totals RPC above.
+        // security-definer RPC, clients can't read the attendance table.
         supabase.rpc("my_project_labourers"),
       ])
-    : [{ data: [] }, { data: [] }, { data: [] }, { data: [] }, { data: [] }];
+    : [{ data: [] }, { data: [] }, { data: [] }];
 
-  const spentByProject = new Map<string, number>();
-  for (const m of materials ?? []) {
-    if (m.status === "returned") continue;
-    spentByProject.set(
-      m.project_id!,
-      (spentByProject.get(m.project_id!) ?? 0) + lineTotal(m.quantity, m.unit_cost),
-    );
-  }
-  for (const p of payments ?? []) {
-    if (p.status !== "paid" && p.status !== "approved") continue;
-    if (!p.project_id) continue;
-    // Only labour payments add to spend. Supplier payments settle material
-    // costs that are already counted above, so including them double-counts.
-    if (p.payee_type !== "labour") continue;
-    spentByProject.set(p.project_id, (spentByProject.get(p.project_id) ?? 0) + Number(p.amount));
-  }
-  for (const w of (wageTotals ?? []) as { project_id: string; wage_total: number }[]) {
-    if (!w.project_id) continue;
-    spentByProject.set(w.project_id, (spentByProject.get(w.project_id) ?? 0) + Number(w.wage_total));
+  const receivedByProject = new Map<string, number>();
+  for (const cp of clientPayments ?? []) {
+    if (!cp.project_id) continue;
+    receivedByProject.set(cp.project_id, (receivedByProject.get(cp.project_id) ?? 0) + Number(cp.amount));
   }
 
   const projectName = new Map((projects ?? []).map((p) => [p.id, p.name]));
 
-  const labourersByProject = new Map<string, { name: string; category: string | null }[]>();
-  for (const l of (projectLabourers ?? []) as { project_id: string; labourer_name: string; category: string | null }[]) {
+  // Category + headcount, not individual names -- clients want to know
+  // coverage, not who specifically is on site.
+  const labourCategoryCountsByProject = new Map<string, Map<string, number>>();
+  for (const l of (projectLabourers ?? []) as { project_id: string; category: string | null }[]) {
     if (!l.project_id) continue;
-    const list = labourersByProject.get(l.project_id) ?? [];
-    list.push({ name: l.labourer_name, category: l.category });
-    labourersByProject.set(l.project_id, list);
+    const label = l.category ?? "Uncategorized";
+    const counts = labourCategoryCountsByProject.get(l.project_id) ?? new Map<string, number>();
+    counts.set(label, (counts.get(label) ?? 0) + 1);
+    labourCategoryCountsByProject.set(l.project_id, counts);
   }
 
   return (
@@ -122,9 +94,10 @@ export default async function ClientDashboard() {
           <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-500">Your projects</h2>
           <section className="grid gap-4 sm:grid-cols-2">
             {projects!.map((p) => {
-              const spent = spentByProject.get(p.id) ?? 0;
+              const received = receivedByProject.get(p.id) ?? 0;
               const budget = Number(p.total_cost);
-              const remaining = budget - spent;
+              const remaining = budget - received;
+              const labourCounts = labourCategoryCountsByProject.get(p.id);
               return (
                 <article key={p.id} className="rounded-xl border border-slate-200 bg-white p-5">
                   <div className="flex items-baseline justify-between">
@@ -140,9 +113,8 @@ export default async function ClientDashboard() {
                     <ProgressBar pct={Number(p.completion_pct)} />
                     <div className="mt-1 text-xs text-slate-500">{Number(p.completion_pct).toFixed(1)}% complete</div>
                   </div>
-                  <dl className="mt-4 grid grid-cols-3 gap-3 text-sm">
+                  <dl className="mt-4 grid grid-cols-2 gap-3 text-sm">
                     <Cell label="Budget" value={`₹${budget.toLocaleString()}`} />
-                    <Cell label="Spent" value={`₹${spent.toLocaleString()}`} />
                     <Cell label="Remaining" value={`₹${remaining.toLocaleString()}`} />
                   </dl>
                   {(p.start_date || p.end_date) && (
@@ -165,16 +137,16 @@ export default async function ClientDashboard() {
                       Next payment due: {p.next_payment_date}
                     </div>
                   )}
-                  {(labourersByProject.get(p.id)?.length ?? 0) > 0 && (
+                  {labourCounts && labourCounts.size > 0 && (
                     <div className="mt-3">
                       <div className="text-xs uppercase tracking-wide text-slate-500">Labour on site</div>
                       <div className="mt-1.5 flex flex-wrap gap-1.5">
-                        {labourersByProject.get(p.id)!.map((l, i) => (
+                        {Array.from(labourCounts.entries()).map(([category, count]) => (
                           <span
-                            key={i}
+                            key={category}
                             className="rounded-md border border-slate-200 bg-slate-50 px-2 py-0.5 text-xs text-slate-700"
                           >
-                            {l.name}{l.category ? ` · ${l.category}` : ""}
+                            {category} · {count}
                           </span>
                         ))}
                       </div>
@@ -201,10 +173,18 @@ export default async function ClientDashboard() {
                 {u.stage && <div className="mt-1 text-sm text-slate-600">Stage: <span className="font-medium">{u.stage}</span></div>}
                 {u.note && <p className="mt-2 text-sm text-slate-700">{u.note}</p>}
                 {u.image_url && (
-                  <Image
-                    src={u.image_url} alt="" width={640} height={480} loading="lazy"
-                    className="mt-3 max-h-72 w-auto rounded-lg border border-slate-200 object-cover"
-                  />
+                  <div className="mt-3">
+                    <Image
+                      src={u.image_url} alt="" width={640} height={480} loading="lazy"
+                      className="max-h-72 w-auto rounded-lg border border-slate-200 object-cover"
+                    />
+                    <a
+                      href={`${u.image_url}?download`}
+                      className="mt-1.5 inline-block text-xs font-medium text-brand-700 hover:underline"
+                    >
+                      Download photo
+                    </a>
+                  </div>
                 )}
               </li>
             ))}
@@ -217,24 +197,20 @@ export default async function ClientDashboard() {
                 <tr>
                   <th className="px-4 py-2 font-medium">Date</th>
                   <th className="px-4 py-2 font-medium">Project</th>
-                  <th className="px-4 py-2 font-medium">For</th>
                   <th className="px-4 py-2 font-medium">Amount</th>
-                  <th className="px-4 py-2 font-medium">Status</th>
+                  <th className="px-4 py-2 font-medium">Description</th>
                 </tr>
               </thead>
               <tbody>
-                {(payments ?? []).length === 0 && (
-                  <tr><td colSpan={5} className="px-4 py-6 text-center text-slate-500">No payments yet.</td></tr>
+                {(clientPayments ?? []).length === 0 && (
+                  <tr><td colSpan={4} className="px-4 py-6 text-center text-slate-500">No payments yet.</td></tr>
                 )}
-                {payments?.map((p) => (
-                  <tr key={p.id} className="border-t border-slate-100">
-                    <td className="px-4 py-2 text-slate-600">{formatDateTime(p.created_at)}</td>
-                    <td className="px-4 py-2 text-slate-600">{projectName.get(p.project_id!) ?? "—"}</td>
-                    <td className="px-4 py-2 text-slate-600">{p.payee_type === "supplier" ? "Materials/supplier" : "Labour"}</td>
-                    <td className="px-4 py-2 font-medium">₹{Number(p.amount).toLocaleString()}</td>
-                    <td className="px-4 py-2">
-                      <span className={`rounded-md border px-2 py-0.5 text-xs ${STATUS_STYLE[p.status] ?? ""}`}>{p.status}</span>
-                    </td>
+                {clientPayments?.map((cp) => (
+                  <tr key={cp.id} className="border-t border-slate-100">
+                    <td className="px-4 py-2 text-slate-600">{formatDateOnly(cp.paid_on)}</td>
+                    <td className="px-4 py-2 text-slate-600">{projectName.get(cp.project_id!) ?? "—"}</td>
+                    <td className="px-4 py-2 font-medium">₹{Number(cp.amount).toLocaleString()}</td>
+                    <td className="px-4 py-2 text-slate-600">{cp.description ?? "—"}</td>
                   </tr>
                 ))}
               </tbody>

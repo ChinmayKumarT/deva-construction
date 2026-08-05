@@ -22,6 +22,7 @@ import com.construction.manager.ui.lineTotal
 import com.construction.manager.ui.money
 import com.construction.manager.ui.RoleScaffold
 import com.construction.manager.util.CsvExporter
+import com.construction.manager.util.ImageSaver
 import com.construction.manager.util.PdfExporter
 import com.construction.manager.util.PdfSiteDetail
 import com.construction.manager.util.PdfTransaction
@@ -184,11 +185,13 @@ fun SupplierDashboard(vm: AuthViewModel) = RoleScaffold("Supplier", vm) { paddin
 // ---------- Client ----------
 @Composable
 fun ClientDashboard(vm: AuthViewModel) = RoleScaffold("Client", vm) { padding ->
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
     var client by remember { mutableStateOf<ClientRow?>(null) }
     var projects by remember { mutableStateOf<List<ProjectRow>>(emptyList()) }
     var updates by remember { mutableStateOf<List<ProjectUpdateRow>>(emptyList()) }
     var materials by remember { mutableStateOf<List<MaterialRow>>(emptyList()) }
-    var payments by remember { mutableStateOf<List<PaymentRow>>(emptyList()) }
+    var clientPayments by remember { mutableStateOf<List<ClientPaymentRow>>(emptyList()) }
     var wageTotals by remember { mutableStateOf<List<ProjectWageTotalRow>>(emptyList()) }
     var projectLabourers by remember { mutableStateOf<List<LabourOnProjectRow>>(emptyList()) }
     var error by remember { mutableStateOf<String?>(null) }
@@ -201,35 +204,29 @@ fun ClientDashboard(vm: AuthViewModel) = RoleScaffold("Client", vm) { padding ->
                 val ids = projects.map { it.id }
                 updates = Repo.myUpdates(ids)
                 materials = Repo.myMaterials(ids)
-                payments = Repo.myPayments(ids)
+                clientPayments = Repo.myClientPayments(ids)
                 wageTotals = Repo.myProjectWageTotals()
                 projectLabourers = Repo.myProjectLabourers()
             }
         } catch (e: Exception) { error = e.message }
     }
     val wageByProject = wageTotals.associate { it.projectId to it.wageTotal }
-    val labourersByProject = projectLabourers.groupBy { it.projectId }
-    val spentByProject = projects.associate { p ->
-        val mat = materials.filter { it.projectId == p.id && it.status != "returned" }
-            .sumOf { lineTotal(it.quantity, it.unitCost) }
-        // Labour only: supplier payments settle already-counted material costs.
-        val pay = payments.filter {
-            it.projectId == p.id && it.status in listOf("paid", "approved") &&
-                it.payeeType == "labour"
-        }.sumOf { it.amount }
-        // Attendance-accrued wages (total only, no labourer detail).
-        val wages = wageByProject[p.id] ?: 0.0
-        p.id to mat + pay + wages
+    // Category + headcount, not individual names -- clients want to know
+    // coverage, not who specifically is on site.
+    val labourCategoryCountsByProject = projectLabourers.groupBy { it.projectId }
+        .mapValues { (_, ls) -> ls.groupingBy { it.category ?: "Uncategorized" }.eachCount() }
+    val receivedByProject = projects.associate { p ->
+        p.id to clientPayments.filter { it.projectId == p.id }.sumOf { it.amount }
     }
 
     val rp = reportProject
     if (rp != null) {
         ClientReportDetail(
             project = rp,
-            spent = spentByProject[rp.id] ?: 0.0,
+            received = receivedByProject[rp.id] ?: 0.0,
             wages = wageByProject[rp.id] ?: 0.0,
             materials = materials.filter { it.projectId == rp.id },
-            payments = payments.filter { it.projectId == rp.id },
+            clientPayments = clientPayments.filter { it.projectId == rp.id },
             updates = updates.filter { it.projectId == rp.id },
             onBack = { reportProject = null },
         )
@@ -257,8 +254,11 @@ fun ClientDashboard(vm: AuthViewModel) = RoleScaffold("Client", vm) { padding ->
                             progress = { (p.completionPct / 100.0).toFloat().coerceIn(0f, 1f) },
                             modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp),
                         )
-                        Text("${"%.1f".format(p.completionPct)}% · Budget ${money(p.totalCost)}",
-                            style = MaterialTheme.typography.bodySmall)
+                        Text(
+                            "${"%.1f".format(p.completionPct)}% · Budget ${money(p.totalCost)} · " +
+                                "Remaining ${money(p.totalCost - (receivedByProject[p.id] ?: 0.0))}",
+                            style = MaterialTheme.typography.bodySmall,
+                        )
                         p.endDate?.let { end ->
                             if (p.finishDateExtended) {
                                 Text(
@@ -290,7 +290,7 @@ fun ClientDashboard(vm: AuthViewModel) = RoleScaffold("Client", vm) { padding ->
                                 modifier = Modifier.padding(top = 4.dp),
                             )
                         }
-                        labourersByProject[p.id]?.takeIf { it.isNotEmpty() }?.let { labourers ->
+                        labourCategoryCountsByProject[p.id]?.takeIf { it.isNotEmpty() }?.let { counts ->
                             Text(
                                 "LABOUR ON SITE",
                                 style = MaterialTheme.typography.labelSmall,
@@ -298,10 +298,7 @@ fun ClientDashboard(vm: AuthViewModel) = RoleScaffold("Client", vm) { padding ->
                                 modifier = Modifier.padding(top = 8.dp),
                             )
                             Text(
-                                labourers.joinToString(", ") { l ->
-                                    if (l.category.isNullOrBlank()) l.labourerName
-                                    else "${l.labourerName} · ${l.category}"
-                                },
+                                counts.entries.joinToString(", ") { (category, count) -> "$category · $count" },
                                 style = MaterialTheme.typography.bodySmall,
                                 modifier = Modifier.padding(top = 2.dp),
                             )
@@ -324,10 +321,15 @@ fun ClientDashboard(vm: AuthViewModel) = RoleScaffold("Client", vm) { padding ->
                             style = MaterialTheme.typography.bodySmall)
                         if (!u.note.isNullOrBlank()) Text(u.note,
                             modifier = Modifier.padding(top = 4.dp))
-                        u.imageUrl?.let {
-                            AsyncImage(it, contentDescription = null,
+                        u.imageUrl?.let { url ->
+                            AsyncImage(url, contentDescription = null,
                                 modifier = Modifier.fillMaxWidth().heightIn(max = 220.dp)
                                     .padding(top = 8.dp))
+                            TextButton(onClick = {
+                                scope.launch {
+                                    ImageSaver.saveToDownloads(context, url, "update-${u.id}.jpg")
+                                }
+                            }) { Text("Save image") }
                         }
                     }
                 }
@@ -339,10 +341,10 @@ fun ClientDashboard(vm: AuthViewModel) = RoleScaffold("Client", vm) { padding ->
 @Composable
 private fun ClientReportDetail(
     project: ProjectRow,
-    spent: Double,
+    received: Double,
     wages: Double,
     materials: List<MaterialRow>,
-    payments: List<PaymentRow>,
+    clientPayments: List<ClientPaymentRow>,
     updates: List<ProjectUpdateRow>,
     onBack: () -> Unit,
 ) {
@@ -350,7 +352,7 @@ private fun ClientReportDetail(
     val scope = rememberCoroutineScope()
     var exporting by remember { mutableStateOf(false) }
 
-    val transactions = remember(materials, payments, wages) {
+    val transactions = remember(materials, clientPayments, wages) {
         val materialTx = materials.map {
             PdfTransaction(
                 type = "Material",
@@ -360,12 +362,12 @@ private fun ClientReportDetail(
                 amount = lineTotal(it.quantity, it.unitCost),
             )
         }
-        val paymentTx = payments.map {
+        val clientPaymentTx = clientPayments.map {
             PdfTransaction(
-                type = if (it.payeeType == "labour") "Payment · labour" else "Payment · supplier",
+                type = "Payment received",
                 description = it.description?.ifBlank { null } ?: "—",
-                date = formatDateTime(it.createdAt),
-                status = it.status,
+                date = it.paidOn ?: "no date",
+                status = "",
                 amount = it.amount,
             )
         }
@@ -380,7 +382,7 @@ private fun ClientReportDetail(
                 amount = wages,
             ),
         ) else emptyList()
-        (materialTx + paymentTx + wageTx).sortedByDescending { it.date }
+        (materialTx + clientPaymentTx + wageTx).sortedByDescending { it.date }
     }
 
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
@@ -414,7 +416,7 @@ private fun ClientReportDetail(
                                 status = project.status,
                                 completionPct = project.completionPct,
                                 budget = project.totalCost,
-                                spent = spent,
+                                spent = received,
                                 detail = PdfSiteDetail(
                                     client = null,
                                     address = project.address,
@@ -439,11 +441,11 @@ private fun ClientReportDetail(
 
         CompletionAndSpendPies(
             project.name, project.completionPct,
-            if (project.totalCost > 0) (spent / project.totalCost * 100)
-            else if (spent > 0) 999.0 else 0.0,
+            if (project.totalCost > 0) (received / project.totalCost * 100)
+            else if (received > 0) 999.0 else 0.0,
         )
         Divider()
-        BudgetPie(project.name, project.totalCost, spent)
+        BudgetPie(project.name, project.totalCost, received)
         Divider()
 
         SectionTitle("Transactions (${transactions.size})")
