@@ -50,6 +50,8 @@ labourers are records the site manager maintains (they don't sign in).
    18_oauth_role_pending.sql
    19_client_project_labourers.sql
    20_admin_delete_user.sql
+   21_personal_transactions.sql
+   22_auto_create_client.sql
    ```
 
    `supabase/README.md` has a one-line description of what each file does if
