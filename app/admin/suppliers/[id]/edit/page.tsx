@@ -26,7 +26,7 @@ export default async function EditSupplierPage({ params }: { params: { id: strin
         <input type="hidden" name="id" value={supplier.id} />
         <Field label="Name" name="name" required defaultValue={supplier.name} />
         <Field label="Email" name="email" type="email" defaultValue={supplier.email ?? ""} />
-        <Field label="Phone" name="phone" defaultValue={supplier.phone ?? ""} />
+        <Field label="Phone" name="phone" type="tel" maxLength={10} defaultValue={supplier.phone ?? ""} />
         <Field label="Address" name="address" defaultValue={supplier.address ?? ""} />
         <Select label="Link to login (optional)" name="profile_id" defaultValue={supplier.profile_id ?? "none"}>
           <option value="none">— none —</option>

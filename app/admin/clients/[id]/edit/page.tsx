@@ -27,7 +27,7 @@ export default async function EditClientPage({ params }: { params: { id: string 
         <input type="hidden" name="id" value={client.id} />
         <Field label="Name" name="name" required defaultValue={client.name} />
         <Field label="Email" name="email" type="email" defaultValue={client.email ?? ""} />
-        <Field label="Phone" name="phone" defaultValue={client.phone ?? ""} />
+        <Field label="Phone" name="phone" type="tel" maxLength={10} defaultValue={client.phone ?? ""} />
         <Field label="Address" name="address" defaultValue={client.address ?? ""} />
         <Select label="Link to login (optional)" name="profile_id" defaultValue={client.profile_id ?? "none"}>
           <option value="none">— none —</option>

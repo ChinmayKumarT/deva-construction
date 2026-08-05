@@ -25,7 +25,7 @@ export default async function EditLabourerPage({ params }: { params: { id: strin
           <option value="">— none —</option>
           {WORK_CATEGORIES.map((c) => (<option key={c} value={c}>{c}</option>))}
         </Select>
-        <Field label="Phone" name="phone" defaultValue={labourer.phone ?? ""} />
+        <Field label="Phone" name="phone" type="tel" maxLength={10} defaultValue={labourer.phone ?? ""} />
         <Field label="Daily wage (₹)" name="daily_wage" type="number" step="0.01" min="0" defaultValue={labourer.daily_wage ?? 0} />
         <label className="flex items-center gap-2 text-sm text-slate-700">
           <input type="checkbox" name="active" defaultChecked={labourer.active} />

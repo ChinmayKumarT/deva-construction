@@ -20,6 +20,7 @@ export function Field({
   step,
   min,
   max,
+  maxLength,
 }: {
   label: string;
   name: string;
@@ -29,6 +30,7 @@ export function Field({
   step?: string;
   min?: string | number;
   max?: string | number;
+  maxLength?: number;
 }) {
   return (
     <label className="block text-sm">
@@ -41,6 +43,7 @@ export function Field({
         step={step}
         min={min}
         max={max}
+        maxLength={maxLength}
         className="w-full rounded-lg border border-[var(--line)] bg-white px-3 py-2 outline-none focus:border-brand focus:ring-2 focus:ring-brand/20"
       />
     </label>

@@ -177,9 +177,11 @@ private fun EditDialog(
 
 /** Plain text field for use inside dialogs (the shared TextField adds list padding). */
 @Composable
-private fun DialogField(value: String, onChange: (String) -> Unit, label: String) {
+private fun DialogField(value: String, onChange: (String) -> Unit, label: String, maxLength: Int? = null) {
     OutlinedTextField(
-        value = value, onValueChange = onChange, label = { Text(label) },
+        value = value,
+        onValueChange = { s -> onChange(if (maxLength != null) s.take(maxLength) else s) },
+        label = { Text(label) },
         singleLine = true, modifier = Modifier.fillMaxWidth(),
     )
 }
@@ -627,7 +629,7 @@ fun AdminClients(isOwner: Boolean = false) {
             SectionTitle("Add client")
             TextField(name, { name = it }, "Name")
             TextField(email, { email = it }, "Email")
-            TextField(phone, { phone = it }, "Phone")
+            TextField(phone, { phone = it }, "Phone", maxLength = 10)
             Dropdown("Link to login (optional)", unlinked, profile,
                 { it.fullName ?: it.id.take(8) }, { profile = it })
             Button(onClick = {
@@ -722,7 +724,7 @@ private fun EditClientDialog(client: ClientRow, onDismiss: () -> Unit, onSaved: 
     ) {
         DialogField(name, { name = it }, "Name")
         DialogField(email, { email = it }, "Email")
-        DialogField(phone, { phone = it }, "Phone")
+        DialogField(phone, { phone = it }, "Phone", maxLength = 10)
     }
 }
 
@@ -757,7 +759,7 @@ fun AdminSuppliers(isOwner: Boolean = false) {
             SectionTitle("Add supplier")
             TextField(name, { name = it }, "Name")
             TextField(email, { email = it }, "Email")
-            TextField(phone, { phone = it }, "Phone")
+            TextField(phone, { phone = it }, "Phone", maxLength = 10)
             Dropdown("Link to login (optional)", unlinked, profile,
                 { it.fullName ?: it.id.take(8) }, { profile = it })
             Button(onClick = {
@@ -852,7 +854,7 @@ private fun EditSupplierDialog(supplier: SupplierRow, onDismiss: () -> Unit, onS
     ) {
         DialogField(name, { name = it }, "Name")
         DialogField(email, { email = it }, "Email")
-        DialogField(phone, { phone = it }, "Phone")
+        DialogField(phone, { phone = it }, "Phone", maxLength = 10)
     }
 }
 
@@ -884,7 +886,7 @@ fun AdminLabourers(isOwner: Boolean = false) {
             SectionTitle("Add labourer")
             TextField(name, { name = it }, "Name")
             Dropdown("Category", WorkCategories, category, { it }, { category = it })
-            TextField(phone, { phone = it }, "Phone")
+            TextField(phone, { phone = it }, "Phone", maxLength = 10)
             NumberField(wage, { wage = it }, "Daily wage")
             Row(Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
                 verticalAlignment = Alignment.CenterVertically) {
@@ -991,7 +993,7 @@ private fun EditLabourerDialog(labourer: LabourerRow, onDismiss: () -> Unit, onS
     ) {
         DialogField(name, { name = it }, "Name")
         Dropdown("Category", WorkCategories, category, { it }, { category = it })
-        DialogField(phone, { phone = it }, "Phone")
+        DialogField(phone, { phone = it }, "Phone", maxLength = 10)
         OutlinedTextField(
             value = wage,
             onValueChange = { s -> if (s.isEmpty() || s.toDoubleOrNull() != null) wage = s },

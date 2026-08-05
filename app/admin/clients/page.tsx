@@ -42,7 +42,7 @@ export default async function ClientsPage({
         <form action={createClientAction} className="mb-8 grid gap-4 rounded-xl border border-slate-200 bg-white p-6 sm:grid-cols-2 lg:grid-cols-3">
           <Field label="Name" name="name" required />
           <Field label="Email" name="email" type="email" />
-          <Field label="Phone" name="phone" />
+          <Field label="Phone" name="phone" type="tel" maxLength={10} />
           <Field label="Address" name="address" />
           <Select label="Link to login (optional)" name="profile_id" defaultValue="none">
             <option value="none">— none —</option>

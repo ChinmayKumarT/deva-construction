@@ -67,9 +67,11 @@ fun SectionTitle(text: String) {
 
 @Composable
 fun TextField(value: String, onChange: (String) -> Unit, label: String,
-              modifier: Modifier = Modifier) {
+              modifier: Modifier = Modifier, maxLength: Int? = null) {
     OutlinedTextField(
-        value = value, onValueChange = onChange, label = { Text(label) },
+        value = value,
+        onValueChange = { s -> onChange(if (maxLength != null) s.take(maxLength) else s) },
+        label = { Text(label) },
         modifier = modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
         singleLine = true,
     )
