@@ -147,8 +147,10 @@ fun SupplierDashboard(vm: AuthViewModel) = RoleScaffold("Supplier", vm) { paddin
                 val a = amount.toDoubleOrNull() ?: return@Button
                 scope.launch {
                     try {
+                        // Suppliers are trusted -- skip the manual approval review
+                        // step, but "Mark paid" stays a separate admin-only action.
                         Repo.createPayment(p.id, "supplier", supplier!!.id, null, a,
-                            desc.ifBlank { null }, null)
+                            desc.ifBlank { null }, null, status = "approved")
                         amount = ""; desc = ""; version++
                     } catch (e: Exception) { error = e.message }
                 }

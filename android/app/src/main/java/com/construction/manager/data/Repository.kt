@@ -449,13 +449,13 @@ object Repo {
     }
     suspend fun createPayment(projectId: String?, payeeType: String, supplierId: String?,
                               labourerId: String?, amount: Double, description: String?,
-                              workCategory: String?) {
+                              workCategory: String?, status: String = "pending") {
         supabase.from("payments").insert(buildJsonObject {
             if (projectId != null) put("project_id", projectId)
             put("payee_type", payeeType)
             if (payeeType == "supplier" && supplierId != null) put("supplier_id", supplierId)
             if (payeeType == "labour" && labourerId != null) put("labourer_id", labourerId)
-            put("amount", amount); put("status", "pending")
+            put("amount", amount); put("status", status)
             if (description != null) put("description", description)
             if (workCategory != null) put("work_category", workCategory)
         })

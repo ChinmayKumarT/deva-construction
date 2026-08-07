@@ -74,7 +74,10 @@ export async function generateBill(fd: FormData) {
     supplier_id: supplier.id,
     amount,
     description,
-    status: "pending",
+    // Suppliers are trusted -- skip the manual approval review step, but
+    // "Mark paid" stays a separate admin-only action for the actual
+    // payment event (see 26_supplier_bills_auto_approved.sql).
+    status: "approved",
   });
   if (error) throw new Error(error.message);
   revalidatePath("/supplier");
