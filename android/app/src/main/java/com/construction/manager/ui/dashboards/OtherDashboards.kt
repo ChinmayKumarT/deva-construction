@@ -17,6 +17,10 @@ import coil3.compose.AsyncImage
 import com.construction.manager.data.*
 import com.construction.manager.ui.AuthViewModel
 import com.construction.manager.ui.BudgetPie
+import com.construction.manager.ui.CashFlowBarChart
+import com.construction.manager.ui.CashFlowCategory
+import com.construction.manager.ui.CashFlowDailyPoint
+import com.construction.manager.ui.CashFlowTrendChart
 import com.construction.manager.ui.CompletionAndSpendPies
 import com.construction.manager.ui.DeleteAccountButton
 import com.construction.manager.ui.formatDateTime
@@ -217,6 +221,27 @@ fun SupplierDashboard(vm: AuthViewModel) = RoleScaffold("Supplier", vm) { paddin
     }
 }
 
+// Buckets a flat list of (date, amount) pairs by day, filling every day
+// between the data's own earliest and latest entry (even 0s) so
+// CashFlowTrendChart's line stays continuous. Mirrors web's
+// dailyTotalsFromDatedAmounts in lib/paymentsChart.ts -- unlike web's
+// CashFlowTrendChart, Android's version cumulates internally, so this
+// intentionally returns raw per-day totals, not a running total.
+private fun dailyTotalsFromDatedAmounts(rows: List<Pair<String, Double>>): List<CashFlowDailyPoint> {
+    if (rows.isEmpty()) return emptyList()
+    val byDate = rows.groupingBy { it.first }.fold(0.0) { acc, r -> acc + r.second }
+    val dates = byDate.keys.sorted()
+    var cur = java.time.LocalDate.parse(dates.first())
+    val end = java.time.LocalDate.parse(dates.last())
+    val points = mutableListOf<CashFlowDailyPoint>()
+    while (!cur.isAfter(end)) {
+        val d = cur.toString()
+        points.add(CashFlowDailyPoint(d, byDate[d] ?: 0.0))
+        cur = cur.plusDays(1)
+    }
+    return points
+}
+
 // ---------- Client ----------
 @Composable
 fun ClientDashboard(vm: AuthViewModel) = RoleScaffold("Client", vm) { padding ->
@@ -294,6 +319,15 @@ fun ClientDashboard(vm: AuthViewModel) = RoleScaffold("Client", vm) { padding ->
                                 "Remaining ${money(p.totalCost - (receivedByProject[p.id] ?: 0.0))}",
                             style = MaterialTheme.typography.bodySmall,
                         )
+                        val received = receivedByProject[p.id] ?: 0.0
+                        if (received > 0) {
+                            BudgetPie("Paid vs remaining", p.totalCost, received)
+                            val projectDaily = dailyTotalsFromDatedAmounts(
+                                clientPayments.filter { it.projectId == p.id }
+                                    .mapNotNull { cp -> cp.paidOn?.let { it to cp.amount } },
+                            )
+                            if (projectDaily.isNotEmpty()) CashFlowTrendChart(projectDaily)
+                        }
                         p.endDate?.let { end ->
                             if (p.finishDateExtended) {
                                 Text(
@@ -369,6 +403,15 @@ fun ClientDashboard(vm: AuthViewModel) = RoleScaffold("Client", vm) { padding ->
                         }
                     }
                 }
+            }
+
+            if (clientPayments.isNotEmpty()) {
+                SectionTitle("Payment timeline")
+                CashFlowBarChart(
+                    clientPayments.map { cp ->
+                        CashFlowCategory(cp.paidOn ?: "—", cp.amount, androidx.compose.ui.graphics.Color(0xFF16A34A))
+                    },
+                )
             }
         }
     }

@@ -1592,6 +1592,28 @@ fun AdminPayments(isOwner: Boolean = false, initialProjectFilter: ProjectRow? = 
     }
 }
 
+// Buckets a flat list of (date, amount) pairs by day, filling every day
+// between the data's own earliest and latest entry (even 0s) so
+// CashFlowTrendChart's line stays continuous. Same file-local convention
+// as ReportWageFactor/computeWagesDue below -- mirrors the identical
+// helper in OtherDashboards.kt (file-private there too, so duplicated
+// rather than shared across files) and web's dailyTotalsFromDatedAmounts
+// in lib/paymentsChart.ts.
+private fun dailyTotalsFromDatedAmounts(rows: List<Pair<String, Double>>): List<CashFlowDailyPoint> {
+    if (rows.isEmpty()) return emptyList()
+    val byDate = rows.groupingBy { it.first }.fold(0.0) { acc, r -> acc + r.second }
+    val dates = byDate.keys.sorted()
+    var cur = java.time.LocalDate.parse(dates.first())
+    val end = java.time.LocalDate.parse(dates.last())
+    val points = mutableListOf<CashFlowDailyPoint>()
+    while (!cur.isAfter(end)) {
+        val d = cur.toString()
+        points.add(CashFlowDailyPoint(d, byDate[d] ?: 0.0))
+        cur = cur.plusDays(1)
+    }
+    return points
+}
+
 @Composable
 private fun PaymentsProjectPicker(
     projects: List<ProjectRow>,
@@ -1616,6 +1638,18 @@ private fun PaymentsProjectPicker(
     val totalCost = remember(statsByProject, unassignedSpend) {
         statsByProject.values.sumOf { it.second } + unassignedSpend
     }
+    val projectName = projects.associate { it.id to it.name }
+    val payeeSplit = remember(rows) {
+        val notRejected = rows.filter { it.status != "rejected" }
+        (notRejected.filter { it.payeeType == "labour" }.sumOf { it.amount }) to
+            (notRejected.filter { it.payeeType == "supplier" }.sumOf { it.amount })
+    }
+    val dailyTotals = remember(rows) {
+        dailyTotalsFromDatedAmounts(
+            rows.filter { it.status != "rejected" }
+                .mapNotNull { r -> r.createdAt?.let { it.take(10) to r.amount } },
+        )
+    }
 
     FormColumn {
         SectionTitle("Payments")
@@ -1627,6 +1661,41 @@ private fun PaymentsProjectPicker(
         Spacer(Modifier.height(8.dp))
         StatCard("Total cost", money(totalCost), modifier = Modifier.padding(horizontal = 16.dp), accent = true)
         Spacer(Modifier.height(8.dp))
+
+        if (dailyTotals.isNotEmpty()) {
+            SectionTitle("Payments over time")
+            CashFlowTrendChart(dailyTotals)
+        }
+        if (statsByProject.isNotEmpty()) {
+            SectionTitle("Spend by project")
+            CashFlowBarChart(
+                statsByProject.entries.map { (id, stat) ->
+                    CashFlowCategory(projectName[id] ?: "—", stat.second, androidx.compose.ui.graphics.Color(0xFF16A34A))
+                },
+            )
+        }
+        val (labourTotal, supplierTotal) = payeeSplit
+        if (labourTotal + supplierTotal > 0) {
+            SectionTitle("Labour vs supplier")
+            Row(Modifier.padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                LabeledPie(
+                    "",
+                    listOf(
+                        PieSlice(labourTotal.toFloat(), androidx.compose.ui.graphics.Color(0xFF0EA5E9)),
+                        PieSlice(supplierTotal.toFloat(), androidx.compose.ui.graphics.Color(0xFFF59E0B)),
+                    ),
+                    pieSize = 72.dp,
+                )
+                ChartLegend(
+                    listOf(
+                        "Labour · ${money(labourTotal)}" to androidx.compose.ui.graphics.Color(0xFF0EA5E9),
+                        "Supplier · ${money(supplierTotal)}" to androidx.compose.ui.graphics.Color(0xFFF59E0B),
+                    ),
+                )
+            }
+        }
+
         if (projects.isEmpty()) {
             Text("No projects yet.", Modifier.padding(16.dp))
         }

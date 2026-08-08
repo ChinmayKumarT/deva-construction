@@ -2,6 +2,14 @@ import Image from "next/image";
 import { requireRole } from "@/lib/guard";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { formatDateOnly } from "@/lib/dateFormat";
+import { CashFlowBarChart } from "@/components/admin/CashFlowBarChart";
+import { CashFlowTrendChart } from "@/components/admin/CashFlowTrendChart";
+import { PieChart, PieLegend } from "@/components/admin/PieChart";
+import { dailyTotalsFromDatedAmounts } from "@/lib/paymentsChart";
+import { toCumulative } from "@/lib/cashflow";
+
+const RECEIVED_COLOR = "#16a34a";
+const REMAINING_COLOR = "#E2E8F0";
 
 export default async function ClientDashboard() {
   const { user } = await requireRole("client");
@@ -57,9 +65,13 @@ export default async function ClientDashboard() {
     : [{ data: [] }, { data: [] }, { data: [] }];
 
   const receivedByProject = new Map<string, number>();
+  const paymentsByProject = new Map<string, { date: string; amount: number }[]>();
   for (const cp of clientPayments ?? []) {
     if (!cp.project_id) continue;
     receivedByProject.set(cp.project_id, (receivedByProject.get(cp.project_id) ?? 0) + Number(cp.amount));
+    const list = paymentsByProject.get(cp.project_id) ?? [];
+    list.push({ date: cp.paid_on, amount: Number(cp.amount) });
+    paymentsByProject.set(cp.project_id, list);
   }
 
   const projectName = new Map((projects ?? []).map((p) => [p.id, p.name]));
@@ -98,6 +110,8 @@ export default async function ClientDashboard() {
               const budget = Number(p.total_cost);
               const remaining = budget - received;
               const labourCounts = labourCategoryCountsByProject.get(p.id);
+              const projectPayments = paymentsByProject.get(p.id) ?? [];
+              const projectTrend = toCumulative(dailyTotalsFromDatedAmounts(projectPayments));
               return (
                 <article key={p.id} className="rounded-xl border border-slate-200 bg-white p-5">
                   <div className="flex items-baseline justify-between">
@@ -117,6 +131,28 @@ export default async function ClientDashboard() {
                     <Cell label="Budget" value={`₹${budget.toLocaleString()}`} />
                     <Cell label="Remaining" value={`₹${remaining.toLocaleString()}`} />
                   </dl>
+                  {received > 0 && (
+                    <div className="mt-3 flex items-center gap-4">
+                      <PieChart
+                        slices={[
+                          { fraction: received, color: RECEIVED_COLOR },
+                          { fraction: Math.max(remaining, 0), color: REMAINING_COLOR },
+                        ]}
+                        size={56}
+                      />
+                      <PieLegend
+                        items={[
+                          { label: `Paid · ₹${received.toLocaleString()}`, color: RECEIVED_COLOR },
+                          { label: `Remaining · ₹${Math.max(remaining, 0).toLocaleString()}`, color: REMAINING_COLOR },
+                        ]}
+                      />
+                    </div>
+                  )}
+                  {projectTrend.length > 0 && (
+                    <div className="mt-3">
+                      <CashFlowTrendChart daily={projectTrend} width={260} height={90} />
+                    </div>
+                  )}
                   {(p.start_date || p.end_date) && (
                     <p className="mt-3 text-xs text-slate-500">
                       {p.start_date ?? "—"} → {p.end_date ?? "—"}
@@ -192,6 +228,17 @@ export default async function ClientDashboard() {
           </ul>
 
           <h2 className="mt-10 mb-3 text-sm font-semibold uppercase tracking-wide text-slate-500">Payment timeline</h2>
+          {clientPayments && clientPayments.length > 0 && (
+            <div className="mb-4 rounded-xl border border-slate-200 bg-white p-5">
+              <CashFlowBarChart
+                bars={clientPayments.map((cp) => ({
+                  label: formatDateOnly(cp.paid_on),
+                  value: Number(cp.amount),
+                  color: RECEIVED_COLOR,
+                }))}
+              />
+            </div>
+          )}
           <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white">
             <table className="w-full text-sm">
               <thead className="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">

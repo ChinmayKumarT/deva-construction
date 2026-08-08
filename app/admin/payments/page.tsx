@@ -1,9 +1,17 @@
 import Link from "next/link";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { AdminPage, AdminPageHeader, CostBox } from "@/components/admin/Page";
+import { CashFlowBarChart } from "@/components/admin/CashFlowBarChart";
+import { CashFlowTrendChart } from "@/components/admin/CashFlowTrendChart";
+import { PieChart, PieLegend } from "@/components/admin/PieChart";
+import { byProjectTotals, payeeTypeSplit, dailyPaymentTotals } from "@/lib/paymentsChart";
+import { toCumulative } from "@/lib/cashflow";
 
 export const dynamic = "force-dynamic";
 export const fetchCache = "force-no-store";
+
+const SUPPLIER_COLOR = "#F59E0B";
+const LABOUR_COLOR = "#0EA5E9";
 
 export default async function PaymentsIndexPage({
   searchParams,
@@ -16,8 +24,8 @@ export default async function PaymentsIndexPage({
   const [{ data: projects }, { data: payments }, { count: archivedCount }] = await Promise.all([
     supabase.from("projects").select("id, name, status").is("archived_at", null).order("name"),
     showArchived
-      ? supabase.from("payments").select("id, project_id, amount, status").not("archived_at", "is", null)
-      : supabase.from("payments").select("id, project_id, amount, status").is("archived_at", null),
+      ? supabase.from("payments").select("id, project_id, amount, status, payee_type, created_at").not("archived_at", "is", null)
+      : supabase.from("payments").select("id, project_id, amount, status, payee_type, created_at").is("archived_at", null),
     supabase.from("payments").select("id", { count: "exact", head: true }).not("archived_at", "is", null),
   ]);
 
@@ -37,6 +45,17 @@ export default async function PaymentsIndexPage({
 
   const suffix = showArchived ? "?archived=1" : "";
   const totalCost = Array.from(byProject.values()).reduce((sum, s) => sum + s.spend, 0) + unassignedSpend;
+
+  const projectName = new Map((projects ?? []).map((p) => [p.id, p.name]));
+  const chartProjectTotals = byProjectTotals(payments ?? []);
+  const chartBars = Array.from(chartProjectTotals.entries()).map(([id, value]) => ({
+    label: projectName.get(id) ?? "No project",
+    value,
+    color: "#16a34a",
+  }));
+  const { labour, supplier } = payeeTypeSplit(payments ?? []);
+  const payeeTotal = labour + supplier;
+  const cumulativeDaily = toCumulative(dailyPaymentTotals(payments ?? []));
 
   return (
     <AdminPage>
@@ -62,6 +81,44 @@ export default async function PaymentsIndexPage({
           </Link>
         </div>
       ) : null}
+
+      {!showArchived && payments && payments.length > 0 && (
+        <div className="mb-8 grid gap-6 lg:grid-cols-2">
+          {cumulativeDaily.length > 0 && (
+            <div className="rounded-xl border border-[var(--line)] bg-white p-5 lg:col-span-2">
+              <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-500">
+                Payments over time
+              </h2>
+              <CashFlowTrendChart daily={cumulativeDaily} />
+            </div>
+          )}
+          <div className="rounded-xl border border-[var(--line)] bg-white p-5">
+            <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-500">Spend by project</h2>
+            <CashFlowBarChart bars={chartBars} />
+          </div>
+          <div className="rounded-xl border border-[var(--line)] bg-white p-5">
+            <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-500">Labour vs supplier</h2>
+            <div className="flex items-center gap-4">
+              <PieChart
+                slices={[
+                  { fraction: labour, color: LABOUR_COLOR },
+                  { fraction: supplier, color: SUPPLIER_COLOR },
+                ]}
+                size={96}
+              />
+              <div>
+                <PieLegend
+                  items={[
+                    { label: `Labour · ₹${labour.toLocaleString()}`, color: LABOUR_COLOR },
+                    { label: `Supplier · ₹${supplier.toLocaleString()}`, color: SUPPLIER_COLOR },
+                  ]}
+                />
+                {payeeTotal === 0 && <p className="mt-2 text-xs text-slate-500">No paid/approved payments yet.</p>}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {!showArchived && (
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">

@@ -24,7 +24,7 @@ private val SpendColor = Color(0xFFF59E0B)
 data class PieSlice(val fraction: Float, val color: Color)
 
 @Composable
-private fun PieChart(slices: List<PieSlice>, modifier: Modifier = Modifier) {
+fun PieChart(slices: List<PieSlice>, modifier: Modifier = Modifier) {
     Canvas(modifier) {
         var startAngle = -90f
         val total = slices.sumOf { it.fraction.toDouble() }.toFloat().coerceAtLeast(0.0001f)
@@ -44,7 +44,7 @@ private fun PieChart(slices: List<PieSlice>, modifier: Modifier = Modifier) {
 }
 
 @Composable
-private fun ChartLegend(items: List<Pair<String, Color>>) {
+fun ChartLegend(items: List<Pair<String, Color>>) {
     Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
         items.forEach { (label, color) ->
             Row(
@@ -59,7 +59,7 @@ private fun ChartLegend(items: List<Pair<String, Color>>) {
 }
 
 @Composable
-private fun LabeledPie(
+fun LabeledPie(
     title: String,
     slices: List<PieSlice>,
     pieSize: Dp = 64.dp,
