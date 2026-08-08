@@ -2,8 +2,8 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { AdminPage, AdminPageHeader, Field, Select, SubmitButton } from "@/components/admin/Page";
+import { CategoryField } from "@/components/admin/CategoryField";
 import { updateMaterial } from "../../../actions";
-import { WORK_CATEGORIES } from "@/lib/workCategories";
 
 export default async function EditMaterialPage({ params }: { params: { id: string } }) {
   const supabase = createSupabaseServerClient();
@@ -41,10 +41,7 @@ export default async function EditMaterialPage({ params }: { params: { id: strin
           <option value="delivered">Delivered</option>
           <option value="returned">Returned</option>
         </Select>
-        <Select label="Work category" name="work_category" defaultValue={material.work_category ?? ""}>
-          <option value="">— none —</option>
-          {WORK_CATEGORIES.map((c) => (<option key={c} value={c}>{c}</option>))}
-        </Select>
+        <CategoryField label="Work category" name="work_category" defaultValue={material.work_category ?? ""} />
         <div className="flex items-center gap-3 sm:col-span-2 lg:col-span-3">
           <SubmitButton>Save changes</SubmitButton>
           <Link href="/admin/materials" className="text-sm text-slate-600 hover:underline">Cancel</Link>

@@ -3,8 +3,8 @@ import { notFound } from "next/navigation";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { AdminPage, AdminPageHeader, CostBox, Field, Select, SubmitButton } from "@/components/admin/Page";
 import { ArchivedToggle } from "@/components/admin/RowActions";
+import { CategoryField } from "@/components/admin/CategoryField";
 import { createMaterial } from "../../actions";
-import { WORK_CATEGORIES } from "@/lib/workCategories";
 import { lineTotal } from "@/lib/money";
 
 export const dynamic = "force-dynamic";
@@ -78,10 +78,7 @@ export default async function ProjectMaterialsPage({
             <option value="delivered">Delivered</option>
             <option value="returned">Returned</option>
           </Select>
-          <Select label="Work category" name="work_category" defaultValue="">
-            <option value="">— none —</option>
-            {WORK_CATEGORIES.map((c) => (<option key={c} value={c}>{c}</option>))}
-          </Select>
+          <CategoryField label="Work category" name="work_category" />
           <div className="sm:col-span-2 lg:col-span-3">
             <SubmitButton>Add material</SubmitButton>
           </div>

@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import { SubmitButton } from "@/components/admin/Page";
+import { OTHER_CATEGORY } from "@/components/admin/CategoryField";
 import { WORK_CATEGORIES } from "@/lib/workCategories";
 import { wageDueKey } from "@/lib/wages";
 import { lineTotal } from "@/lib/money";
@@ -69,7 +70,11 @@ function PaymentFormFields({
   const [labourerId, setLabourerId] = useState(initial.labourerId);
   const [amount, setAmount] = useState(initial.amount);
   const [description, setDescription] = useState(initial.description);
-  const [workCategory, setWorkCategory] = useState(initial.workCategory);
+  const initialCategoryKnown = (WORK_CATEGORIES as readonly string[]).includes(initial.workCategory);
+  const [workCategory, setWorkCategory] = useState(
+    initialCategoryKnown ? initial.workCategory : initial.workCategory ? OTHER_CATEGORY : "",
+  );
+  const [workCategoryOther, setWorkCategoryOther] = useState(initialCategoryKnown ? "" : initial.workCategory);
 
   const projectMaterials = useMemo(
     () => materials.filter((m) => projectId !== "none" && m.project_id === projectId),
@@ -107,7 +112,10 @@ function PaymentFormFields({
     setSupplierId(m.supplier_id ?? "none");
     setAmount(String(lineTotal(m.quantity, m.unit_cost)));
     setDescription(`${m.name} (${m.quantity} ${m.unit})`);
-    setWorkCategory(m.work_category ?? "");
+    const mCategory = m.work_category ?? "";
+    const mCategoryKnown = (WORK_CATEGORIES as readonly string[]).includes(mCategory);
+    setWorkCategory(mCategoryKnown ? mCategory : mCategory ? OTHER_CATEGORY : "");
+    setWorkCategoryOther(mCategoryKnown ? "" : mCategory);
   }
 
   return (
@@ -214,18 +222,31 @@ function PaymentFormFields({
         </>
       )}
 
-      <label className="block text-sm">
-        <span className="mb-1 block font-medium text-slate-700">Work category</span>
-        <select
-          name="work_category"
-          className={selectClass}
-          value={workCategory}
-          onChange={(e) => setWorkCategory(e.target.value)}
-        >
-          <option value="">— none —</option>
-          {WORK_CATEGORIES.map((c) => (<option key={c} value={c}>{c}</option>))}
-        </select>
-      </label>
+      <div>
+        <label className="block text-sm">
+          <span className="mb-1 block font-medium text-slate-700">Work category</span>
+          <select
+            name={workCategory === OTHER_CATEGORY ? undefined : "work_category"}
+            className={selectClass}
+            value={workCategory}
+            onChange={(e) => setWorkCategory(e.target.value)}
+          >
+            <option value="">— none —</option>
+            {WORK_CATEGORIES.map((c) => (<option key={c} value={c}>{c}</option>))}
+            <option value={OTHER_CATEGORY}>Other…</option>
+          </select>
+        </label>
+        {workCategory === OTHER_CATEGORY && (
+          <input
+            name="work_category"
+            value={workCategoryOther}
+            onChange={(e) => setWorkCategoryOther(e.target.value)}
+            placeholder="Enter category"
+            required
+            className={`mt-2 ${inputClass}`}
+          />
+        )}
+      </div>
 
       <label className="block text-sm">
         <span className="mb-1 block font-medium text-slate-700">Amount (₹)</span>

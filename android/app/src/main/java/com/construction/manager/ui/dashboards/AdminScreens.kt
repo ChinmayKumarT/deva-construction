@@ -890,7 +890,7 @@ fun AdminLabourers(isOwner: Boolean = false) {
         if (!showArchived) {
             SectionTitle("Add labourer")
             TextField(name, { name = it }, "Name")
-            Dropdown("Category", WorkCategories, category, { it }, { category = it })
+            CategoryDropdown("Category", category, { category = it })
             TextField(phone, { phone = it }, "Phone", maxLength = 10)
             NumberField(wage, { wage = it }, "Daily wage")
             Row(Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
@@ -997,7 +997,7 @@ private fun EditLabourerDialog(labourer: LabourerRow, onDismiss: () -> Unit, onS
         },
     ) {
         DialogField(name, { name = it }, "Name")
-        Dropdown("Category", WorkCategories, category, { it }, { category = it })
+        CategoryDropdown("Category", category, { category = it })
         DialogField(phone, { phone = it }, "Phone", maxLength = 10)
         OutlinedTextField(
             value = wage,
@@ -1017,6 +1017,34 @@ private fun EditLabourerDialog(labourer: LabourerRow, onDismiss: () -> Unit, onS
 private val WorkCategories = listOf(
     "None", "Carpenter", "Plumber", "Electrician", "Bar bender", "Civil worker", "Painter", "Tiles",
 )
+
+// "Other..." escape hatch: same fixed list, but lets someone type a
+// category that isn't one of the common ones instead of being stuck
+// choosing the closest fit. Mirrors web's CategoryField.tsx.
+private const val OtherCategorySentinel = "Other…"
+
+@Composable
+private fun CategoryDropdown(label: String, value: String, onChange: (String) -> Unit) {
+    val initiallyOther = value != "None" && value.isNotBlank() && value !in WorkCategories
+    var otherMode by remember { mutableStateOf(initiallyOther) }
+    Dropdown(
+        label, WorkCategories + OtherCategorySentinel,
+        if (otherMode) OtherCategorySentinel else value,
+        { it },
+        { selected ->
+            if (selected == OtherCategorySentinel) {
+                otherMode = true
+                onChange("")
+            } else {
+                otherMode = false
+                onChange(selected)
+            }
+        },
+    )
+    if (otherMode) {
+        TextField(value, onChange, "Enter category")
+    }
+}
 
 // ---------- Materials ----------
 @Composable
@@ -1089,7 +1117,7 @@ fun AdminMaterials(isOwner: Boolean = false, initialProjectFilter: ProjectRow? =
             NumberField(unitCost, { unitCost = it }, "Unit cost")
             Dropdown("Status", listOf("ordered","delivered","returned"), status, { it }, { status = it })
             Dropdown("Supplier", suppliers, supplier, { it.name }, { supplier = it })
-            Dropdown("Work category", WorkCategories, workCategory, { it }, { workCategory = it })
+            CategoryDropdown("Work category", workCategory, { workCategory = it })
             Button(onClick = {
                 val p = projectFilter ?: return@Button
                 scope.launch {
@@ -1222,7 +1250,7 @@ private fun MaterialsProjectPicker(
         NumberField(qty, { qty = it }, "Quantity")
         NumberField(unitCost, { unitCost = it }, "Unit cost")
         Dropdown("Status", listOf("ordered","delivered","returned"), status, { it }, { status = it })
-        Dropdown("Work category", WorkCategories, workCategory, { it }, { workCategory = it })
+        CategoryDropdown("Work category", workCategory, { workCategory = it })
         Button(onClick = {
             val p = project ?: return@Button
             scope.launch {
@@ -1302,7 +1330,7 @@ private fun EditMaterialDialog(material: MaterialRow, onDismiss: () -> Unit, onS
             label = { Text("Unit cost") }, singleLine = true, modifier = Modifier.fillMaxWidth(),
         )
         Dropdown("Status", listOf("ordered","delivered","returned"), status, { it }, { status = it })
-        Dropdown("Work category", WorkCategories, workCategory, { it }, { workCategory = it })
+        CategoryDropdown("Work category", workCategory, { workCategory = it })
     }
 }
 
@@ -1429,7 +1457,7 @@ fun AdminPayments(isOwner: Boolean = false, initialProjectFilter: ProjectRow? = 
                 Dropdown("Supplier", suppliers, supplier, { it.name }, { supplier = it })
                 TextField(desc, { desc = it }, "Description")
             }
-            Dropdown("Work category", WorkCategories, workCategory, { it }, { workCategory = it })
+            CategoryDropdown("Work category", workCategory, { workCategory = it })
             NumberField(amount, { amount = it }, "Amount")
             Button(onClick = {
                 val pid = projectFilter?.id ?: return@Button
@@ -1818,7 +1846,7 @@ private fun EditPaymentDialog(
             Dropdown("Supplier", suppliers, supplier, { it.name }, { supplier = it })
             DialogField(desc, { desc = it }, "Description")
         }
-        Dropdown("Work category", WorkCategories, workCategory, { it }, { workCategory = it })
+        CategoryDropdown("Work category", workCategory, { workCategory = it })
         OutlinedTextField(
             value = amount,
             onValueChange = { s -> if (s.isEmpty() || s.toDoubleOrNull() != null) amount = s },

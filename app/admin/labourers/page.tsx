@@ -1,9 +1,9 @@
 import { createSupabaseServerClient, getSessionAndRole } from "@/lib/supabase/server";
-import { AdminPage, AdminPageHeader, DataTable, Field, Select, SubmitButton } from "@/components/admin/Page";
+import { AdminPage, AdminPageHeader, DataTable, Field, SubmitButton } from "@/components/admin/Page";
 import { ArchivedToggle, DeleteForeverButton, ManageCard, ManageSection, RestoreAction, RowActions } from "@/components/admin/RowActions";
 import { AssignLabourerForm } from "@/components/admin/AssignLabourerForm";
+import { CategoryField } from "@/components/admin/CategoryField";
 import { assignLabourer, createLabourer, archiveLabourer, unarchiveLabourer, deleteLabourer } from "../actions";
-import { WORK_CATEGORIES } from "@/lib/workCategories";
 
 export default async function LabourersPage({
   searchParams,
@@ -66,10 +66,7 @@ export default async function LabourersPage({
       {!showArchived && (
         <form action={createLabourer} className="mb-8 grid gap-4 rounded-xl border border-slate-200 bg-white p-6 sm:grid-cols-2 lg:grid-cols-3">
           <Field label="Name" name="name" required />
-          <Select label="Category" name="category" defaultValue="">
-            <option value="">— none —</option>
-            {WORK_CATEGORIES.map((c) => (<option key={c} value={c}>{c}</option>))}
-          </Select>
+          <CategoryField label="Category" name="category" />
           <Field label="Phone" name="phone" type="tel" maxLength={10} />
           <Field label="Daily wage (₹)" name="daily_wage" type="number" step="0.01" min="0" />
           <label className="flex items-center gap-2 text-sm text-slate-700">

@@ -1,9 +1,9 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { AdminPage, AdminPageHeader, Field, Select, SubmitButton } from "@/components/admin/Page";
+import { AdminPage, AdminPageHeader, Field, SubmitButton } from "@/components/admin/Page";
+import { CategoryField } from "@/components/admin/CategoryField";
 import { updateLabourer } from "../../../actions";
-import { WORK_CATEGORIES } from "@/lib/workCategories";
 
 export default async function EditLabourerPage({ params }: { params: { id: string } }) {
   const supabase = createSupabaseServerClient();
@@ -21,10 +21,7 @@ export default async function EditLabourerPage({ params }: { params: { id: strin
       <form action={updateLabourer} className="grid gap-4 rounded-xl border border-slate-200 bg-white p-6 sm:grid-cols-2 lg:grid-cols-3">
         <input type="hidden" name="id" value={labourer.id} />
         <Field label="Name" name="name" required defaultValue={labourer.name} />
-        <Select label="Category" name="category" defaultValue={labourer.category ?? ""}>
-          <option value="">— none —</option>
-          {WORK_CATEGORIES.map((c) => (<option key={c} value={c}>{c}</option>))}
-        </Select>
+        <CategoryField label="Category" name="category" defaultValue={labourer.category ?? ""} />
         <Field label="Phone" name="phone" type="tel" maxLength={10} defaultValue={labourer.phone ?? ""} />
         <Field label="Daily wage (₹)" name="daily_wage" type="number" step="0.01" min="0" defaultValue={labourer.daily_wage ?? 0} />
         <label className="flex items-center gap-2 text-sm text-slate-700">
