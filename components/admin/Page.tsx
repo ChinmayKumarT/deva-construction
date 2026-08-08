@@ -1,4 +1,4 @@
-export function AdminPageHeader({ title, subtitle }: { title: string; subtitle?: string }) {
+export function AdminPageHeader({ title, subtitle }: { title: string; subtitle?: React.ReactNode }) {
   return (
     <header className="mb-8">
       <h1 className="font-serif text-3xl font-semibold tracking-tight text-ink">{title}</h1>

@@ -10,6 +10,12 @@ import { lineTotal } from "@/lib/money";
 export const dynamic = "force-dynamic";
 export const fetchCache = "force-no-store";
 
+const MATERIAL_STATUS_STYLE: Record<string, string> = {
+  ordered: "bg-amber-50 text-amber-700 border-amber-200",
+  delivered: "bg-emerald-50 text-emerald-700 border-emerald-200",
+  returned: "bg-red-50 text-red-700 border-red-200",
+};
+
 export default async function ManageMaterialPage({
   params,
 }: {
@@ -36,8 +42,20 @@ export default async function ManageMaterialPage({
       <AdminPageHeader
         title={material.name}
         subtitle={
-          // @ts-expect-error relation
-          `${material.suppliers?.name ?? "No supplier"} · ${Number(material.quantity)} ${material.unit} · ₹${Number(material.unit_cost).toLocaleString()} each · ₹${lineTotal(material.quantity, material.unit_cost).toLocaleString()} total · ${material.status}${material.work_category ? ` · ${material.work_category}` : ""}`
+          <span className="inline-flex flex-wrap items-center gap-x-1.5">
+            {/* @ts-expect-error relation */}
+            <span>{material.suppliers?.name ?? "No supplier"} · {Number(material.quantity)} {material.unit} · ₹{Number(material.unit_cost).toLocaleString()} each ·</span>
+            <span className="font-semibold text-ink">
+              ₹{lineTotal(material.quantity, material.unit_cost).toLocaleString()} total
+            </span>
+            <span>·</span>
+            <span
+              className={`rounded-md border px-2 py-0.5 text-xs font-medium ${MATERIAL_STATUS_STYLE[material.status] ?? "border-slate-200 bg-slate-50 text-slate-600"}`}
+            >
+              {material.status}
+            </span>
+            {material.work_category && <span>· {material.work_category}</span>}
+          </span>
         }
       />
 
