@@ -618,6 +618,7 @@ object Repo {
     suspend fun recordSupplierDelivery(
         projectId: String, supplierId: String, name: String,
         unit: String, quantity: Double, unitCost: Double, status: String,
+        imageUrl: String? = null,
     ) {
         supabase.from("materials").insert(buildJsonObject {
             put("project_id", projectId)
@@ -625,6 +626,7 @@ object Repo {
             put("name", name); put("unit", unit)
             put("quantity", quantity); put("unit_cost", unitCost)
             put("status", status)
+            if (imageUrl != null) put("image_url", imageUrl)
         })
     }
     suspend fun supplierPayments(supplierId: String) = supabase.from("payments")

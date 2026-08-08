@@ -105,6 +105,7 @@ data class MaterialRow(
     @SerialName("ordered_at") val orderedAt: String? = null,
     @SerialName("delivered_at") val deliveredAt: String? = null,
     @SerialName("work_category") val workCategory: String? = null,
+    @SerialName("image_url") val imageUrl: String? = null,
     @SerialName("archived_at") val archivedAt: String? = null,
 )
 

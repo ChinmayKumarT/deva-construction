@@ -39,10 +39,15 @@ private suspend fun safe(block: suspend () -> Unit, onError: (String) -> Unit) {
 
 @Composable
 private fun ItemCard(title: String, sub: String, trailing: String? = null,
+                     thumbnailUrl: String? = null,
                      actions: (@Composable RowScope.() -> Unit)? = null) {
     ElevatedCard(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp)) {
         Column(Modifier.padding(12.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
+                if (thumbnailUrl != null) {
+                    AsyncImage(thumbnailUrl, contentDescription = null,
+                        modifier = Modifier.size(40.dp).padding(end = 8.dp))
+                }
                 Column(Modifier.weight(1f)) {
                     Text(title, style = MaterialTheme.typography.titleSmall)
                     Text(sub, style = MaterialTheme.typography.bodySmall)
@@ -1112,6 +1117,7 @@ fun AdminMaterials(isOwner: Boolean = false, initialProjectFilter: ProjectRow? =
                 m.name,
                 "${m.quantity} ${m.unit} · ${m.status}",
                 money(lineTotal(m.quantity, m.unitCost)),
+                thumbnailUrl = m.imageUrl,
                 actions = {
                     if (!showArchived && m.status == "ordered") {
                         TextButton(onClick = {

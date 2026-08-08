@@ -1,5 +1,9 @@
 package com.construction.manager.ui.dashboards
 
+import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.PickVisualMediaRequest
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -64,6 +68,7 @@ fun SupplierDashboard(vm: AuthViewModel) = RoleScaffold("Supplier", vm) { paddin
     var error by remember { mutableStateOf<String?>(null) }
     var version by remember { mutableStateOf(0) }
     val scope = rememberCoroutineScope()
+    val context = LocalContext.current
     LaunchedEffect(version) {
         try {
             supplier = Repo.mySupplier()
@@ -84,6 +89,11 @@ fun SupplierDashboard(vm: AuthViewModel) = RoleScaffold("Supplier", vm) { paddin
     var dQty by remember { mutableStateOf("") }
     var dUnitCost by remember { mutableStateOf("") }
     var dStatus by remember { mutableStateOf("delivered") }
+    // Optional photo of what was actually delivered, so admin can check it.
+    var dPickedUri by remember { mutableStateOf<Uri?>(null) }
+    val dPhotoPicker = rememberLauncherForActivityResult(
+        ActivityResultContracts.PickVisualMedia()
+    ) { uri -> dPickedUri = uri }
 
     // Bill form state
     var amount by remember { mutableStateOf("") }
@@ -115,6 +125,20 @@ fun SupplierDashboard(vm: AuthViewModel) = RoleScaffold("Supplier", vm) { paddin
             com.construction.manager.ui.Dropdown(
                 "Status", listOf("delivered","ordered"), dStatus, { it }, { dStatus = it },
             )
+            Row(Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedButton(onClick = {
+                    dPhotoPicker.launch(PickVisualMediaRequest(
+                        ActivityResultContracts.PickVisualMedia.ImageOnly
+                    ))
+                }) { Text(if (dPickedUri == null) "Pick photo (optional)" else "Change photo") }
+                if (dPickedUri != null) {
+                    AsyncImage(dPickedUri, contentDescription = null,
+                        modifier = Modifier.size(56.dp))
+                    TextButton(onClick = { dPickedUri = null }) { Text("Clear") }
+                }
+            }
             Button(
                 onClick = {
                     val p = dProject ?: return@Button
@@ -123,9 +147,18 @@ fun SupplierDashboard(vm: AuthViewModel) = RoleScaffold("Supplier", vm) { paddin
                     if (dName.isBlank() || qty <= 0) return@Button
                     scope.launch {
                         try {
+                            var url: String? = null
+                            val uri = dPickedUri
+                            if (uri != null) {
+                                val bytes = context.contentResolver.openInputStream(uri)
+                                    ?.use { it.readBytes() } ?: byteArrayOf()
+                                val ext = context.contentResolver.getType(uri)
+                                    ?.substringAfter("/", "jpg") ?: "jpg"
+                                url = Repo.uploadProjectImage(p.id, bytes, ext)
+                            }
                             Repo.recordSupplierDelivery(p.id, supplier!!.id, dName,
-                                dUnit.ifBlank { "unit" }, qty, uc, dStatus)
-                            dName = ""; dQty = ""; dUnitCost = ""; version++
+                                dUnit.ifBlank { "unit" }, qty, uc, dStatus, url)
+                            dName = ""; dQty = ""; dUnitCost = ""; dPickedUri = null; version++
                         } catch (e: Exception) { error = e.message }
                     }
                 },

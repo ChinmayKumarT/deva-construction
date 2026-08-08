@@ -31,6 +31,23 @@ export async function recordDelivery(fd: FormData) {
     throw new Error("unit cost cannot be negative");
   }
 
+  // Optional photo of what was actually delivered, so admin can check it
+  // against the recorded quantity/status. Same upload pattern as
+  // postProjectUpdate in app/admin/actions.ts.
+  let image_url: string | null = null;
+  const file = fd.get("image_file");
+  if (file instanceof File && file.size > 0) {
+    const ext = file.name.split(".").pop()?.toLowerCase() ?? "jpg";
+    const path = `${project_id}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
+    const buf = new Uint8Array(await file.arrayBuffer());
+    const { error: upErr } = await supabase.storage
+      .from("project-images")
+      .upload(path, buf, { contentType: file.type || "image/jpeg", upsert: false });
+    if (upErr) throw new Error(`upload failed: ${upErr.message}`);
+    const { data: pub } = supabase.storage.from("project-images").getPublicUrl(path);
+    image_url = pub.publicUrl;
+  }
+
   const { error } = await supabase.from("materials").insert({
     project_id,
     supplier_id: supplier.id,
@@ -40,6 +57,7 @@ export async function recordDelivery(fd: FormData) {
     unit_cost,
     status,
     delivered_at: status === "delivered" ? new Date().toISOString() : null,
+    image_url,
   });
   if (error) throw new Error(error.message);
   revalidatePath("/supplier");

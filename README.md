@@ -56,6 +56,7 @@ labourers are records the site manager maintains (they don't sign in).
    24_next_payment_amount.sql
    25_multi_site_attendance.sql
    26_supplier_bills_auto_approved.sql
+   27_material_delivery_photo.sql
    ```
 
    `supabase/README.md` has a one-line description of what each file does if

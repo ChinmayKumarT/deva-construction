@@ -1,3 +1,4 @@
+import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createSupabaseServerClient, getSessionAndRole } from "@/lib/supabase/server";
@@ -19,7 +20,7 @@ export default async function ManageMaterialPage({
 
   const { data: material } = await supabase
     .from("materials")
-    .select("id, name, unit, quantity, unit_cost, status, work_category, archived_at, suppliers(name)")
+    .select("id, name, unit, quantity, unit_cost, status, work_category, image_url, archived_at, suppliers(name)")
     .eq("id", params.materialId)
     .single();
   if (!material) notFound();
@@ -39,6 +40,16 @@ export default async function ManageMaterialPage({
           `${material.suppliers?.name ?? "No supplier"} · ${Number(material.quantity)} ${material.unit} · ₹${Number(material.unit_cost).toLocaleString()} each · ₹${lineTotal(material.quantity, material.unit_cost).toLocaleString()} total · ${material.status}${material.work_category ? ` · ${material.work_category}` : ""}`
         }
       />
+
+      {material.image_url && (
+        <div className="mb-6 max-w-xl">
+          <div className="mb-1 text-xs uppercase tracking-wide text-slate-500">Delivery photo</div>
+          <Image
+            src={material.image_url} alt="" width={640} height={480} loading="lazy"
+            className="max-h-96 w-auto rounded-xl border border-slate-200 object-cover"
+          />
+        </div>
+      )}
 
       <div className="max-w-xl rounded-xl border border-slate-200 bg-white p-6">
         {archived ? (
