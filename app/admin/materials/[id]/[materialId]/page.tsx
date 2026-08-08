@@ -16,6 +16,15 @@ const MATERIAL_STATUS_STYLE: Record<string, string> = {
   returned: "bg-red-50 text-red-700 border-red-200",
 };
 
+function InfoBox({ label, value, className }: { label: string; value: string; className?: string }) {
+  return (
+    <div className={`rounded-lg border px-3 py-2 ${className ?? "border-slate-200 bg-white"}`}>
+      <div className="text-[10px] font-medium uppercase tracking-wide opacity-70">{label}</div>
+      <div className="text-sm font-semibold">{value}</div>
+    </div>
+  );
+}
+
 export default async function ManageMaterialPage({
   params,
 }: {
@@ -39,25 +48,28 @@ export default async function ManageMaterialPage({
       <Link href={`/admin/materials/${params.id}`} className="mb-2 inline-block text-sm text-slate-600 hover:underline">
         ← {backLabel}
       </Link>
-      <AdminPageHeader
-        title={material.name}
-        subtitle={
-          <span className="inline-flex flex-wrap items-center gap-x-1.5">
-            {/* @ts-expect-error relation */}
-            <span>{material.suppliers?.name ?? "No supplier"} · {Number(material.quantity)} {material.unit} · ₹{Number(material.unit_cost).toLocaleString()} each ·</span>
-            <span className="font-semibold text-ink">
-              ₹{lineTotal(material.quantity, material.unit_cost).toLocaleString()} total
-            </span>
-            <span>·</span>
-            <span
-              className={`rounded-md border px-2 py-0.5 text-xs font-medium ${MATERIAL_STATUS_STYLE[material.status] ?? "border-slate-200 bg-slate-50 text-slate-600"}`}
-            >
-              {material.status}
-            </span>
-            {material.work_category && <span>· {material.work_category}</span>}
-          </span>
-        }
-      />
+      <AdminPageHeader title={material.name} />
+
+      <div className="mb-6 flex flex-wrap gap-2">
+        <InfoBox
+          label="Supplier"
+          // @ts-expect-error relation
+          value={material.suppliers?.name ?? "No supplier"}
+        />
+        <InfoBox label="Quantity" value={`${Number(material.quantity)} ${material.unit}`} />
+        <InfoBox label="Unit cost" value={`₹${Number(material.unit_cost).toLocaleString()} each`} />
+        <InfoBox
+          label="Total"
+          value={`₹${lineTotal(material.quantity, material.unit_cost).toLocaleString()}`}
+          className="border-forest bg-forest text-white"
+        />
+        <InfoBox
+          label="Status"
+          value={material.status}
+          className={MATERIAL_STATUS_STYLE[material.status] ?? "border-slate-200 bg-slate-50"}
+        />
+        {material.work_category && <InfoBox label="Work category" value={material.work_category} />}
+      </div>
 
       {material.image_url && (
         <div className="mb-6 max-w-xl">
