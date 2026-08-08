@@ -4,7 +4,7 @@ import { AdminPage, AdminPageHeader, CostBox } from "@/components/admin/Page";
 import { CashFlowBarChart } from "@/components/admin/CashFlowBarChart";
 import { CashFlowTrendChart } from "@/components/admin/CashFlowTrendChart";
 import { PieChart, PieLegend } from "@/components/admin/PieChart";
-import { byProjectTotals, payeeTypeSplit, dailyPaymentTotals } from "@/lib/paymentsChart";
+import { byProjectTotals, payeeTypeSplitByProject, dailyPaymentTotals } from "@/lib/paymentsChart";
 import { toCumulative } from "@/lib/cashflow";
 
 export const dynamic = "force-dynamic";
@@ -53,8 +53,7 @@ export default async function PaymentsIndexPage({
     value,
     color: "#16a34a",
   }));
-  const { labour, supplier } = payeeTypeSplit(payments ?? []);
-  const payeeTotal = labour + supplier;
+  const payeeSplitByProject = payeeTypeSplitByProject(payments ?? []);
   const cumulativeDaily = toCumulative(dailyPaymentTotals(payments ?? []));
 
   return (
@@ -98,24 +97,32 @@ export default async function PaymentsIndexPage({
           </div>
           <div className="rounded-xl border border-[var(--line)] bg-white p-5">
             <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-500">Labour vs supplier</h2>
-            <div className="flex items-center gap-4">
-              <PieChart
-                slices={[
-                  { fraction: labour, color: LABOUR_COLOR },
-                  { fraction: supplier, color: SUPPLIER_COLOR },
-                ]}
-                size={96}
-              />
-              <div>
-                <PieLegend
-                  items={[
-                    { label: `Labour · ₹${labour.toLocaleString()}`, color: LABOUR_COLOR },
-                    { label: `Supplier · ₹${supplier.toLocaleString()}`, color: SUPPLIER_COLOR },
-                  ]}
-                />
-                {payeeTotal === 0 && <p className="mt-2 text-xs text-slate-500">No paid/approved payments yet.</p>}
+            {payeeSplitByProject.size === 0 ? (
+              <p className="text-xs text-slate-500">No paid/approved payments yet.</p>
+            ) : (
+              <div className="grid gap-4 sm:grid-cols-2">
+                {Array.from(payeeSplitByProject.entries()).map(([id, { labour, supplier }]) => (
+                  <div key={id} className="flex items-center gap-3">
+                    <PieChart
+                      slices={[
+                        { fraction: labour, color: LABOUR_COLOR },
+                        { fraction: supplier, color: SUPPLIER_COLOR },
+                      ]}
+                      size={64}
+                    />
+                    <div>
+                      <div className="text-sm font-medium text-ink">{projectName.get(id) ?? "No project"}</div>
+                      <PieLegend
+                        items={[
+                          { label: `Labour · ₹${labour.toLocaleString()}`, color: LABOUR_COLOR },
+                          { label: `Supplier · ₹${supplier.toLocaleString()}`, color: SUPPLIER_COLOR },
+                        ]}
+                      />
+                    </div>
+                  </div>
+                ))}
               </div>
-            </div>
+            )}
           </div>
         </div>
       )}

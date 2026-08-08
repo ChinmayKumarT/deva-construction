@@ -11,7 +11,11 @@ export function CashFlowBarChart({ bars, width = 500 }: { bars: CashFlowBar[]; w
   const height = bars.length * rowH + 10;
 
   return (
-    <svg width={width} height={height} viewBox={`0 0 ${width} ${height}`}>
+    <svg
+      width={width} height={height} viewBox={`0 0 ${width} ${height}`}
+      className="w-full h-auto"
+      preserveAspectRatio="xMidYMid meet"
+    >
       {bars.map((b, i) => {
         const y = i * rowH;
         const w = (b.value / max) * barMaxW;

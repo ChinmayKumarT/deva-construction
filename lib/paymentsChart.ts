@@ -35,6 +35,18 @@ export function payeeTypeSplit(payments: ChartPayment[]): { labour: number; supp
   return { labour, supplier };
 }
 
+export function payeeTypeSplitByProject(payments: ChartPayment[]): Map<string, { labour: number; supplier: number }> {
+  const byProject = new Map<string, { labour: number; supplier: number }>();
+  for (const p of payments) {
+    if (!p.project_id || (p.status !== "paid" && p.status !== "approved")) continue;
+    const cur = byProject.get(p.project_id) ?? { labour: 0, supplier: 0 };
+    if (p.payee_type === "labour") cur.labour += Number(p.amount);
+    else if (p.payee_type === "supplier") cur.supplier += Number(p.amount);
+    byProject.set(p.project_id, cur);
+  }
+  return byProject;
+}
+
 // Every day between the data's own earliest and latest payment gets an
 // entry (even 0), so the trend line stays continuous. Returns an empty
 // array if there are no dated payments at all.

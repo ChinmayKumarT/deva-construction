@@ -43,7 +43,11 @@ export function CashFlowTrendChart({
   const labelIdx = [0, Math.floor(n / 2), n].filter((v, i, arr) => arr.indexOf(v) === i);
 
   return (
-    <svg width={width} height={height} viewBox={`0 0 ${width} ${height}`}>
+    <svg
+      width={width} height={height} viewBox={`0 0 ${width} ${height}`}
+      className="w-full h-auto"
+      preserveAspectRatio="xMidYMid meet"
+    >
       {[0, 0.5, 1].map((frac) => {
         const gy = padT + plotH * (1 - frac);
         return (

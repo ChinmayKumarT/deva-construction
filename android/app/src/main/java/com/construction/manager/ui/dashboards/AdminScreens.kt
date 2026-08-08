@@ -1639,10 +1639,19 @@ private fun PaymentsProjectPicker(
         statsByProject.values.sumOf { it.second } + unassignedSpend
     }
     val projectName = projects.associate { it.id to it.name }
-    val payeeSplit = remember(rows) {
-        val notRejected = rows.filter { it.status != "rejected" }
-        (notRejected.filter { it.payeeType == "labour" }.sumOf { it.amount }) to
-            (notRejected.filter { it.payeeType == "supplier" }.sumOf { it.amount })
+    val payeeSplitByProject = remember(rows) {
+        val map = mutableMapOf<String, Pair<Double, Double>>()
+        for (r in rows) {
+            if (r.status == "rejected") continue
+            val pid = r.projectId ?: continue
+            val cur = map[pid] ?: (0.0 to 0.0)
+            map[pid] = when (r.payeeType) {
+                "labour" -> (cur.first + r.amount) to cur.second
+                "supplier" -> cur.first to (cur.second + r.amount)
+                else -> cur
+            }
+        }
+        map
     }
     val dailyTotals = remember(rows) {
         dailyTotalsFromDatedAmounts(
@@ -1674,25 +1683,30 @@ private fun PaymentsProjectPicker(
                 },
             )
         }
-        val (labourTotal, supplierTotal) = payeeSplit
-        if (labourTotal + supplierTotal > 0) {
+        if (payeeSplitByProject.isNotEmpty()) {
             SectionTitle("Labour vs supplier")
-            Row(Modifier.padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                LabeledPie(
-                    "",
-                    listOf(
-                        PieSlice(labourTotal.toFloat(), androidx.compose.ui.graphics.Color(0xFF0EA5E9)),
-                        PieSlice(supplierTotal.toFloat(), androidx.compose.ui.graphics.Color(0xFFF59E0B)),
-                    ),
-                    pieSize = 72.dp,
-                )
-                ChartLegend(
-                    listOf(
-                        "Labour · ${money(labourTotal)}" to androidx.compose.ui.graphics.Color(0xFF0EA5E9),
-                        "Supplier · ${money(supplierTotal)}" to androidx.compose.ui.graphics.Color(0xFFF59E0B),
-                    ),
-                )
+            payeeSplitByProject.forEach { (id, split) ->
+                val (labourTotal, supplierTotal) = split
+                Row(Modifier.padding(horizontal = 16.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                    LabeledPie(
+                        "",
+                        listOf(
+                            PieSlice(labourTotal.toFloat(), androidx.compose.ui.graphics.Color(0xFF0EA5E9)),
+                            PieSlice(supplierTotal.toFloat(), androidx.compose.ui.graphics.Color(0xFFF59E0B)),
+                        ),
+                        pieSize = 56.dp,
+                    )
+                    Column {
+                        Text(projectName[id] ?: "—", style = MaterialTheme.typography.bodyMedium)
+                        ChartLegend(
+                            listOf(
+                                "Labour · ${money(labourTotal)}" to androidx.compose.ui.graphics.Color(0xFF0EA5E9),
+                                "Supplier · ${money(supplierTotal)}" to androidx.compose.ui.graphics.Color(0xFFF59E0B),
+                            ),
+                        )
+                    }
+                }
             }
         }
 
