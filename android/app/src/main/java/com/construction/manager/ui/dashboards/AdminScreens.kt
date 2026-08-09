@@ -1615,6 +1615,14 @@ private fun dailyTotalsFromDatedAmounts(rows: List<Pair<String, Double>>): List<
     return points
 }
 
+// "Other..." escape hatches for Supplier and Purchase, mirroring
+// CategoryDropdown's pattern for a fixed list that isn't exhaustive. Sentinel
+// rows (id "__other__") let the two typed Dropdowns carry an extra option
+// without changing their generic <T> signature. Mirrors web's OTHER_SUPPLIER
+// / OTHER_PURCHASE sentinels in components/admin/PaymentForm.tsx.
+private val OtherSupplierSentinel = SupplierRow(id = "__other__", name = "Other…")
+private val OtherPurchaseSentinel = MaterialRow(id = "__other__", name = "Other…")
+
 // Extracted so the same create-payment flow works both from a specific
 // project's page (fixedProject set, no picker shown) and from the
 // project-picker screen before any project is chosen (fixedProject null,
@@ -1637,9 +1645,11 @@ private fun CreatePaymentSection(
     var amount by remember { mutableStateOf("") }
     var desc by remember { mutableStateOf("") }
     var supplier by remember { mutableStateOf<SupplierRow?>(null) }
+    var supplierOtherName by remember { mutableStateOf("") }
     var labourer by remember { mutableStateOf<LabourerRow?>(null) }
     var workCategory by remember { mutableStateOf("None") }
     var purchase by remember { mutableStateOf<MaterialRow?>(null) }
+    var purchaseOtherText by remember { mutableStateOf("") }
     var error by remember { mutableStateOf<String?>(null) }
     val scope = rememberCoroutineScope()
 
@@ -1677,18 +1687,30 @@ private fun CreatePaymentSection(
         )
     } else {
         Dropdown(
-            "Purchase (optional)", projectMaterials, purchase,
-            { m -> "${m.name} (${m.quantity} ${m.unit}) — ${money(lineTotal(m.quantity, m.unitCost))}" },
+            "Purchase (optional)", projectMaterials + OtherPurchaseSentinel, purchase,
+            { m -> if (m.id == OtherPurchaseSentinel.id) m.name
+                   else "${m.name} (${m.quantity} ${m.unit}) — ${money(lineTotal(m.quantity, m.unitCost))}" },
             { m ->
                 purchase = m
                 payeeType = "supplier"
-                supplier = suppliers.find { it.id == m.supplierId }
-                amount = (lineTotal(m.quantity, m.unitCost)).toString()
-                desc = "${m.name} (${m.quantity} ${m.unit})"
-                workCategory = m.workCategory ?: "None"
+                if (m.id != OtherPurchaseSentinel.id) {
+                    supplier = suppliers.find { it.id == m.supplierId }
+                    amount = (lineTotal(m.quantity, m.unitCost)).toString()
+                    desc = "${m.name} (${m.quantity} ${m.unit})"
+                    workCategory = m.workCategory ?: "None"
+                }
             },
         )
-        Dropdown("Supplier", suppliers, supplier, { it.name }, { supplier = it })
+        if (purchase?.id == OtherPurchaseSentinel.id) {
+            TextField(purchaseOtherText, { purchaseOtherText = it; desc = it }, "Describe the purchase")
+        }
+        Dropdown(
+            "Supplier", suppliers + OtherSupplierSentinel, supplier, { it.name },
+            { s -> supplier = s; if (s.id != OtherSupplierSentinel.id) supplierOtherName = "" },
+        )
+        if (supplier?.id == OtherSupplierSentinel.id) {
+            TextField(supplierOtherName, { supplierOtherName = it }, "Enter supplier name")
+        }
         TextField(desc, { desc = it }, "Description")
     }
     CategoryDropdown("Work category", workCategory, { workCategory = it })
@@ -1698,11 +1720,19 @@ private fun CreatePaymentSection(
             val pid = project?.id ?: return@Button
             scope.launch {
                 safe({
+                    val resolvedSupplierId = if (payeeType == "supplier" && supplier?.id == OtherSupplierSentinel.id) {
+                        Repo.createSupplier(supplierOtherName, null, null, null)
+                    } else {
+                        supplier?.id
+                    }
                     Repo.createPayment(pid, payeeType,
-                        supplier?.id, labourer?.id,
+                        resolvedSupplierId, labourer?.id,
                         amount.toDoubleOrNull() ?: 0.0, desc.ifBlank { null },
                         workCategory.takeIf { it != "None" })
-                    amount = ""; desc = ""; onCreated()
+                    amount = ""; desc = ""
+                    if (supplier?.id == OtherSupplierSentinel.id) { supplier = null; supplierOtherName = "" }
+                    if (purchase?.id == OtherPurchaseSentinel.id) { purchase = null; purchaseOtherText = "" }
+                    onCreated()
                 }) { error = it }
             }
         },

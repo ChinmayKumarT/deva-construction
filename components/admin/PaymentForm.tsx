@@ -8,6 +8,9 @@ import { WORK_CATEGORIES } from "@/lib/workCategories";
 import { wageDueKey } from "@/lib/wages";
 import { lineTotal } from "@/lib/money";
 
+const OTHER_SUPPLIER = "__other_supplier__";
+const OTHER_PURCHASE = "__other_purchase__";
+
 const inputClass =
   "w-full rounded-lg border border-[var(--line)] bg-white px-3 py-2 outline-none focus:border-brand focus:ring-2 focus:ring-brand/20";
 const selectClass =
@@ -67,9 +70,11 @@ function PaymentFormFields({
   const [purchaseId, setPurchaseId] = useState("none");
   const [payeeType, setPayeeType] = useState(initial.payeeType);
   const [supplierId, setSupplierId] = useState(initial.supplierId);
+  const [supplierOtherName, setSupplierOtherName] = useState("");
   const [labourerId, setLabourerId] = useState(initial.labourerId);
   const [amount, setAmount] = useState(initial.amount);
   const [description, setDescription] = useState(initial.description);
+  const [purchaseOtherText, setPurchaseOtherText] = useState("");
   const initialCategoryKnown = (WORK_CATEGORIES as readonly string[]).includes(initial.workCategory);
   const [workCategory, setWorkCategory] = useState(
     initialCategoryKnown ? initial.workCategory : initial.workCategory ? OTHER_CATEGORY : "",
@@ -106,6 +111,10 @@ function PaymentFormFields({
   function handlePurchaseChange(id: string) {
     setPurchaseId(id);
     if (id === "none") return;
+    if (id === OTHER_PURCHASE) {
+      setPayeeType("supplier");
+      return;
+    }
     const m = materials.find((x) => x.id === id);
     if (!m) return;
     setPayeeType("supplier");
@@ -172,43 +181,70 @@ function PaymentFormFields({
           </span>
         </label>
       ) : (
-        <label className="block text-sm">
-          <span className="mb-1 block font-medium text-slate-700">Purchase (optional)</span>
-          <select
-            className={selectClass}
-            value={purchaseId}
-            onChange={(e) => handlePurchaseChange(e.target.value)}
-            disabled={projectId === "none"}
-          >
-            <option value="none">
-              {projectId === "none" ? "— choose a project first —" : "— none —"}
-            </option>
-            {projectMaterials.map((m) => (
-              <option key={m.id} value={m.id}>
-                {m.name} ({Number(m.quantity)} {m.unit}) — ₹{lineTotal(m.quantity, m.unit_cost).toLocaleString()}
+        <div>
+          <label className="block text-sm">
+            <span className="mb-1 block font-medium text-slate-700">Purchase (optional)</span>
+            <select
+              className={selectClass}
+              value={purchaseId}
+              onChange={(e) => handlePurchaseChange(e.target.value)}
+              disabled={projectId === "none"}
+            >
+              <option value="none">
+                {projectId === "none" ? "— choose a project first —" : "— none —"}
               </option>
-            ))}
-          </select>
-          <span className="mt-1 block text-xs text-slate-500">
-            Selecting a purchase fills in the amount, supplier, description and category below.
-          </span>
-        </label>
+              {projectMaterials.map((m) => (
+                <option key={m.id} value={m.id}>
+                  {m.name} ({Number(m.quantity)} {m.unit}) — ₹{lineTotal(m.quantity, m.unit_cost).toLocaleString()}
+                </option>
+              ))}
+              <option value={OTHER_PURCHASE}>Other…</option>
+            </select>
+            <span className="mt-1 block text-xs text-slate-500">
+              Selecting a purchase fills in the amount, supplier, description and category below.
+            </span>
+          </label>
+          {purchaseId === OTHER_PURCHASE && (
+            <input
+              value={purchaseOtherText}
+              onChange={(e) => {
+                setPurchaseOtherText(e.target.value);
+                setDescription(e.target.value);
+              }}
+              placeholder="Describe the purchase"
+              className={`mt-2 ${inputClass}`}
+            />
+          )}
+        </div>
       )}
 
       {payeeType === "supplier" && (
         <>
-          <label className="block text-sm">
-            <span className="mb-1 block font-medium text-slate-700">Supplier</span>
-            <select
-              name="supplier_id"
-              className={selectClass}
-              value={supplierId}
-              onChange={(e) => setSupplierId(e.target.value)}
-            >
-              <option value="none">— none —</option>
-              {suppliers.map((s) => (<option key={s.id} value={s.id}>{s.name}</option>))}
-            </select>
-          </label>
+          <div>
+            <label className="block text-sm">
+              <span className="mb-1 block font-medium text-slate-700">Supplier</span>
+              <select
+                name={supplierId === OTHER_SUPPLIER ? undefined : "supplier_id"}
+                className={selectClass}
+                value={supplierId}
+                onChange={(e) => setSupplierId(e.target.value)}
+              >
+                <option value="none">— none —</option>
+                {suppliers.map((s) => (<option key={s.id} value={s.id}>{s.name}</option>))}
+                <option value={OTHER_SUPPLIER}>Other…</option>
+              </select>
+            </label>
+            {supplierId === OTHER_SUPPLIER && (
+              <input
+                name="new_supplier_name"
+                value={supplierOtherName}
+                onChange={(e) => setSupplierOtherName(e.target.value)}
+                placeholder="Enter supplier name"
+                required
+                className={`mt-2 ${inputClass}`}
+              />
+            )}
+          </div>
 
           <label className="block text-sm">
             <span className="mb-1 block font-medium text-slate-700">Description</span>

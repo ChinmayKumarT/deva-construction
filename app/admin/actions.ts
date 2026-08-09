@@ -32,6 +32,27 @@ function uuidOrNull(fd: FormData, k: string) {
   const v = str(fd, k);
   return v && v !== "none" ? v : null;
 }
+// The Supplier field's "Other…" option omits `name="supplier_id"` from the
+// select (see PaymentForm.tsx) and submits a plain-text `new_supplier_name`
+// instead -- resolve that into a real supplier row so supplier_id can stay a
+// required FK everywhere else in the app (reports, the Suppliers list, etc).
+async function resolveSupplierId(
+  supabase: ReturnType<typeof createSupabaseServerClient>,
+  fd: FormData,
+): Promise<string | null> {
+  const supplierId = uuidOrNull(fd, "supplier_id");
+  if (supplierId) return supplierId;
+  const newSupplierName = str(fd, "new_supplier_name");
+  if (!newSupplierName) return null;
+  const { data, error } = await supabase
+    .from("suppliers")
+    .insert({ name: newSupplierName })
+    .select("id")
+    .single();
+  if (error) throw new Error(error.message);
+  revalidatePath("/admin/suppliers");
+  return data.id;
+}
 
 export async function createProject(fd: FormData) {
   const supabase = createSupabaseServerClient();
@@ -239,13 +260,14 @@ export async function unarchiveMaterial(fd: FormData) { await setArchived("mater
 
 // ---------- Payments ----------
 export async function updatePayment(fd: FormData) {
+  const supabase = createSupabaseServerClient();
   const payee_type = (str(fd, "payee_type") ?? "supplier") as "supplier" | "labour";
   await updateRow("payments", str(fd, "id"), {
     project_id: uuidOrNull(fd, "project_id"),
     payee_type,
     // The DB CHECK constraint requires exactly one of supplier_id/labourer_id
     // to be set, matching payee_type -- so always clear the other one.
-    supplier_id: payee_type === "supplier" ? uuidOrNull(fd, "supplier_id") : null,
+    supplier_id: payee_type === "supplier" ? await resolveSupplierId(supabase, fd) : null,
     labourer_id: payee_type === "labour" ? uuidOrNull(fd, "labourer_id") : null,
     amount: nonNegNum(fd, "amount", "Amount") ?? 0,
     description: str(fd, "description"),
@@ -420,7 +442,7 @@ export async function createPayment(fd: FormData) {
     status: "pending",
   };
   if (payee_type === "supplier") {
-    row.supplier_id = uuidOrNull(fd, "supplier_id");
+    row.supplier_id = await resolveSupplierId(supabase, fd);
     row.labourer_id = null;
   } else {
     row.labourer_id = uuidOrNull(fd, "labourer_id");

@@ -384,13 +384,17 @@ object Repo {
             if (profileId != null) put("profile_id", profileId)
         })
     }
-    suspend fun createSupplier(name: String, email: String?, phone: String?, profileId: String?) {
-        supabase.from("suppliers").insert(buildJsonObject {
+    // Returns the new row's id -- used both by the Suppliers create form (which
+    // ignores it) and by createPayment's "Other..." supplier escape hatch, which
+    // needs the id right away to attach the payment to it.
+    suspend fun createSupplier(name: String, email: String?, phone: String?, profileId: String?): String {
+        val result = supabase.from("suppliers").insert(buildJsonObject {
             put("name", name)
             if (email != null) put("email", email)
             if (phone != null) put("phone", phone)
             if (profileId != null) put("profile_id", profileId)
-        })
+        }) { select() }
+        return result.decodeSingle<SupplierRow>().id
     }
     // No profileId: labourers don't sign in -- the site manager records their
     // attendance and wages -- so there's no login to link. The profile_id
