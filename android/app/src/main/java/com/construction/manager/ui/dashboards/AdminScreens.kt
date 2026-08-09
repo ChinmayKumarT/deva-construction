@@ -1427,6 +1427,24 @@ fun AdminPayments(isOwner: Boolean = false, initialProjectFilter: ProjectRow? = 
                 onCreated = { version++ },
             )
         }
+        if (!showArchived) {
+            val categoryTotals = remember(visibleRows) {
+                val totals = mutableMapOf<String, Double>()
+                visibleRows.forEach { p ->
+                    if (p.status !in listOf("paid", "approved")) return@forEach
+                    val cat = p.workCategory ?: "Uncategorized"
+                    totals[cat] = (totals[cat] ?: 0.0) + p.amount
+                }
+                totals.toList().sortedByDescending { it.second }
+            }
+            if (categoryTotals.isNotEmpty()) {
+                Divider()
+                SectionTitle("Spend by category")
+                CashFlowBarChart(
+                    categoryTotals.map { (label, value) -> CashFlowCategory(label, value, CashFlowMaterialsColor) },
+                )
+            }
+        }
         error?.let { Text(it, color = MaterialTheme.colorScheme.error,
             modifier = Modifier.padding(16.dp)) }
         Divider()

@@ -4,6 +4,8 @@ import { createSupabaseServerClient, getSessionAndRole } from "@/lib/supabase/se
 import { AdminPage, AdminPageHeader, Field, SubmitButton } from "@/components/admin/Page";
 import { ArchivedToggle, DeleteForeverButton, RestoreAction } from "@/components/admin/RowActions";
 import { CreatePaymentForm } from "@/components/admin/PaymentForm";
+import { CashFlowBarChart } from "@/components/admin/CashFlowBarChart";
+import { byCategoryTotals } from "@/lib/paymentsChart";
 import { computeWagesDue } from "@/lib/wages";
 import { formatDateTime } from "@/lib/dateFormat";
 import {
@@ -36,7 +38,7 @@ export default async function ProjectPaymentsPage({
 
   let base = supabase
     .from("payments")
-    .select("id, amount, status, payee_type, description, created_at, archived_at, suppliers(name), labourers(name)")
+    .select("id, amount, status, payee_type, description, work_category, created_at, archived_at, suppliers(name), labourers(name)")
     .order("created_at", { ascending: false });
   base = isUnassigned ? base.is("project_id", null) : base.eq("project_id", params.id);
 
@@ -90,6 +92,11 @@ export default async function ProjectPaymentsPage({
   const labourerWage = new Map((labourers ?? []).map((l) => [l.id, Number(l.daily_wage)]));
   const wageDue = computeWagesDue(attendance ?? [], allLabourPayments ?? [], labourerWage);
 
+  const categoryTotals = byCategoryTotals(payments ?? []);
+  const categoryBars = Array.from(categoryTotals.entries())
+    .sort((a, b) => b[1] - a[1])
+    .map(([label, value]) => ({ label, value, color: "#16a34a" }));
+
   return (
     <AdminPage>
       <Link href="/admin/payments" className="mb-2 inline-block text-sm text-slate-600 hover:underline">
@@ -119,6 +126,13 @@ export default async function ProjectPaymentsPage({
           wageDue={wageDue}
           fixedProject={{ id: project!.id, name: project!.name }}
         />
+      )}
+
+      {!showArchived && categoryBars.length > 0 && (
+        <div className="mb-8 rounded-xl border border-[var(--line)] bg-white p-5">
+          <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-500">Spend by category</h2>
+          <CashFlowBarChart bars={categoryBars} />
+        </div>
       )}
 
       <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white">

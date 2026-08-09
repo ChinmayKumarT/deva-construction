@@ -35,6 +35,18 @@ export function payeeTypeSplit(payments: ChartPayment[]): { labour: number; supp
   return { labour, supplier };
 }
 
+type CategorizedPayment = { status: string; amount: number | string; work_category: string | null };
+
+export function byCategoryTotals(payments: CategorizedPayment[]): Map<string, number> {
+  const totals = new Map<string, number>();
+  for (const p of payments) {
+    if (p.status !== "paid" && p.status !== "approved") continue;
+    const cat = p.work_category || "Uncategorized";
+    totals.set(cat, (totals.get(cat) ?? 0) + Number(p.amount));
+  }
+  return totals;
+}
+
 export function payeeTypeSplitByProject(payments: ChartPayment[]): Map<string, { labour: number; supplier: number }> {
   const byProject = new Map<string, { labour: number; supplier: number }>();
   for (const p of payments) {
