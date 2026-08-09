@@ -451,15 +451,19 @@ object Repo {
             if (workCategory != null) put("work_category", workCategory)
         })
     }
+    // Defaults to "approved" rather than "pending" -- this is only ever
+    // called from the admin's own Create Payment form (no other role has
+    // access to it), so there's no one left to approve it a moment later.
     suspend fun createPayment(projectId: String?, payeeType: String, supplierId: String?,
                               labourerId: String?, amount: Double, description: String?,
-                              workCategory: String?, status: String = "pending") {
+                              workCategory: String?, status: String = "approved") {
         supabase.from("payments").insert(buildJsonObject {
             if (projectId != null) put("project_id", projectId)
             put("payee_type", payeeType)
             if (payeeType == "supplier" && supplierId != null) put("supplier_id", supplierId)
             if (payeeType == "labour" && labourerId != null) put("labourer_id", labourerId)
             put("amount", amount); put("status", status)
+            if (status == "approved") put("approved_at", java.time.Instant.now().toString())
             if (description != null) put("description", description)
             if (workCategory != null) put("work_category", workCategory)
         })

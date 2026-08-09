@@ -433,13 +433,22 @@ export async function assignLabourer(fd: FormData) {
 export async function createPayment(fd: FormData) {
   const supabase = createSupabaseServerClient();
   const payee_type = (str(fd, "payee_type") ?? "supplier") as "supplier" | "labour";
+  // Payments created here are always admin-entered (this form isn't exposed
+  // to any other role), so there's no one else left to approve it -- go
+  // straight to "approved" instead of making the admin click Approve on
+  // their own entry a moment later. Only "Mark paid" remains as a next step.
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
   const row: Record<string, unknown> = {
     project_id: uuidOrNull(fd, "project_id"),
     payee_type,
     amount: nonNegNum(fd, "amount", "Amount") ?? 0,
     description: str(fd, "description"),
     work_category: str(fd, "work_category"),
-    status: "pending",
+    status: "approved",
+    approved_at: new Date().toISOString(),
+    approved_by: user?.id ?? null,
   };
   if (payee_type === "supplier") {
     row.supplier_id = await resolveSupplierId(supabase, fd);
