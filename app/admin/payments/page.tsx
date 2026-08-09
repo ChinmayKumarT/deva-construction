@@ -4,8 +4,11 @@ import { AdminPage, AdminPageHeader, CostBox } from "@/components/admin/Page";
 import { CashFlowBarChart } from "@/components/admin/CashFlowBarChart";
 import { CashFlowTrendChart } from "@/components/admin/CashFlowTrendChart";
 import { PieChart, PieLegend } from "@/components/admin/PieChart";
+import { CreatePaymentForm } from "@/components/admin/PaymentForm";
 import { byProjectTotals, payeeTypeSplitByProject, dailyPaymentTotals } from "@/lib/paymentsChart";
 import { toCumulative } from "@/lib/cashflow";
+import { computeWagesDue } from "@/lib/wages";
+import { createPayment } from "../actions";
 
 export const dynamic = "force-dynamic";
 export const fetchCache = "force-no-store";
@@ -21,13 +24,35 @@ export default async function PaymentsIndexPage({
   const showArchived = searchParams.archived === "1";
   const supabase = createSupabaseServerClient();
 
-  const [{ data: projects }, { data: payments }, { count: archivedCount }] = await Promise.all([
+  const [
+    { data: projects }, { data: payments }, { count: archivedCount },
+    { data: suppliers }, { data: labourers }, { data: materials }, { data: assignments },
+    { data: allLabourPayments }, { data: attendance },
+  ] = await Promise.all([
     supabase.from("projects").select("id, name, status").is("archived_at", null).order("name"),
     showArchived
       ? supabase.from("payments").select("id, project_id, amount, status, payee_type, created_at").not("archived_at", "is", null)
       : supabase.from("payments").select("id, project_id, amount, status, payee_type, created_at").is("archived_at", null),
     supabase.from("payments").select("id", { count: "exact", head: true }).not("archived_at", "is", null),
+    supabase.from("suppliers").select("id, name").is("archived_at", null).order("name"),
+    supabase.from("labourers").select("id, name, daily_wage").is("archived_at", null).order("name"),
+    supabase
+      .from("materials")
+      .select("id, name, unit, quantity, unit_cost, work_category, supplier_id, project_id")
+      .is("archived_at", null)
+      .neq("status", "returned")
+      .order("ordered_at", { ascending: false }),
+    supabase.from("project_labourers").select("labourer_id, project_id").is("unassigned_at", null),
+    supabase
+      .from("payments")
+      .select("project_id, payee_type, labourer_id, amount, status")
+      .is("archived_at", null)
+      .eq("payee_type", "labour"),
+    supabase.from("attendance").select("project_id, labourer_id, status"),
   ]);
+
+  const labourerWage = new Map((labourers ?? []).map((l) => [l.id, Number(l.daily_wage)]));
+  const wageDue = computeWagesDue(attendance ?? [], allLabourPayments ?? [], labourerWage);
 
   const byProject = new Map<string, { count: number; spend: number }>();
   let unassignedCount = 0;
@@ -73,7 +98,21 @@ export default async function PaymentsIndexPage({
             View {archivedCount} archived {archivedCount === 1 ? "payment" : "payments"} →
           </Link>
         </div>
-      ) : showArchived ? (
+      ) : null}
+
+      {!showArchived && (
+        <CreatePaymentForm
+          action={createPayment}
+          projects={projects ?? []}
+          suppliers={suppliers ?? []}
+          labourers={labourers ?? []}
+          materials={materials ?? []}
+          assignments={assignments ?? []}
+          wageDue={wageDue}
+        />
+      )}
+
+      {showArchived ? (
         <div className="mb-6">
           <Link href="/admin/payments" className="text-sm font-medium text-brand-700 hover:underline">
             ← Back to active payments

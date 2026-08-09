@@ -1371,12 +1371,21 @@ fun AdminPayments(isOwner: Boolean = false, initialProjectFilter: ProjectRow? = 
         }) { error = it }
     }
 
+    val wageById = labourers.associate { it.id to it.dailyWage }
+    val wageDue = remember(attendance, rows, wageById) { computeWagesDue(attendance, rows, wageById) }
+
     if (projectFilter == null && !showUnassigned) {
         PaymentsProjectPicker(
             projects = projects,
             rows = rows,
+            suppliers = suppliers,
+            labourers = labourers,
+            materials = materials,
+            assignments = assignments,
+            wageDue = wageDue,
             onPickProject = { projectFilter = it },
             onPickUnassigned = { showUnassigned = true },
+            onPaymentCreated = { version++ },
         )
         return
     }
@@ -1387,20 +1396,6 @@ fun AdminPayments(isOwner: Boolean = false, initialProjectFilter: ProjectRow? = 
     // for the "no project" pseudo-bucket.
     val visibleClientPayments = if (showUnassigned) emptyList()
         else clientPaymentRows.filter { it.projectId == projectFilter?.id }
-    var payeeType by remember { mutableStateOf("supplier") }
-    var amount by remember { mutableStateOf("") }
-    var desc by remember { mutableStateOf("") }
-    var supplier by remember { mutableStateOf<SupplierRow?>(null) }
-    var labourer by remember { mutableStateOf<LabourerRow?>(null) }
-    var workCategory by remember { mutableStateOf("None") }
-    var purchase by remember { mutableStateOf<MaterialRow?>(null) }
-    val projectMaterials = projectFilter?.let { pr -> materials.filter { it.projectId == pr.id } } ?: emptyList()
-    val assignedLabourers = projectFilter?.let { pr ->
-        val ids = assignments.filter { it.projectId == pr.id }.map { it.labourerId }.toSet()
-        labourers.filter { it.id in ids }
-    } ?: emptyList()
-    val wageById = labourers.associate { it.id to it.dailyWage }
-    val wageDue = remember(attendance, rows, wageById) { computeWagesDue(attendance, rows, wageById) }
 
     FormColumn {
         Row(
@@ -1421,56 +1416,16 @@ fun AdminPayments(isOwner: Boolean = false, initialProjectFilter: ProjectRow? = 
         // (the create form always assigns the selected project below), so
         // there's nothing to add from here -- only existing ones to manage.
         if (!showArchived && !showUnassigned) {
-            SectionTitle("Create payment")
-            Dropdown(
-                "Payee type", listOf("supplier","labour"), payeeType, { it },
-                { payeeType = it; supplier = null; labourer = null; desc = ""; purchase = null },
+            CreatePaymentSection(
+                fixedProject = projectFilter,
+                projects = projects,
+                suppliers = suppliers,
+                labourers = labourers,
+                materials = materials,
+                assignments = assignments,
+                wageDue = wageDue,
+                onCreated = { version++ },
             )
-            if (payeeType == "labour") {
-                Dropdown(
-                    "Labourer", assignedLabourers, labourer, { it.name },
-                    { l ->
-                        labourer = l
-                        val pid = projectFilter?.id
-                        if (pid != null) amount = (wageDue[wageDueKey(pid, l.id)] ?: 0.0).toString()
-                    },
-                )
-                Text(
-                    "Only labourers currently assigned to this project. Selecting one fills in " +
-                        "the wages owed based on their attendance.",
-                    style = MaterialTheme.typography.labelSmall,
-                    modifier = Modifier.padding(horizontal = 16.dp),
-                )
-            } else {
-                Dropdown(
-                    "Purchase (optional)", projectMaterials, purchase,
-                    { m -> "${m.name} (${m.quantity} ${m.unit}) — ${money(lineTotal(m.quantity, m.unitCost))}" },
-                    { m ->
-                        purchase = m
-                        payeeType = "supplier"
-                        supplier = suppliers.find { it.id == m.supplierId }
-                        amount = (lineTotal(m.quantity, m.unitCost)).toString()
-                        desc = "${m.name} (${m.quantity} ${m.unit})"
-                        workCategory = m.workCategory ?: "None"
-                    },
-                )
-                Dropdown("Supplier", suppliers, supplier, { it.name }, { supplier = it })
-                TextField(desc, { desc = it }, "Description")
-            }
-            CategoryDropdown("Work category", workCategory, { workCategory = it })
-            NumberField(amount, { amount = it }, "Amount")
-            Button(onClick = {
-                val pid = projectFilter?.id ?: return@Button
-                scope.launch {
-                    safe({
-                        Repo.createPayment(pid, payeeType,
-                            supplier?.id, labourer?.id,
-                            amount.toDoubleOrNull() ?: 0.0, desc.ifBlank { null },
-                            workCategory.takeIf { it != "None" })
-                        amount = ""; desc = ""; version++
-                    }) { error = it }
-                }
-            }, modifier = Modifier.padding(16.dp)) { Text("Create") }
         }
         error?.let { Text(it, color = MaterialTheme.colorScheme.error,
             modifier = Modifier.padding(16.dp)) }
@@ -1642,12 +1597,114 @@ private fun dailyTotalsFromDatedAmounts(rows: List<Pair<String, Double>>): List<
     return points
 }
 
+// Extracted so the same create-payment flow works both from a specific
+// project's page (fixedProject set, no picker shown) and from the
+// project-picker screen before any project is chosen (fixedProject null,
+// shows its own Project dropdown) -- mirrors web's CreatePaymentForm /
+// fixedProject prop in components/admin/PaymentForm.tsx.
+@Composable
+private fun CreatePaymentSection(
+    fixedProject: ProjectRow?,
+    projects: List<ProjectRow>,
+    suppliers: List<SupplierRow>,
+    labourers: List<LabourerRow>,
+    materials: List<MaterialRow>,
+    assignments: List<ProjectLabourerRow>,
+    wageDue: Map<String, Double>,
+    onCreated: () -> Unit,
+) {
+    var selectedProject by remember { mutableStateOf<ProjectRow?>(null) }
+    val project = fixedProject ?: selectedProject
+    var payeeType by remember { mutableStateOf("supplier") }
+    var amount by remember { mutableStateOf("") }
+    var desc by remember { mutableStateOf("") }
+    var supplier by remember { mutableStateOf<SupplierRow?>(null) }
+    var labourer by remember { mutableStateOf<LabourerRow?>(null) }
+    var workCategory by remember { mutableStateOf("None") }
+    var purchase by remember { mutableStateOf<MaterialRow?>(null) }
+    var error by remember { mutableStateOf<String?>(null) }
+    val scope = rememberCoroutineScope()
+
+    val projectMaterials = project?.let { pr -> materials.filter { it.projectId == pr.id } } ?: emptyList()
+    val assignedLabourers = project?.let { pr ->
+        val ids = assignments.filter { it.projectId == pr.id }.map { it.labourerId }.toSet()
+        labourers.filter { it.id in ids }
+    } ?: emptyList()
+
+    SectionTitle("Create payment")
+    if (fixedProject == null) {
+        Dropdown(
+            "Project", projects, selectedProject, { it.name },
+            { p -> selectedProject = p; purchase = null; labourer = null; supplier = null; desc = "" },
+        )
+    }
+    Dropdown(
+        "Payee type", listOf("supplier","labour"), payeeType, { it },
+        { payeeType = it; supplier = null; labourer = null; desc = ""; purchase = null },
+    )
+    if (payeeType == "labour") {
+        Dropdown(
+            "Labourer", assignedLabourers, labourer, { it.name },
+            { l ->
+                labourer = l
+                val pid = project?.id
+                if (pid != null) amount = (wageDue[wageDueKey(pid, l.id)] ?: 0.0).toString()
+            },
+        )
+        Text(
+            "Only labourers currently assigned to this project. Selecting one fills in " +
+                "the wages owed based on their attendance.",
+            style = MaterialTheme.typography.labelSmall,
+            modifier = Modifier.padding(horizontal = 16.dp),
+        )
+    } else {
+        Dropdown(
+            "Purchase (optional)", projectMaterials, purchase,
+            { m -> "${m.name} (${m.quantity} ${m.unit}) — ${money(lineTotal(m.quantity, m.unitCost))}" },
+            { m ->
+                purchase = m
+                payeeType = "supplier"
+                supplier = suppliers.find { it.id == m.supplierId }
+                amount = (lineTotal(m.quantity, m.unitCost)).toString()
+                desc = "${m.name} (${m.quantity} ${m.unit})"
+                workCategory = m.workCategory ?: "None"
+            },
+        )
+        Dropdown("Supplier", suppliers, supplier, { it.name }, { supplier = it })
+        TextField(desc, { desc = it }, "Description")
+    }
+    CategoryDropdown("Work category", workCategory, { workCategory = it })
+    NumberField(amount, { amount = it }, "Amount")
+    Button(
+        onClick = {
+            val pid = project?.id ?: return@Button
+            scope.launch {
+                safe({
+                    Repo.createPayment(pid, payeeType,
+                        supplier?.id, labourer?.id,
+                        amount.toDoubleOrNull() ?: 0.0, desc.ifBlank { null },
+                        workCategory.takeIf { it != "None" })
+                    amount = ""; desc = ""; onCreated()
+                }) { error = it }
+            }
+        },
+        modifier = Modifier.padding(16.dp),
+    ) { Text("Create") }
+    error?.let { Text(it, color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(16.dp)) }
+}
+
 @Composable
 private fun PaymentsProjectPicker(
     projects: List<ProjectRow>,
     rows: List<PaymentRow>,
+    suppliers: List<SupplierRow>,
+    labourers: List<LabourerRow>,
+    materials: List<MaterialRow>,
+    assignments: List<ProjectLabourerRow>,
+    wageDue: Map<String, Double>,
     onPickProject: (ProjectRow) -> Unit,
     onPickUnassigned: () -> Unit,
+    onPaymentCreated: () -> Unit,
 ) {
     val statsByProject = remember(rows) {
         val map = mutableMapOf<String, Pair<Int, Double>>()
@@ -1698,6 +1755,18 @@ private fun PaymentsProjectPicker(
         Spacer(Modifier.height(8.dp))
         StatCard("Total cost", money(totalCost), modifier = Modifier.padding(horizontal = 16.dp), accent = true)
         Spacer(Modifier.height(8.dp))
+
+        CreatePaymentSection(
+            fixedProject = null,
+            projects = projects,
+            suppliers = suppliers,
+            labourers = labourers,
+            materials = materials,
+            assignments = assignments,
+            wageDue = wageDue,
+            onCreated = onPaymentCreated,
+        )
+        Divider()
 
         if (dailyTotals.isNotEmpty()) {
             SectionTitle("Payments over time")
