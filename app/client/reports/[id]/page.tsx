@@ -3,7 +3,6 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireRole } from "@/lib/guard";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { DataTable } from "@/components/admin/Page";
 import { DownloadSitePdfButton } from "@/components/admin/ReportPdf";
 import { DownloadSiteCsvButton } from "@/components/admin/ReportCsv";
 import { lineTotal } from "@/lib/money";
@@ -154,21 +153,6 @@ export default async function ClientSiteReportPage({ params }: { params: { id: s
           </a>
         </div>
       )}
-
-      <h2 className="mt-10 mb-3 text-sm font-semibold uppercase tracking-wide text-slate-500">
-        Transactions ({transactions.length})
-      </h2>
-      <DataTable
-        columns={["Type", "Description", "Date", "Status", "Amount"]}
-        rows={transactions.map((t) => [
-          t.type,
-          t.description,
-          formatDateTime(t.date),
-          t.status,
-          `₹${t.amount.toLocaleString()}`,
-        ])}
-        empty="No materials or payments recorded for this project yet."
-      />
     </main>
   );
 }

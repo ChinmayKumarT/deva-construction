@@ -538,25 +538,5 @@ private fun ClientReportDetail(
             }
             Divider()
         }
-
-        SectionTitle("Transactions (${transactions.size})")
-        if (transactions.isEmpty()) {
-            Text("No materials or payments recorded for this project yet.", Modifier.padding(16.dp))
-        } else {
-            transactions.forEach { t ->
-                ElevatedCard(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp)) {
-                    Row(
-                        Modifier.padding(12.dp).fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Column(Modifier.weight(1f)) {
-                            Text("${t.type} · ${t.description}", style = MaterialTheme.typography.titleSmall)
-                            Text("${t.date} · ${t.status}", style = MaterialTheme.typography.bodySmall)
-                        }
-                        Text(money(t.amount), style = MaterialTheme.typography.bodyMedium)
-                    }
-                }
-            }
-        }
     }
 }
