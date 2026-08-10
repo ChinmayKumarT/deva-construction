@@ -459,6 +459,20 @@ export async function createPayment(fd: FormData) {
   }
   const { error } = await supabase.from("payments").insert(row);
   if (error) throw new Error(error.message);
+
+  // Mark the picked purchase as billed so it drops out of the "Purchase
+  // (optional)" dropdown -- otherwise the same material could be paid for
+  // more than once from repeat visits to this form.
+  const materialId = uuidOrNull(fd, "material_id");
+  if (materialId) {
+    const { error: materialError } = await supabase
+      .from("materials")
+      .update({ billed: true })
+      .eq("id", materialId);
+    if (materialError) throw new Error(materialError.message);
+    revalidatePath("/admin/materials");
+  }
+
   revalidatePath("/admin/payments");
   revalidatePath("/admin");
 }

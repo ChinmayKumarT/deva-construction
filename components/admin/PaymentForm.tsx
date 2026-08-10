@@ -185,6 +185,7 @@ function PaymentFormFields({
           <label className="block text-sm">
             <span className="mb-1 block font-medium text-slate-700">Purchase (optional)</span>
             <select
+              name={purchaseId !== "none" && purchaseId !== OTHER_PURCHASE ? "material_id" : undefined}
               className={selectClass}
               value={purchaseId}
               onChange={(e) => handlePurchaseChange(e.target.value)}

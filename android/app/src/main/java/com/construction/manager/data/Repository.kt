@@ -439,6 +439,14 @@ object Repo {
             else setNextPaymentDate(projectId, null)
         }
     }
+    // Marks a purchase as paid for so it drops out of the Payments page's
+    // "Purchase (optional)" picker -- otherwise the same material could be
+    // paid for more than once across repeat visits to that form.
+    suspend fun markMaterialBilled(id: String) {
+        supabase.from("materials").update(buildJsonObject {
+            put("billed", true)
+        }) { filter { eq("id", id) } }
+    }
     suspend fun createMaterial(projectId: String, supplierId: String?, name: String,
                                unit: String, quantity: Double, unitCost: Double, status: String,
                                workCategory: String?) {

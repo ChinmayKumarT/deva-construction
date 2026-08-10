@@ -1365,7 +1365,7 @@ fun AdminPayments(isOwner: Boolean = false, initialProjectFilter: ProjectRow? = 
             projects = Repo.listProjects()
             suppliers = Repo.listSuppliers()
             labourers = Repo.listLabourers()
-            materials = Repo.listMaterials().filter { it.status != "returned" }
+            materials = Repo.listMaterials().filter { it.status != "returned" && !it.billed }
             assignments = Repo.listActiveAssignments()
             attendance = Repo.listAllAttendance()
         }) { error = it }
@@ -1729,9 +1729,13 @@ private fun CreatePaymentSection(
                         resolvedSupplierId, labourer?.id,
                         amount.toDoubleOrNull() ?: 0.0, desc.ifBlank { null },
                         workCategory.takeIf { it != "None" })
+                    val billedMaterialId = purchase?.id
+                    if (billedMaterialId != null && billedMaterialId != OtherPurchaseSentinel.id) {
+                        Repo.markMaterialBilled(billedMaterialId)
+                    }
                     amount = ""; desc = ""
                     if (supplier?.id == OtherSupplierSentinel.id) { supplier = null; supplierOtherName = "" }
-                    if (purchase?.id == OtherPurchaseSentinel.id) { purchase = null; purchaseOtherText = "" }
+                    purchase = null; purchaseOtherText = ""
                     onCreated()
                 }) { error = it }
             }

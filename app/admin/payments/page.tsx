@@ -41,6 +41,7 @@ export default async function PaymentsIndexPage({
       .select("id, name, unit, quantity, unit_cost, work_category, supplier_id, project_id")
       .is("archived_at", null)
       .neq("status", "returned")
+      .eq("billed", false)
       .order("ordered_at", { ascending: false }),
     supabase.from("project_labourers").select("labourer_id, project_id").is("unassigned_at", null),
     supabase
