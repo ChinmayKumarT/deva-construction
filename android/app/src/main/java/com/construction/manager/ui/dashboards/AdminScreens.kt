@@ -285,6 +285,19 @@ fun AdminProjects(isOwner: Boolean = false) {
                 StatCard("Spent", money(spent), Modifier.weight(1f))
                 StatCard("Remaining", money(p.totalCost - spent), Modifier.weight(1f), accent = true)
             }
+            val client = clients.find { it.id == p.clientId }
+            if (client != null) {
+                ItemCard(
+                    client.name,
+                    "${client.phone ?: "No phone"} · ${client.email ?: "No email"}",
+                )
+            } else {
+                Text(
+                    "No client assigned to this project.",
+                    style = MaterialTheme.typography.bodySmall,
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+                )
+            }
             ProjectRowCard(
                 project = p,
                 clients = clients,

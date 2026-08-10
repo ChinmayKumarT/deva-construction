@@ -19,7 +19,7 @@ export default async function ManageProjectPage({ params }: { params: { id: stri
       supabase
         .from("projects")
         .select(
-          "id, name, status, current_stage, completion_pct, total_cost, end_date, original_end_date, extension_reason, next_payment_date, next_payment_amount, archived_at, clients(name)",
+          "id, name, status, current_stage, completion_pct, total_cost, end_date, original_end_date, extension_reason, next_payment_date, next_payment_amount, archived_at, clients(id, name, email, phone)",
         )
         .eq("id", params.id)
         .single(),
@@ -68,6 +68,33 @@ export default async function ManageProjectPage({ params }: { params: { id: stri
         <CostBox label="Budget" value={budget} />
         <CostBox label="Spent" value={spent} />
         <CostBox label="Remaining" value={budget - spent} accent />
+      </div>
+
+      <div className="mb-6 flex max-w-xl items-center justify-between rounded-xl border border-slate-200 bg-white p-4">
+        {
+          project.clients ? (
+            <>
+              <div>
+                <div className="text-[11px] uppercase tracking-[0.12em] text-slate-500">Client</div>
+                {/* @ts-expect-error relation */}
+                <div className="mt-1 font-medium text-ink">{project.clients.name}</div>
+                <div className="mt-0.5 text-sm text-slate-600">
+                  {/* @ts-expect-error relation */}
+                  {project.clients.phone ?? "No phone"} · {project.clients.email ?? "No email"}
+                </div>
+              </div>
+              <Link
+                // @ts-expect-error relation
+                href={`/admin/clients/${project.clients.id}`}
+                className="text-sm font-medium text-brand-700 hover:underline"
+              >
+                View client →
+              </Link>
+            </>
+          ) : (
+            <p className="text-sm text-slate-500">No client assigned to this project.</p>
+          )
+        }
       </div>
 
       <div className="max-w-xl rounded-xl border border-slate-200 bg-white p-6">
