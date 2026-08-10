@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { WAGE_FACTOR, wageForStatus, wageDueKey, computeWagesDue } from "./wages";
+import { WAGE_FACTOR, wageForStatus, wageDueKey, computeWagesDue, computeWagesDueFromAccrued } from "./wages";
 
 describe("wageForStatus", () => {
   it("pays the full daily wage when present", () => {
@@ -131,5 +131,59 @@ describe("computeWagesDue", () => {
     );
     expect(due[wageDueKey("proj-1", "lab-1")]).toBe(800);
     expect(due[wageDueKey("proj-2", "lab-2")]).toBe(1000);
+  });
+});
+
+describe("computeWagesDueFromAccrued", () => {
+  it("uses the pre-summed accrued total directly", () => {
+    const due = computeWagesDueFromAccrued(
+      [{ project_id: "proj-1", labourer_id: "lab-1", accrued: 1200 }],
+      [],
+    );
+    expect(due[wageDueKey("proj-1", "lab-1")]).toBe(1200);
+  });
+
+  it("subtracts labour payments already made for that pair", () => {
+    const due = computeWagesDueFromAccrued(
+      [{ project_id: "proj-1", labourer_id: "lab-1", accrued: 1600 }],
+      [{ project_id: "proj-1", payee_type: "labour", labourer_id: "lab-1", amount: 500, status: "paid" }],
+    );
+    expect(due[wageDueKey("proj-1", "lab-1")]).toBe(1100);
+  });
+
+  it("never goes negative when overpaid", () => {
+    const due = computeWagesDueFromAccrued(
+      [{ project_id: "proj-1", labourer_id: "lab-1", accrued: 800 }],
+      [{ project_id: "proj-1", payee_type: "labour", labourer_id: "lab-1", amount: 5000, status: "paid" }],
+    );
+    expect(due[wageDueKey("proj-1", "lab-1")]).toBe(0);
+  });
+
+  it("skips rows with no project or zero/negative accrued", () => {
+    const due = computeWagesDueFromAccrued(
+      [
+        { project_id: null, labourer_id: "lab-1", accrued: 800 },
+        { project_id: "proj-1", labourer_id: "lab-2", accrued: 0 },
+      ],
+      [],
+    );
+    expect(due).toEqual({});
+  });
+
+  it("matches computeWagesDue's result for the same underlying data", () => {
+    const wages = new Map([["lab-1", 800]]);
+    const attendance = [
+      { project_id: "proj-1", labourer_id: "lab-1", status: "present" },
+      { project_id: "proj-1", labourer_id: "lab-1", status: "half_day" },
+    ];
+    const payments = [
+      { project_id: "proj-1", payee_type: "labour", labourer_id: "lab-1", amount: 300, status: "approved" },
+    ];
+    const fromAttendance = computeWagesDue(attendance, payments, wages);
+    const fromAccrued = computeWagesDueFromAccrued(
+      [{ project_id: "proj-1", labourer_id: "lab-1", accrued: 1200 }],
+      payments,
+    );
+    expect(fromAccrued[wageDueKey("proj-1", "lab-1")]).toBe(fromAttendance[wageDueKey("proj-1", "lab-1")]);
   });
 });

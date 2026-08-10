@@ -171,6 +171,18 @@ data class ProjectWageTotalRow(
     @SerialName("wage_total") val wageTotal: Double = 0.0,
 )
 
+// Row shape returned by the staff_labourer_wage_accrued() RPC: wages accrued
+// from attendance, pre-summed per (project, labourer) pair in Postgres
+// instead of fetching every attendance row -- see
+// supabase/29_staff_wage_accrued.sql. Mirrors web's computeWagesDueFromAccrued
+// input shape in lib/wages.ts.
+@Serializable
+data class LabourerWageAccruedRow(
+    @SerialName("project_id") val projectId: String,
+    @SerialName("labourer_id") val labourerId: String,
+    val accrued: Double = 0.0,
+)
+
 // Row shape returned by the my_project_labourers() RPC: which labourers have
 // attendance on a project owned by the calling client. Names/trade only, no
 // wage figures -- see 19_client_project_labourers.sql. Named distinctly from

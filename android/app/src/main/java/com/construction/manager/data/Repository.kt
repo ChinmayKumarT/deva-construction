@@ -270,6 +270,13 @@ object Repo {
         .select { activeOnly(); order("created_at", Order.DESCENDING) }.decodeList<SupplierRow>()
     suspend fun listLabourers() = supabase.from("labourers")
         .select { activeOnly(); order("created_at", Order.DESCENDING) }.decodeList<LabourerRow>()
+    // Staff-scoped equivalent of myProjectWageTotals() above, but per
+    // (project, labourer) instead of just per project -- the Payments
+    // screens need per-labourer amounts to auto-fill a wage payment. Same
+    // security-definer RPC pattern, summed in Postgres so this doesn't have
+    // to pull the whole (ever-growing) attendance table down to the device.
+    suspend fun staffLabourerWageAccrued(): List<LabourerWageAccruedRow> =
+        supabase.postgrest.rpc("staff_labourer_wage_accrued").decodeList()
     suspend fun listMaterials() = supabase.from("materials")
         .select { activeOnly(); order("ordered_at", Order.DESCENDING) }.decodeList<MaterialRow>()
     suspend fun listPayments() = supabase.from("payments")

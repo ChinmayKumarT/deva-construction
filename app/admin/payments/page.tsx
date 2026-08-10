@@ -7,7 +7,7 @@ import { PieChart, PieLegend } from "@/components/admin/PieChart";
 import { CreatePaymentForm } from "@/components/admin/PaymentForm";
 import { byProjectTotals, payeeTypeSplitByProject, dailyPaymentTotals } from "@/lib/paymentsChart";
 import { toCumulative } from "@/lib/cashflow";
-import { computeWagesDue } from "@/lib/wages";
+import { computeWagesDueFromAccrued } from "@/lib/wages";
 import { createPayment } from "../actions";
 
 export const dynamic = "force-dynamic";
@@ -27,7 +27,7 @@ export default async function PaymentsIndexPage({
   const [
     { data: projects }, { data: payments }, { count: archivedCount },
     { data: suppliers }, { data: labourers }, { data: materials }, { data: assignments },
-    { data: allLabourPayments }, { data: attendance },
+    { data: allLabourPayments }, { data: wageAccrued },
   ] = await Promise.all([
     supabase.from("projects").select("id, name, status").is("archived_at", null).order("name"),
     showArchived
@@ -35,7 +35,7 @@ export default async function PaymentsIndexPage({
       : supabase.from("payments").select("id, project_id, amount, status, payee_type, created_at").is("archived_at", null),
     supabase.from("payments").select("id", { count: "exact", head: true }).not("archived_at", "is", null),
     supabase.from("suppliers").select("id, name").is("archived_at", null).order("name"),
-    supabase.from("labourers").select("id, name, daily_wage").is("archived_at", null).order("name"),
+    supabase.from("labourers").select("id, name").is("archived_at", null).order("name"),
     supabase
       .from("materials")
       .select("id, name, unit, quantity, unit_cost, work_category, supplier_id, project_id")
@@ -49,11 +49,13 @@ export default async function PaymentsIndexPage({
       .select("project_id, payee_type, labourer_id, amount, status")
       .is("archived_at", null)
       .eq("payee_type", "labour"),
-    supabase.from("attendance").select("project_id, labourer_id, status"),
+    // Pre-summed per (project, labourer) in Postgres instead of fetching the
+    // entire attendance table just to add it up client-side -- see
+    // supabase/29_staff_wage_accrued.sql.
+    supabase.rpc("staff_labourer_wage_accrued"),
   ]);
 
-  const labourerWage = new Map((labourers ?? []).map((l) => [l.id, Number(l.daily_wage)]));
-  const wageDue = computeWagesDue(attendance ?? [], allLabourPayments ?? [], labourerWage);
+  const wageDue = computeWagesDueFromAccrued(wageAccrued ?? [], allLabourPayments ?? []);
 
   const byProject = new Map<string, { count: number; spend: number }>();
   let unassignedCount = 0;

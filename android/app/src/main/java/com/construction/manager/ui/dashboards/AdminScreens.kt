@@ -1379,7 +1379,7 @@ fun AdminPayments(isOwner: Boolean = false, initialProjectFilter: ProjectRow? = 
     var labourers by remember { mutableStateOf<List<LabourerRow>>(emptyList()) }
     var materials by remember { mutableStateOf<List<MaterialRow>>(emptyList()) }
     var assignments by remember { mutableStateOf<List<ProjectLabourerRow>>(emptyList()) }
-    var attendance by remember { mutableStateOf<List<AttendanceRow>>(emptyList()) }
+    var wageAccrued by remember { mutableStateOf<List<LabourerWageAccruedRow>>(emptyList()) }
     var version by remember { mutableStateOf(0) }
     var error by remember { mutableStateOf<String?>(null) }
     var showArchived by remember { mutableStateOf(false) }
@@ -1402,12 +1402,13 @@ fun AdminPayments(isOwner: Boolean = false, initialProjectFilter: ProjectRow? = 
             labourers = Repo.listLabourers()
             materials = Repo.listMaterials().filter { it.status != "returned" && !it.billed }
             assignments = Repo.listActiveAssignments()
-            attendance = Repo.listAllAttendance()
+            // Pre-summed per (project, labourer) in Postgres instead of
+            // fetching the entire attendance table just to add it up here.
+            wageAccrued = Repo.staffLabourerWageAccrued()
         }) { error = it }
     }
 
-    val wageById = labourers.associate { it.id to it.dailyWage }
-    val wageDue = remember(attendance, rows, wageById) { computeWagesDue(attendance, rows, wageById) }
+    val wageDue = remember(wageAccrued, rows) { computeWagesDueFromAccrued(wageAccrued, rows) }
 
     if (projectFilter == null && !showUnassigned) {
         PaymentsProjectPicker(
@@ -1580,7 +1581,7 @@ fun AdminPayments(isOwner: Boolean = false, initialProjectFilter: ProjectRow? = 
 
     editing?.let { p ->
         EditPaymentDialog(
-            p, projects, suppliers, labourers, materials, assignments, attendance, rows,
+            p, projects, suppliers, labourers, materials, assignments, wageAccrued, rows,
             onDismiss = { editing = null }, onSaved = { editing = null; version++ },
         )
     }
@@ -1926,7 +1927,7 @@ private fun EditPaymentDialog(
     labourers: List<LabourerRow>,
     materials: List<MaterialRow>,
     assignments: List<ProjectLabourerRow>,
-    attendance: List<AttendanceRow>,
+    wageAccrued: List<LabourerWageAccruedRow>,
     payments: List<PaymentRow>,
     onDismiss: () -> Unit,
     onSaved: () -> Unit,
@@ -1947,12 +1948,11 @@ private fun EditPaymentDialog(
         val ids = assignments.filter { it.projectId == pr.id }.map { it.labourerId }.toSet()
         labourers.filter { it.id in ids || it.id == payment.labourerId }
     } ?: emptyList()
-    val wageById = labourers.associate { it.id to it.dailyWage }
     // Exclude this payment itself from "already claimed" -- otherwise
     // re-selecting the same labourer would subtract its own amount and
     // always show 0 due.
-    val wageDue = remember(attendance, payments, wageById) {
-        computeWagesDue(attendance, payments, wageById, excludePaymentId = payment.id)
+    val wageDue = remember(wageAccrued, payments) {
+        computeWagesDueFromAccrued(wageAccrued, payments, excludePaymentId = payment.id)
     }
 
     EditDialog(
@@ -2922,6 +2922,33 @@ private fun computeWagesDue(
         if (wage <= 0.0) return@forEach
         val key = wageDueKey(pid, a.labourerId)
         due[key] = (due[key] ?: 0.0) + wage
+    }
+    payments.forEach { p ->
+        val pid = p.projectId ?: return@forEach
+        val labourerId = p.labourerId ?: return@forEach
+        if (p.id == excludePaymentId || p.payeeType != "labour" || p.status == "rejected") return@forEach
+        val key = wageDueKey(pid, labourerId)
+        due[key] = (due[key] ?: 0.0) - p.amount
+    }
+    return due.mapValues { (_, v) -> v.coerceAtLeast(0.0) }
+}
+
+// Same result as computeWagesDue, but starting from wage totals already
+// summed per (project, labourer) pair by the staff_labourer_wage_accrued()
+// Postgres function (see supabase/29_staff_wage_accrued.sql) instead of raw
+// attendance rows -- lets the Payments screen skip fetching the entire
+// (ever-growing) attendance table just to add it up on-device. Mirrors
+// lib/wages.ts's computeWagesDueFromAccrued.
+private fun computeWagesDueFromAccrued(
+    accrued: List<LabourerWageAccruedRow>,
+    payments: List<PaymentRow>,
+    excludePaymentId: String? = null,
+): Map<String, Double> {
+    val due = mutableMapOf<String, Double>()
+    accrued.forEach { a ->
+        if (a.accrued <= 0.0) return@forEach
+        val key = wageDueKey(a.projectId, a.labourerId)
+        due[key] = (due[key] ?: 0.0) + a.accrued
     }
     payments.forEach { p ->
         val pid = p.projectId ?: return@forEach

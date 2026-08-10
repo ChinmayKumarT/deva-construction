@@ -6,7 +6,7 @@ import { ArchivedToggle, DeleteForeverButton, RestoreAction } from "@/components
 import { CreatePaymentForm } from "@/components/admin/PaymentForm";
 import { CashFlowBarChart } from "@/components/admin/CashFlowBarChart";
 import { byCategoryTotals } from "@/lib/paymentsChart";
-import { computeWagesDue } from "@/lib/wages";
+import { computeWagesDueFromAccrued } from "@/lib/wages";
 import { formatDateTime } from "@/lib/dateFormat";
 import {
   approvePayment, createPayment, markPaymentPaid, rejectPayment,
@@ -53,7 +53,7 @@ export default async function ProjectPaymentsPage({
 
   const [
     { data: project }, { data: payments }, { data: projects }, { data: suppliers }, { data: labourers },
-    { data: materials }, { data: assignments }, { data: allLabourPayments }, { data: attendance },
+    { data: materials }, { data: assignments }, { data: allLabourPayments }, { data: wageAccrued },
     { count: archivedCount }, { data: clientPayments },
   ] = await Promise.all([
     isUnassigned
@@ -62,7 +62,7 @@ export default async function ProjectPaymentsPage({
     showArchived ? base.not("archived_at", "is", null) : base.is("archived_at", null),
     supabase.from("projects").select("id, name").is("archived_at", null).order("name"),
     supabase.from("suppliers").select("id, name").is("archived_at", null).order("name"),
-    supabase.from("labourers").select("id, name, daily_wage").is("archived_at", null).order("name"),
+    supabase.from("labourers").select("id, name").is("archived_at", null).order("name"),
     supabase
       .from("materials")
       .select("id, name, unit, quantity, unit_cost, work_category, supplier_id, project_id")
@@ -76,7 +76,10 @@ export default async function ProjectPaymentsPage({
       .select("project_id, payee_type, labourer_id, amount, status")
       .is("archived_at", null)
       .eq("payee_type", "labour"),
-    supabase.from("attendance").select("project_id, labourer_id, status"),
+    // Pre-summed per (project, labourer) in Postgres instead of fetching the
+    // entire attendance table just to add it up client-side -- see
+    // supabase/29_staff_wage_accrued.sql.
+    supabase.rpc("staff_labourer_wage_accrued"),
     archivedCountQuery,
     isUnassigned
       ? Promise.resolve({ data: [] as { id: string; amount: number; description: string | null; paid_on: string; archived_at: string | null }[] })
@@ -90,8 +93,7 @@ export default async function ProjectPaymentsPage({
   const title = isUnassigned ? "Payments with no project" : project!.name;
   const basePath = `/admin/payments/${params.id}`;
 
-  const labourerWage = new Map((labourers ?? []).map((l) => [l.id, Number(l.daily_wage)]));
-  const wageDue = computeWagesDue(attendance ?? [], allLabourPayments ?? [], labourerWage);
+  const wageDue = computeWagesDueFromAccrued(wageAccrued ?? [], allLabourPayments ?? []);
 
   const categoryTotals = byCategoryTotals(payments ?? []);
   const categoryBars = Array.from(categoryTotals.entries())
