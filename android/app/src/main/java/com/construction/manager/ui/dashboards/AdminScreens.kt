@@ -1718,6 +1718,10 @@ private fun CreatePaymentSection(
     Button(
         onClick = {
             val pid = project?.id ?: return@Button
+            if (workCategory == "None" || workCategory.isBlank()) {
+                error = "Work category is required"
+                return@Button
+            }
             scope.launch {
                 safe({
                     val resolvedSupplierId = if (payeeType == "supplier" && supplier?.id == OtherSupplierSentinel.id) {

@@ -267,8 +267,9 @@ function PaymentFormFields({
             className={selectClass}
             value={workCategory}
             onChange={(e) => setWorkCategory(e.target.value)}
+            required
           >
-            <option value="">— none —</option>
+            <option value="">— select category —</option>
             {WORK_CATEGORIES.map((c) => (<option key={c} value={c}>{c}</option>))}
             <option value={OTHER_CATEGORY}>Other…</option>
           </select>

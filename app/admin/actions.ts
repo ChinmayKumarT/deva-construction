@@ -32,6 +32,11 @@ function uuidOrNull(fd: FormData, k: string) {
   const v = str(fd, k);
   return v && v !== "none" ? v : null;
 }
+function requiredStr(fd: FormData, k: string, label: string) {
+  const v = str(fd, k);
+  if (!v) throw new Error(`${label} is required`);
+  return v;
+}
 // The Supplier field's "Other…" option omits `name="supplier_id"` from the
 // select (see PaymentForm.tsx) and submits a plain-text `new_supplier_name`
 // instead -- resolve that into a real supplier row so supplier_id can stay a
@@ -271,7 +276,7 @@ export async function updatePayment(fd: FormData) {
     labourer_id: payee_type === "labour" ? uuidOrNull(fd, "labourer_id") : null,
     amount: nonNegNum(fd, "amount", "Amount") ?? 0,
     description: str(fd, "description"),
-    work_category: str(fd, "work_category"),
+    work_category: requiredStr(fd, "work_category", "Work category"),
   });
   redirect("/admin/payments");
 }
@@ -445,7 +450,7 @@ export async function createPayment(fd: FormData) {
     payee_type,
     amount: nonNegNum(fd, "amount", "Amount") ?? 0,
     description: str(fd, "description"),
-    work_category: str(fd, "work_category"),
+    work_category: requiredStr(fd, "work_category", "Work category"),
     status: "approved",
     approved_at: new Date().toISOString(),
     approved_by: user?.id ?? null,
