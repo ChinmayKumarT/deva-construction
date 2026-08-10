@@ -454,9 +454,12 @@ export async function createPayment(
     // -- go straight to "approved" instead of making the admin click
     // Approve on their own entry a moment later. Only "Mark paid" remains
     // as a next step.
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
+    // getUser() and resolveSupplierId() don't depend on each other -- run
+    // them together instead of paying for both round-trips back to back.
+    const [{ data: { user } }, resolvedSupplierId] = await Promise.all([
+      supabase.auth.getUser(),
+      payee_type === "supplier" ? resolveSupplierId(supabase, fd) : Promise.resolve(null),
+    ]);
     const row: Record<string, unknown> = {
       project_id: uuidOrNull(fd, "project_id"),
       payee_type,
@@ -468,7 +471,7 @@ export async function createPayment(
       approved_by: user?.id ?? null,
     };
     if (payee_type === "supplier") {
-      row.supplier_id = await resolveSupplierId(supabase, fd);
+      row.supplier_id = resolvedSupplierId;
       row.labourer_id = null;
     } else {
       row.labourer_id = uuidOrNull(fd, "labourer_id");
