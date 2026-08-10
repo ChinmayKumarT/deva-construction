@@ -22,7 +22,6 @@ import com.construction.manager.ui.CashFlowBarChart
 import com.construction.manager.ui.CashFlowCategory
 import com.construction.manager.ui.CashFlowDailyPoint
 import com.construction.manager.ui.CashFlowTrendChart
-import com.construction.manager.ui.CompletionAndSpendPies
 import com.construction.manager.ui.DeleteAccountButton
 import com.construction.manager.ui.formatDateTime
 import com.construction.manager.ui.SectionTitle
@@ -539,15 +538,6 @@ private fun ClientReportDetail(
             }
             Divider()
         }
-
-        CompletionAndSpendPies(
-            project.name, project.completionPct,
-            if (project.totalCost > 0) (received / project.totalCost * 100)
-            else if (received > 0) 999.0 else 0.0,
-        )
-        Divider()
-        BudgetPie(project.name, project.totalCost, received)
-        Divider()
 
         SectionTitle("Transactions (${transactions.size})")
         if (transactions.isEmpty()) {

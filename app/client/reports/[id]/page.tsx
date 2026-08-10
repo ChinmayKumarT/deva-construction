@@ -4,16 +4,10 @@ import { notFound } from "next/navigation";
 import { requireRole } from "@/lib/guard";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { DataTable } from "@/components/admin/Page";
-import { PieChart, PieLegend } from "@/components/admin/PieChart";
 import { DownloadSitePdfButton } from "@/components/admin/ReportPdf";
 import { DownloadSiteCsvButton } from "@/components/admin/ReportCsv";
 import { lineTotal } from "@/lib/money";
 import { formatDateTime } from "@/lib/dateFormat";
-
-const BRAND = "#16a34a";
-const SPEND = "#F59E0B";
-const TRACK = "#E2E8F0";
-const OVER_BUDGET = "#DC2626";
 
 export default async function ClientSiteReportPage({ params }: { params: { id: string } }) {
   const { user } = await requireRole("client");
@@ -77,8 +71,6 @@ export default async function ClientSiteReportPage({ params }: { params: { id: s
 
   const budget = Number(project.total_cost);
   const completionPct = Number(project.completion_pct);
-  const spendPct = budget > 0 ? (spent / budget) * 100 : spent > 0 ? 999 : 0;
-  const overBudget = budget > 0 && spent > budget;
 
   const transactions = [
     ...(materials ?? []).map((m) => ({
@@ -162,74 +154,6 @@ export default async function ClientSiteReportPage({ params }: { params: { id: s
           </a>
         </div>
       )}
-
-      <div className="mt-6 grid gap-6 sm:grid-cols-2">
-        <div className="rounded-xl border border-[var(--line)] bg-white p-5">
-          <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-500">
-            Completion vs money spent
-          </h2>
-          <PieLegend
-            items={[
-              { label: "Complete", color: BRAND },
-              { label: "Remaining work", color: TRACK },
-              { label: "Spend", color: overBudget ? OVER_BUDGET : SPEND },
-              { label: "Remaining budget", color: TRACK },
-            ]}
-          />
-          <div className="mt-4 flex gap-8">
-            <div className="flex flex-col items-center gap-2">
-              <PieChart
-                slices={[
-                  { fraction: completionPct / 100, color: BRAND },
-                  { fraction: 1 - completionPct / 100, color: TRACK },
-                ]}
-              />
-              <span className="text-xs text-slate-600">Completion {completionPct.toFixed(0)}%</span>
-            </div>
-            <div className="flex flex-col items-center gap-2">
-              {spendPct > 100 ? (
-                <PieChart slices={[{ fraction: 1, color: OVER_BUDGET }]} />
-              ) : (
-                <PieChart
-                  slices={[
-                    { fraction: spendPct / 100, color: SPEND },
-                    { fraction: 1 - spendPct / 100, color: TRACK },
-                  ]}
-                />
-              )}
-              <span className="text-xs text-slate-600">
-                {spendPct > 100 ? "Spend over budget" : `Spend ${spendPct.toFixed(0)}%`}
-              </span>
-            </div>
-          </div>
-        </div>
-
-        <div className="rounded-xl border border-[var(--line)] bg-white p-5">
-          <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-500">
-            Budget vs spent vs remaining
-          </h2>
-          <div className="flex items-center gap-6">
-            {overBudget ? (
-              <PieChart slices={[{ fraction: 1, color: OVER_BUDGET }]} />
-            ) : (
-              <PieChart
-                slices={[
-                  { fraction: budget > 0 ? spent / budget : spent > 0 ? 1 : 0, color: BRAND },
-                  { fraction: budget > 0 ? 1 - spent / budget : 0, color: TRACK },
-                ]}
-              />
-            )}
-            <div>
-              {!overBudget && <PieLegend items={[{ label: "Spent", color: BRAND }, { label: "Remaining", color: TRACK }]} />}
-              <p className={`mt-2 text-sm ${overBudget ? "text-red-600 font-medium" : "text-slate-600"}`}>
-                {overBudget
-                  ? `Over budget by ₹${(spent - budget).toLocaleString()}`
-                  : `₹${spent.toLocaleString()} of ₹${budget.toLocaleString()} spent · ₹${Math.max(budget - spent, 0).toLocaleString()} remaining`}
-              </p>
-            </div>
-          </div>
-        </div>
-      </div>
 
       <h2 className="mt-10 mb-3 text-sm font-semibold uppercase tracking-wide text-slate-500">
         Transactions ({transactions.length})
