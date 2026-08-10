@@ -617,6 +617,47 @@ export async function setNextPaymentDate(fd: FormData) {
   revalidatePath("/client");
 }
 
+// Same upload pattern as postProjectUpdate above -- image goes to the
+// existing project-images bucket, only the public URL is stored on the row.
+export async function uploadProjectAgreement(fd: FormData) {
+  const supabase = createSupabaseServerClient();
+  const project_id = str(fd, "project_id");
+  if (!project_id) throw new Error("project required");
+
+  const file = fd.get("image_file");
+  if (!(file instanceof File) || file.size === 0) throw new Error("agreement image required");
+
+  const ext = file.name.split(".").pop()?.toLowerCase() ?? "jpg";
+  const path = `${project_id}/agreement-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
+  const buf = new Uint8Array(await file.arrayBuffer());
+  const { error: upErr } = await supabase.storage
+    .from("project-images")
+    .upload(path, buf, { contentType: file.type || "image/jpeg", upsert: false });
+  if (upErr) throw new Error(`upload failed: ${upErr.message}`);
+  const { data: pub } = supabase.storage.from("project-images").getPublicUrl(path);
+
+  const { error } = await supabase
+    .from("projects")
+    .update({ agreement_image_url: pub.publicUrl })
+    .eq("id", project_id);
+  if (error) throw new Error(error.message);
+  revalidatePath(`/admin/projects/${project_id}`);
+  revalidatePath("/client");
+}
+
+export async function removeProjectAgreement(fd: FormData) {
+  const supabase = createSupabaseServerClient();
+  const project_id = str(fd, "project_id");
+  if (!project_id) throw new Error("project required");
+  const { error } = await supabase
+    .from("projects")
+    .update({ agreement_image_url: null })
+    .eq("id", project_id);
+  if (error) throw new Error(error.message);
+  revalidatePath(`/admin/projects/${project_id}`);
+  revalidatePath("/client");
+}
+
 // The set_user_role RPC re-checks is_owner() server-side (08_owner_admin_approval.sql),
 // so this is a thin wrapper, not the actual security boundary -- a non-owner
 // calling it still gets rejected by the database.

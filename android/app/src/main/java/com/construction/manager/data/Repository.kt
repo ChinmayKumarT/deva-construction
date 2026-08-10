@@ -383,6 +383,13 @@ object Repo {
             else put("next_payment_amount", JsonNull)
         }) { filter { eq("id", projectId) } }
     }
+    // Uploaded image goes through uploadProjectImage (same project-images
+    // bucket); this just points/clears the project row's agreement field.
+    suspend fun setProjectAgreementImage(projectId: String, url: String?) {
+        supabase.from("projects").update(buildJsonObject {
+            if (url != null) put("agreement_image_url", url) else put("agreement_image_url", JsonNull)
+        }) { filter { eq("id", projectId) } }
+    }
     suspend fun createClient(name: String, email: String?, phone: String?, profileId: String?) {
         supabase.from("clients").insert(buildJsonObject {
             put("name", name)

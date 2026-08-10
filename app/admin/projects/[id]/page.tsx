@@ -1,3 +1,4 @@
+import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createSupabaseServerClient, getSessionAndRole } from "@/lib/supabase/server";
@@ -5,7 +6,15 @@ import { AdminPage, AdminPageHeader, CostBox } from "@/components/admin/Page";
 import { DeleteForeverButton } from "@/components/admin/RowActions";
 import { wageForStatus } from "@/lib/wages";
 import { lineTotal } from "@/lib/money";
-import { archiveProject, deleteProject, extendProjectEndDate, setNextPaymentDate, unarchiveProject } from "../../actions";
+import {
+  archiveProject,
+  deleteProject,
+  extendProjectEndDate,
+  removeProjectAgreement,
+  setNextPaymentDate,
+  unarchiveProject,
+  uploadProjectAgreement,
+} from "../../actions";
 
 export const dynamic = "force-dynamic";
 export const fetchCache = "force-no-store";
@@ -19,7 +28,7 @@ export default async function ManageProjectPage({ params }: { params: { id: stri
       supabase
         .from("projects")
         .select(
-          "id, name, status, current_stage, completion_pct, total_cost, end_date, original_end_date, extension_reason, next_payment_date, next_payment_amount, archived_at, clients(id, name, email, phone)",
+          "id, name, status, current_stage, completion_pct, total_cost, end_date, original_end_date, extension_reason, next_payment_date, next_payment_amount, agreement_image_url, archived_at, clients(id, name, email, phone)",
         )
         .eq("id", params.id)
         .single(),
@@ -95,6 +104,59 @@ export default async function ManageProjectPage({ params }: { params: { id: stri
             <p className="text-sm text-slate-500">No client assigned to this project.</p>
           )
         }
+      </div>
+
+      <div className="mb-6 max-w-xl rounded-xl border border-slate-200 bg-white p-4">
+        <div className="mb-2 text-[11px] uppercase tracking-[0.12em] text-slate-500">Agreement</div>
+        {project.agreement_image_url ? (
+          <>
+            <a href={project.agreement_image_url} target="_blank" rel="noreferrer">
+              <Image
+                src={project.agreement_image_url} alt="" width={640} height={480} loading="lazy"
+                className="max-h-96 w-auto rounded-lg border border-slate-200 object-cover"
+              />
+            </a>
+            {!archived && (
+              <div className="mt-3 flex flex-wrap items-center gap-2">
+                <form action={uploadProjectAgreement}>
+                  <input type="hidden" name="project_id" value={project.id} />
+                  <label className="cursor-pointer rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-100">
+                    Replace
+                    <input
+                      type="file" accept="image/*" name="image_file" className="hidden"
+                      onChange={(e) => e.currentTarget.form?.requestSubmit()}
+                    />
+                  </label>
+                </form>
+                <form action={removeProjectAgreement}>
+                  <input type="hidden" name="project_id" value={project.id} />
+                  <button
+                    type="submit"
+                    className="rounded-lg border border-red-300 bg-white px-3 py-1.5 text-sm text-red-700 hover:bg-red-50"
+                  >
+                    Remove
+                  </button>
+                </form>
+              </div>
+            )}
+          </>
+        ) : archived ? (
+          <p className="text-sm text-slate-500">No agreement on file.</p>
+        ) : (
+          <form action={uploadProjectAgreement} className="flex flex-wrap items-center gap-2">
+            <input type="hidden" name="project_id" value={project.id} />
+            <input
+              type="file" accept="image/*" name="image_file" required
+              className="text-sm text-slate-600 file:mr-2 file:rounded-lg file:border file:border-slate-300 file:bg-white file:px-3 file:py-1.5 file:text-sm file:text-slate-700 hover:file:bg-slate-100"
+            />
+            <button
+              type="submit"
+              className="rounded-lg bg-brand px-3 py-1.5 text-sm font-medium text-white hover:bg-brand-700"
+            >
+              Upload
+            </button>
+          </form>
+        )}
       </div>
 
       <div className="max-w-xl rounded-xl border border-slate-200 bg-white p-6">

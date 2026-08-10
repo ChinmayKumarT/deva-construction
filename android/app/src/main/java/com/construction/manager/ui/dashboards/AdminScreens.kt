@@ -298,6 +298,7 @@ fun AdminProjects(isOwner: Boolean = false) {
                     modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
                 )
             }
+            ProjectAgreementSection(project = p, onChanged = { version++ })
             ProjectRowCard(
                 project = p,
                 clients = clients,
@@ -372,6 +373,65 @@ fun AdminProjects(isOwner: Boolean = false) {
                     onChanged = { version++ },
                 )
             }
+        }
+    }
+}
+
+// Agreement image lives on the project row itself (agreement_image_url), so
+// upload just reuses the shared project-images bucket via uploadProjectImage
+// then points setProjectAgreementImage at the resulting URL.
+@Composable
+private fun ProjectAgreementSection(project: ProjectRow, onChanged: () -> Unit) {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    var error by remember { mutableStateOf<String?>(null) }
+    var uploading by remember { mutableStateOf(false) }
+
+    val picker = rememberLauncherForActivityResult(
+        ActivityResultContracts.PickVisualMedia()
+    ) { uri: Uri? ->
+        if (uri != null) {
+            uploading = true
+            scope.launch {
+                safe({
+                    val bytes = context.contentResolver.openInputStream(uri)
+                        ?.use { it.readBytes() } ?: byteArrayOf()
+                    val ext = context.contentResolver.getType(uri)?.substringAfter("/", "jpg") ?: "jpg"
+                    val url = Repo.uploadProjectImage(project.id, bytes, ext)
+                    Repo.setProjectAgreementImage(project.id, url)
+                    onChanged()
+                }) { error = it }
+                uploading = false
+            }
+        }
+    }
+
+    Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp)) {
+        Text("Agreement", style = MaterialTheme.typography.labelLarge)
+        val url = project.agreementImageUrl
+        if (url != null) {
+            AsyncImage(url, contentDescription = null,
+                modifier = Modifier.fillMaxWidth().heightIn(max = 220.dp).padding(top = 4.dp))
+            Row(Modifier.padding(top = 6.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                TextButton(
+                    enabled = !uploading,
+                    onClick = { picker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) },
+                ) { Text(if (uploading) "Uploading…" else "Replace") }
+                TextButton(onClick = {
+                    scope.launch {
+                        safe({ Repo.setProjectAgreementImage(project.id, null); onChanged() }) { error = it }
+                    }
+                }) { Text("Remove") }
+            }
+        } else {
+            OutlinedButton(
+                enabled = !uploading,
+                modifier = Modifier.padding(top = 4.dp),
+                onClick = { picker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) },
+            ) { Text(if (uploading) "Uploading…" else "Upload agreement") }
+        }
+        error?.let {
+            Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.labelSmall)
         }
     }
 }

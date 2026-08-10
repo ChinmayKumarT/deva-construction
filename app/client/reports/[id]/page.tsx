@@ -1,3 +1,4 @@
+import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireRole } from "@/lib/guard";
@@ -30,7 +31,7 @@ export default async function ClientSiteReportPage({ params }: { params: { id: s
       supabase
         .from("projects")
         .select(
-          "id, name, status, completion_pct, total_cost, address, current_stage, end_date, original_end_date, extension_reason, client_id",
+          "id, name, status, completion_pct, total_cost, address, current_stage, end_date, original_end_date, extension_reason, client_id, agreement_image_url",
         )
         .eq("id", params.id)
         .eq("client_id", client.id)
@@ -149,6 +150,18 @@ export default async function ClientSiteReportPage({ params }: { params: { id: s
           <DownloadSitePdfButton site={pdfSite} />
         </div>
       </div>
+
+      {project.agreement_image_url && (
+        <div className="mt-6 max-w-xl rounded-xl border border-[var(--line)] bg-white p-4">
+          <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-500">Agreement</h2>
+          <a href={project.agreement_image_url} target="_blank" rel="noreferrer">
+            <Image
+              src={project.agreement_image_url} alt="" width={640} height={480} loading="lazy"
+              className="max-h-96 w-auto rounded-lg border border-slate-200 object-cover"
+            />
+          </a>
+        </div>
+      )}
 
       <div className="mt-6 grid gap-6 sm:grid-cols-2">
         <div className="rounded-xl border border-[var(--line)] bg-white p-5">
