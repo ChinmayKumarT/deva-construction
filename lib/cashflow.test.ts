@@ -15,6 +15,7 @@ function material(over: Partial<Parameters<typeof reduceCashFlow>[0][number]> = 
     status: "delivered",
     ordered_at: "2026-03-01",
     delivered_at: "2026-03-05",
+    billed: false,
     ...over,
   };
 }
@@ -59,6 +60,22 @@ describe("reduceCashFlow — materials", () => {
       [], [], labourers, ...RANGE,
     );
     expect(cf.materialsCost).toBe(0);
+  });
+
+  it("excludes billed materials, since their amount is already counted as a supplier payment", () => {
+    const cf = reduceCashFlow([material({ billed: true, quantity: 3, unit_cost: 50 })], [], [], labourers, ...RANGE);
+    expect(cf.materialsCost).toBe(0);
+  });
+
+  it("does not double-count a purchase paid off via the linked-purchase picker", () => {
+    const cf = reduceCashFlow(
+      [material({ billed: true, quantity: 1, unit_cost: 500 })],
+      [{ project_id: "proj-1", payee_type: "supplier", amount: 500, status: "paid", created_at: "2026-04-01T00:00:00Z" }],
+      [], labourers, ...RANGE,
+    );
+    expect(cf.materialsCost).toBe(0);
+    expect(cf.supplierPayments).toBe(500);
+    expect(cf.total).toBe(500);
   });
 });
 

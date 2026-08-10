@@ -11,6 +11,7 @@ type CashMaterial = {
   status: string;
   ordered_at: string | null;
   delivered_at: string | null;
+  billed: boolean;
 };
 type CashPayment = {
   project_id: string | null;
@@ -41,7 +42,11 @@ export type CashFlow = ReturnType<typeof reduceCashFlow> & { daily: DailyCashFlo
 // `from`/`to` are inclusive `YYYY-MM-DD` bounds. Materials are dated by
 // delivered_at ?? ordered_at; payments by created_at (date part); attendance by
 // its own date. Only paid/approved payments count; returned materials and
-// zero-weight (absent) attendance are excluded.
+// zero-weight (absent) attendance are excluded. Billed materials (paid off via
+// the Payments form's linked-purchase picker) are also excluded from materials
+// cost, since their amount is already counted under supplier payments -- the
+// picker copies the material's line total into the new payments row, so
+// counting both would double the outflow for that purchase.
 export function reduceCashFlow(
   materials: CashMaterial[],
   payments: CashPayment[],
@@ -62,7 +67,7 @@ export function reduceCashFlow(
   const byProjectWages = new Map<string, number>();
 
   for (const m of materials) {
-    if (m.status === "returned" || !m.project_id) continue;
+    if (m.status === "returned" || m.billed || !m.project_id) continue;
     const date = m.delivered_at ?? m.ordered_at;
     if (!date || date < from || date > to) continue;
     const amount = lineTotal(m.quantity, m.unit_cost);
@@ -116,7 +121,7 @@ export function dailyCashFlowTotals(
   const add = (date: string, amount: number) => byDate.set(date, (byDate.get(date) ?? 0) + amount);
 
   for (const m of materials) {
-    if (m.status === "returned" || !m.project_id) continue;
+    if (m.status === "returned" || m.billed || !m.project_id) continue;
     const date = m.delivered_at ?? m.ordered_at;
     if (!date) continue;
     const d = date.slice(0, 10);
@@ -167,7 +172,7 @@ export async function computeCashFlow(
 ): Promise<CashFlow> {
   let materialsQuery = supabase
     .from("materials")
-    .select("project_id, quantity, unit_cost, status, ordered_at, delivered_at")
+    .select("project_id, quantity, unit_cost, status, ordered_at, delivered_at, billed")
     .is("archived_at", null);
   let paymentsQuery = supabase
     .from("payments")

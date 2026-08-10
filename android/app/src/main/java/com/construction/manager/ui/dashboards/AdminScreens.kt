@@ -2889,7 +2889,7 @@ private fun computeCashFlow(
     materials.forEach { m ->
         val pid = m.projectId ?: return@forEach
         if (projectId != null && pid != projectId) return@forEach
-        if (m.status == "returned") return@forEach
+        if (m.status == "returned" || m.billed) return@forEach
         val date = m.deliveredAt ?: m.orderedAt ?: return@forEach
         if (date < from || date > to) return@forEach
         val amount = lineTotal(m.quantity, m.unitCost)
@@ -2947,7 +2947,7 @@ private fun dailyCashFlowTotals(
     materials.forEach { m ->
         val pid = m.projectId ?: return@forEach
         if (projectId != null && pid != projectId) return@forEach
-        if (m.status == "returned") return@forEach
+        if (m.status == "returned" || m.billed) return@forEach
         val date = m.deliveredAt ?: m.orderedAt ?: return@forEach
         val d = date.take(10)
         if (d < from || d > to) return@forEach
