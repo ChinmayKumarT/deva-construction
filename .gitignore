@@ -9,6 +9,9 @@ node_modules
 .claude/settings.local.json
 # launch.json hardcodes an absolute node path, so it is machine-specific
 .claude/launch.json
+# Scratch git worktrees created for isolated agent runs -- each has its own
+# .git, never meant to be committed into this repo.
+.claude/worktrees/
 
 # Build caches / installer leftovers
 tsconfig.tsbuildinfo
