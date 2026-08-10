@@ -23,20 +23,13 @@ import com.construction.manager.ui.CashFlowCategory
 import com.construction.manager.ui.CashFlowDailyPoint
 import com.construction.manager.ui.CashFlowTrendChart
 import com.construction.manager.ui.DeleteAccountButton
-import com.construction.manager.ui.formatDateTime
 import com.construction.manager.ui.SectionTitle
 import com.construction.manager.ui.StatCard
 import com.construction.manager.ui.lineTotal
 import com.construction.manager.ui.money
 import com.construction.manager.ui.RoleScaffold
-import com.construction.manager.util.CsvExporter
 import com.construction.manager.util.ImageSaver
-import com.construction.manager.util.PdfExporter
-import com.construction.manager.util.PdfSiteDetail
-import com.construction.manager.util.PdfTransaction
-import com.construction.manager.util.PdfUpdate
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 
 // ---------- Labour ----------
 // Deliberately a dead end: labourers are records the site manager maintains,
@@ -285,11 +278,6 @@ fun ClientDashboard(vm: AuthViewModel) = RoleScaffold("Client", vm) { padding ->
     if (rp != null) {
         ClientReportDetail(
             project = rp,
-            received = receivedByProject[rp.id] ?: 0.0,
-            wages = wageByProject[rp.id] ?: 0.0,
-            materials = materials.filter { it.projectId == rp.id },
-            clientPayments = clientPayments.filter { it.projectId == rp.id },
-            updates = updates.filter { it.projectId == rp.id },
             onBack = { reportProject = null },
         )
         return@RoleScaffold
@@ -430,102 +418,13 @@ fun ClientDashboard(vm: AuthViewModel) = RoleScaffold("Client", vm) { padding ->
 @Composable
 private fun ClientReportDetail(
     project: ProjectRow,
-    received: Double,
-    wages: Double,
-    materials: List<MaterialRow>,
-    clientPayments: List<ClientPaymentRow>,
-    updates: List<ProjectUpdateRow>,
     onBack: () -> Unit,
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
-    var exporting by remember { mutableStateOf(false) }
-
-    val transactions = remember(materials, clientPayments, wages) {
-        val materialTx = materials.map {
-            PdfTransaction(
-                type = "Material",
-                description = "${it.name} (${it.quantity} ${it.unit})",
-                date = formatDateTime(it.deliveredAt ?: it.orderedAt),
-                status = it.status,
-                amount = lineTotal(it.quantity, it.unitCost),
-            )
-        }
-        val clientPaymentTx = clientPayments.map {
-            PdfTransaction(
-                type = "Payment received",
-                description = it.description?.ifBlank { null } ?: "—",
-                date = it.paidOn ?: "no date",
-                status = "",
-                amount = it.amount,
-            )
-        }
-        // One aggregate line, not per-labourer -- clients see only the total
-        // labour-wage cost on their project, never individual attendance.
-        val wageTx = if (wages > 0.0) listOf(
-            PdfTransaction(
-                type = "Labour wages",
-                description = "Wages accrued from attendance",
-                date = "no date",
-                status = "",
-                amount = wages,
-            ),
-        ) else emptyList()
-        (materialTx + clientPaymentTx + wageTx).sortedByDescending { it.date }
-    }
 
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
-        Row(
-            Modifier.fillMaxWidth().padding(horizontal = 8.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            TextButton(onClick = onBack) { Text("← Reports") }
-            Row(verticalAlignment = Alignment.CenterVertically) {
-            TextButton(onClick = {
-                CsvExporter.share(context, CsvExporter.exportSiteReport(context, project.name, transactions))
-            }) { Text("Download CSV") }
-            TextButton(
-                enabled = !exporting,
-                onClick = {
-                    exporting = true
-                    scope.launch {
-                        val pdfUpdates = updates.map { u ->
-                            PdfUpdate(
-                                stage = u.stage,
-                                note = u.note,
-                                date = formatDateTime(u.createdAt),
-                                image = u.imageUrl?.let { PdfExporter.downloadBitmap(it) },
-                            )
-                        }
-                        val uri = withContext(kotlinx.coroutines.Dispatchers.IO) {
-                            PdfExporter.exportSiteReport(
-                                context,
-                                projectName = project.name,
-                                status = project.status,
-                                completionPct = project.completionPct,
-                                budget = project.totalCost,
-                                spent = received,
-                                detail = PdfSiteDetail(
-                                    client = null,
-                                    address = project.address,
-                                    stage = project.currentStage,
-                                    endDate = project.endDate,
-                                    extended = project.finishDateExtended,
-                                    originalEndDate = project.originalEndDate,
-                                    extensionReason = project.extensionReason,
-                                ),
-                                transactions = transactions,
-                                updates = pdfUpdates,
-                            )
-                        }
-                        PdfExporter.share(context, uri)
-                        exporting = false
-                    }
-                },
-            ) { Text(if (exporting) "Preparing…" else "Download PDF") }
-            }
-        }
+        TextButton(onClick = onBack, modifier = Modifier.padding(horizontal = 8.dp)) { Text("← Reports") }
         SectionTitle(project.name)
 
         project.agreementImageUrl?.let { url ->
