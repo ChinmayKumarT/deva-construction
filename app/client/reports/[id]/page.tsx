@@ -1,3 +1,4 @@
+import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireRole } from "@/lib/guard";
@@ -144,9 +145,13 @@ export default async function ClientSiteReportPage({ params }: { params: { id: s
       {project.agreement_image_url && (
         <div className="mt-6 max-w-xl rounded-xl border border-[var(--line)] bg-white p-4">
           <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-500">Agreement</h2>
+          <Image
+            src={project.agreement_image_url} alt="" width={640} height={480} loading="lazy"
+            className="max-h-96 w-auto rounded-lg border border-slate-200 object-cover"
+          />
           <a
             href={`${project.agreement_image_url}?download`}
-            className="inline-block text-sm font-medium text-brand-700 hover:underline"
+            className="mt-2 inline-block text-sm font-medium text-brand-700 hover:underline"
           >
             Download agreement
           </a>

@@ -532,6 +532,8 @@ private fun ClientReportDetail(
             ElevatedCard(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp)) {
                 Column(Modifier.padding(12.dp)) {
                     Text("Agreement", style = MaterialTheme.typography.titleSmall)
+                    AsyncImage(url, contentDescription = null,
+                        modifier = Modifier.fillMaxWidth().heightIn(max = 220.dp).padding(top = 8.dp))
                     TextButton(
                         onClick = {
                             scope.launch {
