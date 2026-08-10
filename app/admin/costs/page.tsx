@@ -122,13 +122,13 @@ export default async function CostsPage() {
                       Edit budget
                     </Link>
                     <Link
-                      href={`/admin/materials?project=${p.id}`}
+                      href={`/admin/materials/${p.id}`}
                       className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs text-slate-700 hover:bg-slate-100"
                     >
                       Materials ({c.materialCount})
                     </Link>
                     <Link
-                      href={`/admin/payments?project=${p.id}`}
+                      href={`/admin/payments/${p.id}`}
                       className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs text-slate-700 hover:bg-slate-100"
                     >
                       Payments ({c.paymentCount})

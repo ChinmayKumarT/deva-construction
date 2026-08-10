@@ -1,12 +1,17 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { useFormState } from "react-dom";
 import { SubmitButton } from "@/components/admin/Page";
 import { OTHER_CATEGORY } from "@/components/admin/CategoryField";
+import { ConfirmPopup } from "@/components/admin/ConfirmPopup";
 import { WORK_CATEGORIES } from "@/lib/workCategories";
 import { wageDueKey } from "@/lib/wages";
 import { lineTotal } from "@/lib/money";
+import type { CreatePaymentState } from "@/app/admin/actions";
+
+const initialCreatePaymentState: CreatePaymentState = { error: null, success: false };
 
 const OTHER_SUPPLIER = "__other_supplier__";
 const OTHER_PURCHASE = "__other_purchase__";
@@ -53,7 +58,7 @@ function PaymentFormFields({
   cancelHref,
   fixedProject,
 }: {
-  action: (fd: FormData) => Promise<void>;
+  action: (fd: FormData) => void;
   projects: { id: string; name: string }[];
   suppliers: { id: string; name: string }[];
   labourers: { id: string; name: string }[];
@@ -321,7 +326,7 @@ export function CreatePaymentForm({
   defaultProjectId,
   fixedProject,
 }: {
-  action: (fd: FormData) => Promise<void>;
+  action: (prevState: CreatePaymentState, fd: FormData) => Promise<CreatePaymentState>;
   projects: { id: string; name: string }[];
   suppliers: { id: string; name: string }[];
   labourers: { id: string; name: string }[];
@@ -331,27 +336,37 @@ export function CreatePaymentForm({
   defaultProjectId?: string;
   fixedProject?: { id: string; name: string };
 }) {
+  const [state, formAction] = useFormState(action, initialCreatePaymentState);
+  const [showConfirm, setShowConfirm] = useState(false);
+  useEffect(() => {
+    if (state.success) setShowConfirm(true);
+  }, [state]);
+
   return (
-    <PaymentFormFields
-      action={action}
-      projects={projects}
-      suppliers={suppliers}
-      labourers={labourers}
-      materials={materials}
-      assignments={assignments}
-      wageDue={wageDue}
-      fixedProject={fixedProject}
-      initial={{
-        payeeType: "supplier",
-        projectId: fixedProject?.id ?? defaultProjectId ?? "none",
-        amount: "",
-        supplierId: "none",
-        labourerId: "none",
-        description: "",
-        workCategory: "",
-      }}
-      submitLabel="Create payment"
-    />
+    <>
+      {state.error && <p className="mb-4 text-sm text-red-600">{state.error}</p>}
+      <PaymentFormFields
+        action={formAction}
+        projects={projects}
+        suppliers={suppliers}
+        labourers={labourers}
+        materials={materials}
+        assignments={assignments}
+        wageDue={wageDue}
+        fixedProject={fixedProject}
+        initial={{
+          payeeType: "supplier",
+          projectId: fixedProject?.id ?? defaultProjectId ?? "none",
+          amount: "",
+          supplierId: "none",
+          labourerId: "none",
+          description: "",
+          workCategory: "",
+        }}
+        submitLabel="Create payment"
+      />
+      <ConfirmPopup open={showConfirm} message="Payment created." onClose={() => setShowConfirm(false)} />
+    </>
   );
 }
 

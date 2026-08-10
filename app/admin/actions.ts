@@ -435,51 +435,67 @@ export async function assignLabourer(fd: FormData) {
   revalidatePath("/admin/attendance");
 }
 
-export async function createPayment(fd: FormData) {
+export type CreatePaymentState = { error: string | null; success: boolean };
+
+// Returns its result instead of throwing, and is called via useFormState
+// (components/admin/PaymentForm.tsx) rather than a bare <form action={...}>
+// -- same reasoning as markAttendance above (production redacts thrown
+// Server Action messages), plus the `success` flag is what triggers the
+// in-page "Payment created" popup after a successful submit.
+export async function createPayment(
+  _prevState: CreatePaymentState,
+  fd: FormData,
+): Promise<CreatePaymentState> {
   const supabase = createSupabaseServerClient();
   const payee_type = (str(fd, "payee_type") ?? "supplier") as "supplier" | "labour";
-  // Payments created here are always admin-entered (this form isn't exposed
-  // to any other role), so there's no one else left to approve it -- go
-  // straight to "approved" instead of making the admin click Approve on
-  // their own entry a moment later. Only "Mark paid" remains as a next step.
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  const row: Record<string, unknown> = {
-    project_id: uuidOrNull(fd, "project_id"),
-    payee_type,
-    amount: nonNegNum(fd, "amount", "Amount") ?? 0,
-    description: str(fd, "description"),
-    work_category: requiredStr(fd, "work_category", "Work category"),
-    status: "approved",
-    approved_at: new Date().toISOString(),
-    approved_by: user?.id ?? null,
-  };
-  if (payee_type === "supplier") {
-    row.supplier_id = await resolveSupplierId(supabase, fd);
-    row.labourer_id = null;
-  } else {
-    row.labourer_id = uuidOrNull(fd, "labourer_id");
-    row.supplier_id = null;
-  }
-  const { error } = await supabase.from("payments").insert(row);
-  if (error) throw new Error(error.message);
+  try {
+    // Payments created here are always admin-entered (this form isn't
+    // exposed to any other role), so there's no one else left to approve it
+    // -- go straight to "approved" instead of making the admin click
+    // Approve on their own entry a moment later. Only "Mark paid" remains
+    // as a next step.
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    const row: Record<string, unknown> = {
+      project_id: uuidOrNull(fd, "project_id"),
+      payee_type,
+      amount: nonNegNum(fd, "amount", "Amount") ?? 0,
+      description: str(fd, "description"),
+      work_category: requiredStr(fd, "work_category", "Work category"),
+      status: "approved",
+      approved_at: new Date().toISOString(),
+      approved_by: user?.id ?? null,
+    };
+    if (payee_type === "supplier") {
+      row.supplier_id = await resolveSupplierId(supabase, fd);
+      row.labourer_id = null;
+    } else {
+      row.labourer_id = uuidOrNull(fd, "labourer_id");
+      row.supplier_id = null;
+    }
+    const { error } = await supabase.from("payments").insert(row);
+    if (error) throw new Error(error.message);
 
-  // Mark the picked purchase as billed so it drops out of the "Purchase
-  // (optional)" dropdown -- otherwise the same material could be paid for
-  // more than once from repeat visits to this form.
-  const materialId = uuidOrNull(fd, "material_id");
-  if (materialId) {
-    const { error: materialError } = await supabase
-      .from("materials")
-      .update({ billed: true })
-      .eq("id", materialId);
-    if (materialError) throw new Error(materialError.message);
-    revalidatePath("/admin/materials");
-  }
+    // Mark the picked purchase as billed so it drops out of the "Purchase
+    // (optional)" dropdown -- otherwise the same material could be paid for
+    // more than once from repeat visits to this form.
+    const materialId = uuidOrNull(fd, "material_id");
+    if (materialId) {
+      const { error: materialError } = await supabase
+        .from("materials")
+        .update({ billed: true })
+        .eq("id", materialId);
+      if (materialError) throw new Error(materialError.message);
+      revalidatePath("/admin/materials");
+    }
 
-  revalidatePath("/admin/payments");
-  revalidatePath("/admin");
+    revalidatePath("/admin/payments");
+    revalidatePath("/admin");
+    return { error: null, success: true };
+  } catch (e) {
+    return { error: e instanceof Error ? e.message : "Failed to create payment", success: false };
+  }
 }
 
 export async function approvePayment(fd: FormData) {
