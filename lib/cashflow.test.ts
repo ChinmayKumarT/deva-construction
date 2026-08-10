@@ -62,7 +62,7 @@ describe("reduceCashFlow — materials", () => {
     expect(cf.materialsCost).toBe(0);
   });
 
-  it("excludes billed materials, since their amount is already counted as a supplier payment", () => {
+  it("excludes billed materials, since their amount is already counted via the linked supplier payment", () => {
     const cf = reduceCashFlow([material({ billed: true, quantity: 3, unit_cost: 50 })], [], [], labourers, ...RANGE);
     expect(cf.materialsCost).toBe(0);
   });
@@ -73,8 +73,7 @@ describe("reduceCashFlow — materials", () => {
       [{ project_id: "proj-1", payee_type: "supplier", amount: 500, status: "paid", created_at: "2026-04-01T00:00:00Z" }],
       [], labourers, ...RANGE,
     );
-    expect(cf.materialsCost).toBe(0);
-    expect(cf.supplierPayments).toBe(500);
+    expect(cf.materialsCost).toBe(500);
     expect(cf.total).toBe(500);
   });
 });
@@ -89,13 +88,14 @@ describe("reduceCashFlow — payments", () => {
     ...over,
   });
 
-  it("buckets supplier and labour payments separately", () => {
+  it("folds supplier payments into materials cost, keeps labour payments separate", () => {
     const cf = reduceCashFlow(
       [],
       [pay({ payee_type: "supplier", amount: 1000 }), pay({ payee_type: "labour", amount: 400 })],
       [], labourers, ...RANGE,
     );
-    expect(cf.supplierPayments).toBe(1000);
+    expect(cf.materialsCost).toBe(1000);
+    expect(cf.byProjectMaterials.get("proj-1")).toBe(1000);
     expect(cf.labourPayments).toBe(400);
   });
 
@@ -105,12 +105,12 @@ describe("reduceCashFlow — payments", () => {
       [pay({ status: "pending" }), pay({ status: "rejected" }), pay({ status: "approved", amount: 250 })],
       [], labourers, ...RANGE,
     );
-    expect(cf.supplierPayments).toBe(250);
+    expect(cf.materialsCost).toBe(250);
   });
 
   it("dates payments by the date part of created_at", () => {
     const cf = reduceCashFlow([], [pay({ created_at: "2020-04-10T09:00:00Z" })], [], labourers, ...RANGE);
-    expect(cf.supplierPayments).toBe(0);
+    expect(cf.materialsCost).toBe(0);
   });
 });
 
@@ -140,7 +140,7 @@ describe("reduceCashFlow — attendance wages", () => {
 });
 
 describe("reduceCashFlow — totals and separation", () => {
-  it("totals all four categories and keeps projects separate", () => {
+  it("totals all three categories and keeps projects separate", () => {
     const cf = reduceCashFlow(
       [material({ project_id: "proj-1", quantity: 1, unit_cost: 100 })],
       [
@@ -150,12 +150,11 @@ describe("reduceCashFlow — totals and separation", () => {
       [{ project_id: "proj-2", labourer_id: "lab-1", status: "present", date: "2026-05-01" }],
       labourers, ...RANGE,
     );
-    expect(cf.materialsCost).toBe(100);
-    expect(cf.supplierPayments).toBe(100);
+    expect(cf.materialsCost).toBe(200);
     expect(cf.labourPayments).toBe(200);
     expect(cf.wages).toBe(800);
     expect(cf.total).toBe(1200);
-    expect(cf.byProjectMaterials.get("proj-1")).toBe(100);
+    expect(cf.byProjectMaterials.get("proj-1")).toBe(200);
     expect(cf.byProjectLabour.get("proj-2")).toBe(200);
     expect(cf.byProjectWages.get("proj-2")).toBe(800);
     expect(cf.byProjectMaterials.get("proj-2")).toBeUndefined();

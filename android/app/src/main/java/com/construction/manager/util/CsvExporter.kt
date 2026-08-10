@@ -49,13 +49,13 @@ object CsvExporter {
 
     fun exportCashFlow(context: Context, from: String, to: String, projects: List<PdfCashFlowProject>): Uri {
         val rows = mutableListOf(
-            listOf("Project", "Materials", "Supplier payments", "Labour payments", "Wages (attendance)", "Total"),
+            listOf("Project", "Materials", "Labour payments", "Wages (attendance)", "Total"),
         )
         projects.forEach {
             rows.add(
                 listOf(
-                    it.name, it.materials.toString(), it.supplier.toString(), it.labour.toString(),
-                    it.wages.toString(), (it.materials + it.supplier + it.labour + it.wages).toString(),
+                    it.name, it.materials.toString(), it.labour.toString(),
+                    it.wages.toString(), (it.materials + it.labour + it.wages).toString(),
                 ),
             )
         }

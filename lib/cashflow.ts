@@ -33,20 +33,24 @@ export type CashFlow = ReturnType<typeof reduceCashFlow> & { daily: DailyCashFlo
 // Pure cash-flow reduction over already-fetched rows -- no I/O, so it can be
 // unit-tested directly. Deliberately a different number from "Spent" elsewhere
 // (materials + labour-only payments, to avoid double-counting against materials
-// cost): cash flow asks "what actually left the bank," so materials cost,
-// supplier payments and labour payments are each their own outflow category.
-// Attendance wages are their own category too -- an accrued cost rather than
-// cash paid out, shown so the full outflow picture (including unpaid wage
+// cost): cash flow asks "what actually left the bank." Supplier payments are
+// folded into materials cost rather than tracked as their own category --
+// they're both money spent on materials, just at different points (accrued at
+// delivery vs. paid at settlement), so splitting them into separate cards only
+// invited double-counting for a purchase that was paid off via the linked
+// picker. Labour payments stay separate since they're a different kind of
+// spend. Attendance wages are their own category too -- an accrued cost rather
+// than cash paid out, shown so the full outflow picture (including unpaid wage
 // liability) is visible in one place.
 //
 // `from`/`to` are inclusive `YYYY-MM-DD` bounds. Materials are dated by
 // delivered_at ?? ordered_at; payments by created_at (date part); attendance by
 // its own date. Only paid/approved payments count; returned materials and
 // zero-weight (absent) attendance are excluded. Billed materials (paid off via
-// the Payments form's linked-purchase picker) are also excluded from materials
-// cost, since their amount is already counted under supplier payments -- the
-// picker copies the material's line total into the new payments row, so
-// counting both would double the outflow for that purchase.
+// the Payments form's linked-purchase picker) are excluded from the materials
+// delivery sum, since their amount is already counted via the linked payment
+// row below -- the picker copies the material's line total into the new
+// payments row, so counting both would double the outflow for that purchase.
 export function reduceCashFlow(
   materials: CashMaterial[],
   payments: CashPayment[],
@@ -58,11 +62,9 @@ export function reduceCashFlow(
   const labourerWage = new Map(labourers.map((l) => [l.id, Number(l.daily_wage)]));
 
   let materialsCost = 0;
-  let supplierPayments = 0;
   let labourPayments = 0;
   let wages = 0;
   const byProjectMaterials = new Map<string, number>();
-  const byProjectSupplier = new Map<string, number>();
   const byProjectLabour = new Map<string, number>();
   const byProjectWages = new Map<string, number>();
 
@@ -80,8 +82,8 @@ export function reduceCashFlow(
     const date = p.created_at.slice(0, 10);
     if (date < from || date > to) continue;
     if (p.payee_type === "supplier") {
-      supplierPayments += Number(p.amount);
-      byProjectSupplier.set(p.project_id, (byProjectSupplier.get(p.project_id) ?? 0) + Number(p.amount));
+      materialsCost += Number(p.amount);
+      byProjectMaterials.set(p.project_id, (byProjectMaterials.get(p.project_id) ?? 0) + Number(p.amount));
     } else if (p.payee_type === "labour") {
       labourPayments += Number(p.amount);
       byProjectLabour.set(p.project_id, (byProjectLabour.get(p.project_id) ?? 0) + Number(p.amount));
@@ -96,9 +98,9 @@ export function reduceCashFlow(
   }
 
   return {
-    materialsCost, supplierPayments, labourPayments, wages,
-    total: materialsCost + supplierPayments + labourPayments + wages,
-    byProjectMaterials, byProjectSupplier, byProjectLabour, byProjectWages,
+    materialsCost, labourPayments, wages,
+    total: materialsCost + labourPayments + wages,
+    byProjectMaterials, byProjectLabour, byProjectWages,
   };
 }
 

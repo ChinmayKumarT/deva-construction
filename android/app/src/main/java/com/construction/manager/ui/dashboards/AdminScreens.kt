@@ -2857,13 +2857,15 @@ private fun weeklyLabourRows(labourers: List<LabourerRow>, weekAttendance: List<
 // ---------- Cash flow ----------
 // Deliberately different from "Spent" elsewhere (which only counts labour
 // payments, to avoid double-counting against materials cost): cash flow asks
-// "what actually left the bank," so materials cost, supplier payments and
-// labour payments are each their own outflow category, not summed into one
-// blended spend figure.
+// "what actually left the bank." Supplier payments are folded into materials
+// here rather than tracked as their own category -- both are money spent on
+// materials, just accrued at delivery vs. paid at settlement, and splitting
+// them invited double-counting a purchase paid off via the linked picker.
+// Labour payments stay their own category since they're a different kind of
+// spend.
 private data class CashFlowTotals(
-    val materials: Double, val supplier: Double, val labour: Double, val wages: Double,
+    val materials: Double, val labour: Double, val wages: Double,
     val byProjectMaterials: Map<String, Double>,
-    val byProjectSupplier: Map<String, Double>,
     val byProjectLabour: Map<String, Double>,
     val byProjectWages: Map<String, Double>,
 )
@@ -2878,11 +2880,9 @@ private fun computeCashFlow(
     projectId: String? = null,
 ): CashFlowTotals {
     val byProjectMaterials = mutableMapOf<String, Double>()
-    val byProjectSupplier = mutableMapOf<String, Double>()
     val byProjectLabour = mutableMapOf<String, Double>()
     val byProjectWages = mutableMapOf<String, Double>()
     var materialsTotal = 0.0
-    var supplierTotal = 0.0
     var labourTotal = 0.0
     var wagesTotal = 0.0
 
@@ -2904,8 +2904,8 @@ private fun computeCashFlow(
         if (date < from || date > to) return@forEach
         when (p.payeeType) {
             "supplier" -> {
-                supplierTotal += p.amount
-                byProjectSupplier[pid] = (byProjectSupplier[pid] ?: 0.0) + p.amount
+                materialsTotal += p.amount
+                byProjectMaterials[pid] = (byProjectMaterials[pid] ?: 0.0) + p.amount
             }
             "labour" -> {
                 labourTotal += p.amount
@@ -2923,8 +2923,8 @@ private fun computeCashFlow(
         byProjectWages[pid] = (byProjectWages[pid] ?: 0.0) + amount
     }
     return CashFlowTotals(
-        materialsTotal, supplierTotal, labourTotal, wagesTotal,
-        byProjectMaterials, byProjectSupplier, byProjectLabour, byProjectWages,
+        materialsTotal, labourTotal, wagesTotal,
+        byProjectMaterials, byProjectLabour, byProjectWages,
     )
 }
 
@@ -3038,7 +3038,6 @@ private fun computeWagesDueFromAccrued(
 }
 
 private val CashFlowMaterialsColor = androidx.compose.ui.graphics.Color(0xFF16A34A)
-private val CashFlowSupplierColor = androidx.compose.ui.graphics.Color(0xFFF59E0B)
 private val CashFlowLabourColor = androidx.compose.ui.graphics.Color(0xFF0EA5E9)
 private val CashFlowWagesColor = androidx.compose.ui.graphics.Color(0xFFA855F7)
 
@@ -3074,8 +3073,7 @@ fun AdminCashFlow() {
     }
     val projectName = projects.associate { it.id to it.name }
     val projectIds = (
-        cashFlow.byProjectMaterials.keys + cashFlow.byProjectSupplier.keys +
-            cashFlow.byProjectLabour.keys + cashFlow.byProjectWages.keys
+        cashFlow.byProjectMaterials.keys + cashFlow.byProjectLabour.keys + cashFlow.byProjectWages.keys
         ).distinct()
 
     FormColumn {
@@ -3092,7 +3090,6 @@ fun AdminCashFlow() {
                 PdfCashFlowProject(
                     projectName[id] ?: "—",
                     cashFlow.byProjectMaterials[id] ?: 0.0,
-                    cashFlow.byProjectSupplier[id] ?: 0.0,
                     cashFlow.byProjectLabour[id] ?: 0.0,
                     cashFlow.byProjectWages[id] ?: 0.0,
                 )
@@ -3105,11 +3102,10 @@ fun AdminCashFlow() {
                     context, from, to,
                     categories = listOf(
                         PdfCashFlowCategory("Materials", cashFlow.materials, android.graphics.Color.parseColor("#16A34A")),
-                        PdfCashFlowCategory("Supplier payments", cashFlow.supplier, android.graphics.Color.parseColor("#F59E0B")),
                         PdfCashFlowCategory("Labour payments", cashFlow.labour, android.graphics.Color.parseColor("#0EA5E9")),
                         PdfCashFlowCategory("Wages (attendance)", cashFlow.wages, android.graphics.Color.parseColor("#A855F7")),
                     ),
-                    total = cashFlow.materials + cashFlow.supplier + cashFlow.labour + cashFlow.wages,
+                    total = cashFlow.materials + cashFlow.labour + cashFlow.wages,
                     projects = cfProjects,
                 )
                 PdfExporter.share(context, uri)
@@ -3123,13 +3119,12 @@ fun AdminCashFlow() {
         CashFlowBarChart(
             listOf(
                 CashFlowCategory("Materials", cashFlow.materials, CashFlowMaterialsColor),
-                CashFlowCategory("Supplier", cashFlow.supplier, CashFlowSupplierColor),
                 CashFlowCategory("Labour", cashFlow.labour, CashFlowLabourColor),
                 CashFlowCategory("Wages", cashFlow.wages, CashFlowWagesColor),
             ),
         )
         Text(
-            "Total outflow: ${money(cashFlow.materials + cashFlow.supplier + cashFlow.labour + cashFlow.wages)}",
+            "Total outflow: ${money(cashFlow.materials + cashFlow.labour + cashFlow.wages)}",
             style = MaterialTheme.typography.bodyMedium,
             modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
         )
@@ -3141,13 +3136,12 @@ fun AdminCashFlow() {
         } else {
             projectIds.forEach { id ->
                 val mat = cashFlow.byProjectMaterials[id] ?: 0.0
-                val sup = cashFlow.byProjectSupplier[id] ?: 0.0
                 val lab = cashFlow.byProjectLabour[id] ?: 0.0
                 val wag = cashFlow.byProjectWages[id] ?: 0.0
                 ItemCard(
                     projectName[id] ?: "—",
-                    "Materials ${money(mat)} · Supplier ${money(sup)} · Labour ${money(lab)} · Wages ${money(wag)}",
-                    money(mat + sup + lab + wag),
+                    "Materials ${money(mat)} · Labour ${money(lab)} · Wages ${money(wag)}",
+                    money(mat + lab + wag),
                 )
             }
         }
@@ -3397,13 +3391,12 @@ private fun SiteReportDetail(
     CashFlowBarChart(
         listOf(
             CashFlowCategory("Materials", projectCashFlow.materials, CashFlowMaterialsColor),
-            CashFlowCategory("Supplier", projectCashFlow.supplier, CashFlowSupplierColor),
             CashFlowCategory("Labour", projectCashFlow.labour, CashFlowLabourColor),
             CashFlowCategory("Wages", projectCashFlow.wages, CashFlowWagesColor),
         ),
     )
     Text(
-        "Total outflow: ${money(projectCashFlow.materials + projectCashFlow.supplier + projectCashFlow.labour + projectCashFlow.wages)}",
+        "Total outflow: ${money(projectCashFlow.materials + projectCashFlow.labour + projectCashFlow.wages)}",
         style = MaterialTheme.typography.bodyMedium,
         modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
     )

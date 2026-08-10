@@ -83,11 +83,11 @@ describe("buildCashFlowCsv", () => {
     const csv = buildCashFlowCsv({
       from: "2026-07-01",
       to: "2026-07-30",
-      projects: [{ name: "Mysore", materials: 0, supplier: 42600, labour: 800, wages: 12000 }],
+      projects: [{ name: "Mysore", materials: 42600, labour: 800, wages: 12000 }],
     });
     expect(csv).toBe(
-      "Project,Materials,Supplier payments,Labour payments,Wages (attendance),Total\r\n" +
-        "Mysore,0,42600,800,12000,55400", // 42600 + 800 + 12000
+      "Project,Materials,Labour payments,Wages (attendance),Total\r\n" +
+        "Mysore,42600,800,12000,55400", // 42600 + 800 + 12000
     );
   });
 });

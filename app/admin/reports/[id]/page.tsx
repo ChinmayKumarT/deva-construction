@@ -17,7 +17,6 @@ const SPEND = "#F59E0B";
 const TRACK = "#E2E8F0";
 const OVER_BUDGET = "#DC2626";
 const MATERIALS_COLOR = "#16a34a";
-const SUPPLIER_COLOR = "#F59E0B";
 const LABOUR_COLOR = "#0EA5E9";
 const WAGES_COLOR = "#A855F7";
 
@@ -322,7 +321,6 @@ export default async function SiteReportPage({
         <CashFlowBarChart
           bars={[
             { label: "Materials", value: cashFlow.materialsCost, color: MATERIALS_COLOR },
-            { label: "Supplier payments", value: cashFlow.supplierPayments, color: SUPPLIER_COLOR },
             { label: "Labour payments", value: cashFlow.labourPayments, color: LABOUR_COLOR },
             { label: "Wages (attendance)", value: cashFlow.wages, color: WAGES_COLOR },
           ]}

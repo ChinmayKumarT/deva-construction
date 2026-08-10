@@ -17,7 +17,7 @@ export type SummaryCsvInput = {
 export type CashFlowCsvInput = {
   from: string;
   to: string;
-  projects: { name: string; materials: number; supplier: number; labour: number; wages: number }[];
+  projects: { name: string; materials: number; labour: number; wages: number }[];
 };
 export type AttendanceCsvInput = {
   from: string;
@@ -72,14 +72,13 @@ export function buildSummaryCsv(data: SummaryCsvInput): string {
 /** Cash flow: per-project outflow breakdown. */
 export function buildCashFlowCsv(data: CashFlowCsvInput): string {
   return toCsv([
-    ["Project", "Materials", "Supplier payments", "Labour payments", "Wages (attendance)", "Total"],
+    ["Project", "Materials", "Labour payments", "Wages (attendance)", "Total"],
     ...data.projects.map((p) => [
       p.name,
       p.materials,
-      p.supplier,
       p.labour,
       p.wages,
-      p.materials + p.supplier + p.labour + p.wages,
+      p.materials + p.labour + p.wages,
     ]),
   ]);
 }
