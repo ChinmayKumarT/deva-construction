@@ -68,27 +68,35 @@ fun AdminHome(vm: AuthViewModel, isAdmin: Boolean = true, isOwner: Boolean = fal
                 Text(if (isAdmin) "Admin" else "Manager",
                     Modifier.padding(16.dp), style = MaterialTheme.typography.titleMedium)
                 Divider()
-                visibleSections.forEach { s ->
-                    NavigationDrawerItem(
-                        label = { Text(s.label) },
-                        selected = section == s,
-                        onClick = {
-                            // A manual drawer pick is a fresh jump, not a drill-down --
-                            // reset the back stack so back-from-here always lands on
-                            // Overview (the app's true root) rather than retracing
-                            // whatever section the user was on before.
-                            sectionStack = if (s == AdminSection.Overview) listOf(s)
-                                else listOf(AdminSection.Overview, s)
-                            // Jumping from Costs sets a project filter deliberately; a manual
-                            // drawer pick means the user wants the unfiltered list.
-                            materialsProjectFilter = null
-                            paymentsProjectFilter = null
-                            scope.launch { drawerState.close() }
-                        },
-                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
-                    )
+                // The section list alone (14 entries) is already taller than most
+                // phone screens once the header/footer are accounted for, and
+                // ModalDrawerSheet doesn't scroll on its own -- scope the scroll to
+                // just this middle section so the sign-out/delete footer stays
+                // pinned and reachable instead of being pushed off-screen.
+                Column(
+                    Modifier.weight(1f).verticalScroll(rememberScrollState()),
+                ) {
+                    visibleSections.forEach { s ->
+                        NavigationDrawerItem(
+                            label = { Text(s.label) },
+                            selected = section == s,
+                            onClick = {
+                                // A manual drawer pick is a fresh jump, not a drill-down --
+                                // reset the back stack so back-from-here always lands on
+                                // Overview (the app's true root) rather than retracing
+                                // whatever section the user was on before.
+                                sectionStack = if (s == AdminSection.Overview) listOf(s)
+                                    else listOf(AdminSection.Overview, s)
+                                // Jumping from Costs sets a project filter deliberately; a manual
+                                // drawer pick means the user wants the unfiltered list.
+                                materialsProjectFilter = null
+                                paymentsProjectFilter = null
+                                scope.launch { drawerState.close() }
+                            },
+                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
+                        )
+                    }
                 }
-                Spacer(Modifier.weight(1f))
                 TextButton(onClick = { vm.signOut() },
                     modifier = Modifier.padding(horizontal = 16.dp)) { Text("Sign out") }
                 DeleteAccountButton(vm, modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp))
