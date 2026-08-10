@@ -35,7 +35,7 @@ export default async function ClientDashboard() {
   const { data: projects } = await supabase
     .from("projects")
     .select(
-      "id, name, status, current_stage, completion_pct, total_cost, start_date, end_date, original_end_date, extension_reason, next_payment_date, next_payment_amount",
+      "id, name, status, current_stage, completion_pct, total_cost, start_date, end_date, original_end_date, extension_reason, next_payment_date, next_payment_amount, agreement_image_url",
     )
     .eq("client_id", client.id)
     .is("archived_at", null)
@@ -123,6 +123,16 @@ export default async function ClientDashboard() {
                   <p className="mt-1 text-sm text-slate-600">
                     Stage: <span className="font-medium">{p.current_stage ?? "—"}</span>
                   </p>
+                  {p.agreement_image_url && (
+                    <a
+                      href={p.agreement_image_url}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="mt-1 inline-block text-xs font-medium text-brand-700 hover:underline"
+                    >
+                      View agreement →
+                    </a>
+                  )}
                   <div className="mt-3">
                     <ProgressBar pct={Number(p.completion_pct)} />
                     <div className="mt-1 text-xs text-slate-500">{Number(p.completion_pct).toFixed(1)}% complete</div>

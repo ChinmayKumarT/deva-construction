@@ -248,6 +248,7 @@ private fun dailyTotalsFromDatedAmounts(rows: List<Pair<String, Double>>): List<
 fun ClientDashboard(vm: AuthViewModel) = RoleScaffold("Client", vm) { padding ->
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
+    val uriHandler = androidx.compose.ui.platform.LocalUriHandler.current
     var client by remember { mutableStateOf<ClientRow?>(null) }
     var projects by remember { mutableStateOf<List<ProjectRow>>(emptyList()) }
     var updates by remember { mutableStateOf<List<ProjectUpdateRow>>(emptyList()) }
@@ -375,10 +376,18 @@ fun ClientDashboard(vm: AuthViewModel) = RoleScaffold("Client", vm) { padding ->
                                 modifier = Modifier.padding(top = 2.dp),
                             )
                         }
-                        TextButton(
-                            onClick = { reportProject = p },
-                            modifier = Modifier.padding(top = 4.dp),
-                        ) { Text("View report") }
+                        Row {
+                            TextButton(
+                                onClick = { reportProject = p },
+                                modifier = Modifier.padding(top = 4.dp),
+                            ) { Text("View report") }
+                            p.agreementImageUrl?.let { url ->
+                                TextButton(
+                                    onClick = { uriHandler.openUri(url) },
+                                    modifier = Modifier.padding(top = 4.dp),
+                                ) { Text("View agreement") }
+                            }
+                        }
                     }
                 }
             }
