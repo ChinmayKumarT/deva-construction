@@ -1,8 +1,10 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createSupabaseServerClient, getSessionAndRole } from "@/lib/supabase/server";
-import { AdminPage, AdminPageHeader } from "@/components/admin/Page";
+import { AdminPage, AdminPageHeader, CostBox } from "@/components/admin/Page";
 import { DeleteForeverButton } from "@/components/admin/RowActions";
+import { wageForStatus } from "@/lib/wages";
+import { lineTotal } from "@/lib/money";
 import { archiveProject, deleteProject, extendProjectEndDate, setNextPaymentDate, unarchiveProject } from "../../actions";
 
 export const dynamic = "force-dynamic";
@@ -12,18 +14,42 @@ export default async function ManageProjectPage({ params }: { params: { id: stri
   const supabase = createSupabaseServerClient();
   const { isOwner } = await getSessionAndRole();
 
-  const { data: project } = await supabase
-    .from("projects")
-    .select(
-      "id, name, status, current_stage, completion_pct, total_cost, end_date, original_end_date, extension_reason, next_payment_date, next_payment_amount, archived_at, clients(name)",
-    )
-    .eq("id", params.id)
-    .single();
+  const [{ data: project }, { data: materials }, { data: payments }, { data: attendance }, { data: labourers }] =
+    await Promise.all([
+      supabase
+        .from("projects")
+        .select(
+          "id, name, status, current_stage, completion_pct, total_cost, end_date, original_end_date, extension_reason, next_payment_date, next_payment_amount, archived_at, clients(name)",
+        )
+        .eq("id", params.id)
+        .single(),
+      supabase.from("materials").select("quantity, unit_cost, status").eq("project_id", params.id).is("archived_at", null),
+      supabase.from("payments").select("amount, status, payee_type").eq("project_id", params.id).is("archived_at", null),
+      supabase.from("attendance").select("status, labourer_id").eq("project_id", params.id),
+      supabase.from("labourers").select("id, daily_wage"),
+    ]);
   if (!project) notFound();
 
   const archived = project.archived_at != null;
   const extended =
     project.original_end_date != null && project.end_date != null && project.end_date > project.original_end_date;
+
+  // Same "spent" definition as the Costs and Reports pages: materials +
+  // labour payments + attendance wages. Supplier payments are excluded --
+  // they settle a cost already counted via the material's own line total.
+  const labourerWage = new Map((labourers ?? []).map((l) => [l.id, Number(l.daily_wage)]));
+  const materialsCost = (materials ?? [])
+    .filter((m) => m.status !== "returned")
+    .reduce((sum, m) => sum + lineTotal(m.quantity, m.unit_cost), 0);
+  const labourPaid = (payments ?? [])
+    .filter((p) => (p.status === "paid" || p.status === "approved") && p.payee_type === "labour")
+    .reduce((sum, p) => sum + Number(p.amount), 0);
+  const wages = (attendance ?? []).reduce(
+    (sum, a) => sum + wageForStatus(a.status, labourerWage.get(a.labourer_id) ?? 0),
+    0,
+  );
+  const spent = materialsCost + labourPaid + wages;
+  const budget = Number(project.total_cost);
 
   return (
     <AdminPage>
@@ -37,6 +63,12 @@ export default async function ManageProjectPage({ params }: { params: { id: stri
           `${project.clients?.name ?? "No client"} · ${project.status} · ${project.current_stage ?? "no stage"} · ${Number(project.completion_pct).toFixed(1)}% complete · ₹${Number(project.total_cost).toLocaleString()}`
         }
       />
+
+      <div className="mb-6 grid max-w-xl gap-3 sm:grid-cols-3">
+        <CostBox label="Budget" value={budget} />
+        <CostBox label="Spent" value={spent} />
+        <CostBox label="Remaining" value={budget - spent} accent />
+      </div>
 
       <div className="max-w-xl rounded-xl border border-slate-200 bg-white p-6">
         {archived ? (

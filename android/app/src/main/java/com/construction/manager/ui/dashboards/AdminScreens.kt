@@ -196,6 +196,10 @@ private fun DialogField(value: String, onChange: (String) -> Unit, label: String
 fun AdminProjects(isOwner: Boolean = false) {
     var rows by remember { mutableStateOf<List<ProjectRow>>(emptyList()) }
     var clients by remember { mutableStateOf<List<ClientRow>>(emptyList()) }
+    var materials by remember { mutableStateOf<List<MaterialRow>>(emptyList()) }
+    var payments by remember { mutableStateOf<List<PaymentRow>>(emptyList()) }
+    var attendance by remember { mutableStateOf<List<AttendanceRow>>(emptyList()) }
+    var labourers by remember { mutableStateOf<List<LabourerRow>>(emptyList()) }
     var error by remember { mutableStateOf<String?>(null) }
     var version by remember { mutableStateOf(0) }
     val scope = rememberCoroutineScope()
@@ -207,8 +211,13 @@ fun AdminProjects(isOwner: Boolean = false) {
         safe({
             rows = if (showArchived) Repo.listArchivedProjects() else Repo.listProjects()
             clients = Repo.listClients()
+            materials = Repo.listMaterials()
+            payments = Repo.listPayments()
+            attendance = Repo.listAllAttendance()
+            labourers = Repo.listLabourers()
         }) { error = it }
     }
+    val labourerWage = labourers.associate { it.id to it.dailyWage }
     // The selected project is a snapshot from `rows`; once a create/edit
     // reloads the list, re-point it at the fresh row (or drop the selection
     // if the project no longer exists, e.g. after a delete).
@@ -250,6 +259,32 @@ fun AdminProjects(isOwner: Boolean = false) {
             }
             error?.let { Text(it, color = MaterialTheme.colorScheme.error,
                 modifier = Modifier.padding(16.dp)) }
+            // Same "spent" definition as the web Costs/Reports pages:
+            // materials + labour payments + attendance wages. Supplier
+            // payments are excluded -- they settle a cost already counted
+            // via the material's own line total.
+            val materialsCost = remember(materials, p) {
+                materials.filter { it.projectId == p.id && it.status != "returned" }
+                    .sumOf { lineTotal(it.quantity, it.unitCost) }
+            }
+            val labourPaid = remember(payments, p) {
+                payments.filter {
+                    it.projectId == p.id && it.payeeType == "labour" && it.status in listOf("paid", "approved")
+                }.sumOf { it.amount }
+            }
+            val wages = remember(attendance, labourerWage, p) {
+                attendance.filter { it.projectId == p.id }
+                    .sumOf { roundMoney((ReportWageFactor[it.status] ?: 0.0) * (labourerWage[it.labourerId] ?: 0.0)) }
+            }
+            val spent = materialsCost + labourPaid + wages
+            Row(
+                Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                StatCard("Budget", money(p.totalCost), Modifier.weight(1f))
+                StatCard("Spent", money(spent), Modifier.weight(1f))
+                StatCard("Remaining", money(p.totalCost - spent), Modifier.weight(1f), accent = true)
+            }
             ProjectRowCard(
                 project = p,
                 clients = clients,
