@@ -1,6 +1,7 @@
 package com.construction.manager.ui.dashboards
 
 import android.net.Uri
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
@@ -206,6 +207,8 @@ fun AdminProjects(isOwner: Boolean = false) {
 
     var showArchived by remember { mutableStateOf(false) }
     var selectedProject by remember { mutableStateOf<ProjectRow?>(null) }
+
+    BackHandler(enabled = !showArchived && selectedProject != null) { selectedProject = null }
 
     LaunchedEffect(version, showArchived) {
         safe({
@@ -2704,6 +2707,7 @@ fun AdminReports() {
     var updates by remember { mutableStateOf<List<ProjectUpdateRow>>(emptyList()) }
     var error by remember { mutableStateOf<String?>(null) }
     var selectedProject by remember { mutableStateOf<ProjectRow?>(null) }
+    BackHandler(enabled = selectedProject != null) { selectedProject = null }
     LaunchedEffect(Unit) {
         safe({
             projects = Repo.listProjects()

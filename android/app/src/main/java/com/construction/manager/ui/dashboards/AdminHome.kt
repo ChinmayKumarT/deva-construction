@@ -1,5 +1,6 @@
 package com.construction.manager.ui.dashboards
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -39,11 +40,24 @@ enum class AdminSection(val label: String) {
 fun AdminHome(vm: AuthViewModel, isAdmin: Boolean = true, isOwner: Boolean = false) {
     val drawerState = rememberDrawerState(DrawerValue.Closed)
     val scope = rememberCoroutineScope()
-    var section by remember { mutableStateOf(AdminSection.Overview) }
+    // A stack (not a single value) so the system back button retraces the
+    // user's actual path through sections instead of exiting the app.
+    var sectionStack by remember { mutableStateOf(listOf(AdminSection.Overview)) }
+    val section = sectionStack.last()
+    fun navigateTo(s: AdminSection) {
+        sectionStack = sectionStack + s
+    }
     var materialsProjectFilter by remember { mutableStateOf<ProjectRow?>(null) }
     var paymentsProjectFilter by remember { mutableStateOf<ProjectRow?>(null) }
     val visibleSections = remember(isOwner) {
         AdminSection.entries.filter { it != AdminSection.TeamAccess || isOwner }
+    }
+
+    BackHandler(enabled = drawerState.isOpen || sectionStack.size > 1) {
+        when {
+            drawerState.isOpen -> scope.launch { drawerState.close() }
+            sectionStack.size > 1 -> sectionStack = sectionStack.dropLast(1)
+        }
     }
 
     ModalNavigationDrawer(
@@ -59,7 +73,12 @@ fun AdminHome(vm: AuthViewModel, isAdmin: Boolean = true, isOwner: Boolean = fal
                         label = { Text(s.label) },
                         selected = section == s,
                         onClick = {
-                            section = s
+                            // A manual drawer pick is a fresh jump, not a drill-down --
+                            // reset the back stack so back-from-here always lands on
+                            // Overview (the app's true root) rather than retracing
+                            // whatever section the user was on before.
+                            sectionStack = if (s == AdminSection.Overview) listOf(s)
+                                else listOf(AdminSection.Overview, s)
                             // Jumping from Costs sets a project filter deliberately; a manual
                             // drawer pick means the user wants the unfiltered list.
                             materialsProjectFilter = null
@@ -101,8 +120,8 @@ fun AdminHome(vm: AuthViewModel, isAdmin: Boolean = true, isOwner: Boolean = fal
                     AdminSection.Attendance -> AdminAttendance()
                     AdminSection.Updates -> AdminUpdates(isOwner)
                     AdminSection.Costs -> AdminCosts(
-                        onJumpToMaterials = { p -> materialsProjectFilter = p; section = AdminSection.Materials },
-                        onJumpToPayments = { p -> paymentsProjectFilter = p; section = AdminSection.Payments },
+                        onJumpToMaterials = { p -> materialsProjectFilter = p; navigateTo(AdminSection.Materials) },
+                        onJumpToPayments = { p -> paymentsProjectFilter = p; navigateTo(AdminSection.Payments) },
                     )
                     AdminSection.Reports -> AdminReports()
                     AdminSection.CashFlow -> AdminCashFlow()

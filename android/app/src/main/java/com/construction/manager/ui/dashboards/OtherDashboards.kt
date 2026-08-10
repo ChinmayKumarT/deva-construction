@@ -1,6 +1,7 @@
 package com.construction.manager.ui.dashboards
 
 import android.net.Uri
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
@@ -280,6 +281,7 @@ fun ClientDashboard(vm: AuthViewModel) = RoleScaffold("Client", vm) { padding ->
     }
 
     val rp = reportProject
+    BackHandler(enabled = rp != null) { reportProject = null }
     if (rp != null) {
         ClientReportDetail(
             project = rp,
