@@ -3,6 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createSupabaseServerClient, getSessionAndRole } from "@/lib/supabase/server";
 import { AdminPage, AdminPageHeader, CostBox } from "@/components/admin/Page";
+import { AutoSubmitFileInput } from "@/components/admin/AutoSubmitFileInput";
 import { DeleteForeverButton } from "@/components/admin/RowActions";
 import { wageForStatus } from "@/lib/wages";
 import { lineTotal } from "@/lib/money";
@@ -122,10 +123,7 @@ export default async function ManageProjectPage({ params }: { params: { id: stri
                   <input type="hidden" name="project_id" value={project.id} />
                   <label className="cursor-pointer rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-100">
                     Replace
-                    <input
-                      type="file" accept="image/*" name="image_file" className="hidden"
-                      onChange={(e) => e.currentTarget.form?.requestSubmit()}
-                    />
+                    <AutoSubmitFileInput name="image_file" className="hidden" />
                   </label>
                 </form>
                 <form action={removeProjectAgreement}>
