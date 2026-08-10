@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { requireRole } from "@/lib/guard";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { lineTotal } from "@/lib/money";
@@ -30,6 +31,12 @@ export default async function ClientReportsPage() {
     .eq("client_id", client.id)
     .is("archived_at", null)
     .order("created_at", { ascending: false });
+
+  // Only one project linked -- skip the picker and go straight to its
+  // report instead of making the client click through an extra page.
+  if (projects && projects.length === 1) {
+    redirect(`/client/reports/${projects[0].id}`);
+  }
 
   const projectIds = (projects ?? []).map((p) => p.id);
   const [{ data: materials }, { data: payments }] = projectIds.length
