@@ -617,6 +617,96 @@ export async function setNextPaymentDate(fd: FormData) {
   revalidatePath("/client");
 }
 
+// ---------- Change orders ----------
+// Extra scope a client asks for mid-project (add a balcony, extend a floor,
+// etc.), logged with the cost it adds to the project's budget. Creating one
+// bumps projects.total_cost right away, same as extendProjectEndDate bumps
+// end_date directly above -- Budget/Spent/Remaining on the project page
+// stays correct with no separate manual edit step.
+export async function createChangeOrder(fd: FormData) {
+  const supabase = createSupabaseServerClient();
+  const project_id = str(fd, "project_id");
+  if (!project_id) throw new Error("project_id required");
+  const description = requiredStr(fd, "description", "Description");
+  const extra_cost = nonNegNum(fd, "extra_cost", "Extra cost") ?? 0;
+  const work_category = str(fd, "work_category");
+
+  const { error } = await supabase.from("project_change_orders").insert({
+    project_id,
+    description,
+    work_category,
+    extra_cost,
+  });
+  if (error) throw new Error(error.message);
+
+  if (extra_cost > 0) {
+    const { data: project } = await supabase
+      .from("projects")
+      .select("total_cost")
+      .eq("id", project_id)
+      .single();
+    if (project) {
+      await supabase
+        .from("projects")
+        .update({ total_cost: Number(project.total_cost) + extra_cost })
+        .eq("id", project_id);
+    }
+  }
+  revalidatePath(`/admin/projects/${project_id}`);
+  revalidatePath("/admin/projects");
+  revalidatePath("/admin/costs");
+  revalidatePath("/client");
+}
+
+// Change orders bump the project's budget when created (above), so
+// archiving/restoring one must reverse/reapply that adjustment -- otherwise
+// undoing a mistaken entry would leave the budget permanently inflated.
+async function adjustChangeOrderArchive(id: string | null, archived: boolean) {
+  if (!id) throw new Error("id required");
+  const supabase = createSupabaseServerClient();
+  const { data: changeOrder } = await supabase
+    .from("project_change_orders")
+    .select("project_id, extra_cost")
+    .eq("id", id)
+    .single();
+  if (!changeOrder) throw new Error("change order not found");
+
+  const { error } = await supabase
+    .from("project_change_orders")
+    .update({ archived_at: archived ? new Date().toISOString() : null })
+    .eq("id", id);
+  if (error) throw new Error(error.message);
+
+  const extraCost = Number(changeOrder.extra_cost);
+  if (extraCost > 0) {
+    const { data: project } = await supabase
+      .from("projects")
+      .select("total_cost")
+      .eq("id", changeOrder.project_id)
+      .single();
+    if (project) {
+      const delta = archived ? -extraCost : extraCost;
+      await supabase
+        .from("projects")
+        .update({ total_cost: Number(project.total_cost) + delta })
+        .eq("id", changeOrder.project_id);
+    }
+  }
+  revalidatePath(`/admin/projects/${changeOrder.project_id}`);
+  revalidatePath("/admin/projects");
+  revalidatePath("/admin/costs");
+  revalidatePath("/client");
+}
+export async function archiveChangeOrder(fd: FormData) {
+  await adjustChangeOrderArchive(str(fd, "id"), true);
+}
+export async function unarchiveChangeOrder(fd: FormData) {
+  await adjustChangeOrderArchive(str(fd, "id"), false);
+}
+export async function deleteChangeOrder(fd: FormData) {
+  await ownerDeleteRow("project_change_orders", str(fd, "id"));
+}
+
 // Same upload pattern as postProjectUpdate above -- image goes to the
 // existing project-images bucket, only the public URL is stored on the row.
 export async function uploadProjectAgreement(fd: FormData) {

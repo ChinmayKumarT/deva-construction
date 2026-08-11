@@ -43,7 +43,7 @@ export default async function ClientDashboard() {
 
   const projectIds = (projects ?? []).map((p) => p.id);
 
-  const [{ data: updates }, { data: clientPayments }, { data: projectLabourers }] = projectIds.length
+  const [{ data: updates }, { data: clientPayments }, { data: projectLabourers }, { data: changeOrders }] = projectIds.length
     ? await Promise.all([
         supabase
           .from("project_updates")
@@ -61,8 +61,14 @@ export default async function ClientDashboard() {
         // Which labourers worked each project (names/trade only, no wages) --
         // security-definer RPC, clients can't read the attendance table.
         supabase.rpc("my_project_labourers"),
+        supabase
+          .from("project_change_orders")
+          .select("id, project_id, description, extra_cost, created_at")
+          .in("project_id", projectIds)
+          .is("archived_at", null)
+          .order("created_at", { ascending: false }),
       ])
-    : [{ data: [] }, { data: [] }, { data: [] }];
+    : [{ data: [] }, { data: [] }, { data: [] }, { data: [] }];
 
   const receivedByProject = new Map<string, number>();
   const paymentsByProject = new Map<string, { date: string; amount: number }[]>();
@@ -85,6 +91,14 @@ export default async function ClientDashboard() {
     const counts = labourCategoryCountsByProject.get(l.project_id) ?? new Map<string, number>();
     counts.set(label, (counts.get(label) ?? 0) + 1);
     labourCategoryCountsByProject.set(l.project_id, counts);
+  }
+
+  const changeOrdersByProject = new Map<string, { id: string; description: string; extra_cost: number; created_at: string }[]>();
+  for (const co of changeOrders ?? []) {
+    if (!co.project_id) continue;
+    const list = changeOrdersByProject.get(co.project_id) ?? [];
+    list.push(co);
+    changeOrdersByProject.set(co.project_id, list);
   }
 
   return (
@@ -110,6 +124,7 @@ export default async function ClientDashboard() {
               const budget = Number(p.total_cost);
               const remaining = budget - received;
               const labourCounts = labourCategoryCountsByProject.get(p.id);
+              const projectChangeOrders = changeOrdersByProject.get(p.id) ?? [];
               const projectPayments = paymentsByProject.get(p.id) ?? [];
               const projectTrend = toCumulative(dailyTotalsFromDatedAmounts(projectPayments));
               return (
@@ -197,6 +212,21 @@ export default async function ClientDashboard() {
                           </span>
                         ))}
                       </div>
+                    </div>
+                  )}
+                  {projectChangeOrders.length > 0 && (
+                    <div className="mt-3">
+                      <div className="text-xs uppercase tracking-wide text-slate-500">Additional work requested</div>
+                      <ul className="mt-1.5 space-y-1.5">
+                        {projectChangeOrders.map((co) => (
+                          <li key={co.id} className="text-xs text-slate-600">
+                            <span className="font-medium text-slate-800">{co.description}</span>
+                            {" · "}
+                            {formatDateOnly(co.created_at)}
+                            {Number(co.extra_cost) > 0 && ` · +₹${Number(co.extra_cost).toLocaleString()}`}
+                          </li>
+                        ))}
+                      </ul>
                     </div>
                   )}
                 </article>

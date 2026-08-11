@@ -138,6 +138,21 @@ data class ClientPaymentRow(
     @SerialName("archived_at") val archivedAt: String? = null,
 )
 
+// Extra scope a client asks for mid-project (e.g. "add a balcony"), logged
+// with the cost it adds to the project's budget -- see
+// supabase/31_project_change_orders.sql. Mirrors web's project_change_orders
+// select shape.
+@Serializable
+data class ProjectChangeOrderRow(
+    val id: String,
+    @SerialName("project_id") val projectId: String,
+    val description: String,
+    @SerialName("work_category") val workCategory: String? = null,
+    @SerialName("extra_cost") val extraCost: Double = 0.0,
+    @SerialName("created_at") val createdAt: String? = null,
+    @SerialName("archived_at") val archivedAt: String? = null,
+)
+
 @Serializable
 data class AttendanceRow(
     val id: String? = null,

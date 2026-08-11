@@ -302,6 +302,7 @@ fun AdminProjects(isOwner: Boolean = false) {
                 )
             }
             ProjectAgreementSection(project = p, onChanged = { version++ })
+            ProjectChangeOrdersSection(project = p, isOwner = isOwner, onChanged = { version++ })
             ProjectRowCard(
                 project = p,
                 clients = clients,
@@ -436,6 +437,123 @@ private fun ProjectAgreementSection(project: ProjectRow, onChanged: () -> Unit) 
         error?.let {
             Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.labelSmall)
         }
+    }
+}
+
+// Extra scope a client asks for mid-project, logged with the cost it adds to
+// the project's budget -- mirrors the web project detail page's "Change
+// orders" section. Self-contained (own fetch/state) like
+// ProjectAgreementSection above, since it's not part of the parent's fetch
+// cycle; onChanged bumps the parent's version so Budget/Spent/Remaining
+// reflect the total_cost adjustment Repo.createChangeOrder/archive make.
+@Composable
+private fun ProjectChangeOrdersSection(project: ProjectRow, isOwner: Boolean, onChanged: () -> Unit) {
+    var changeOrders by remember { mutableStateOf<List<ProjectChangeOrderRow>>(emptyList()) }
+    var showArchived by remember { mutableStateOf(false) }
+    var refreshTrigger by remember { mutableStateOf(0) }
+    var description by remember { mutableStateOf("") }
+    var workCategory by remember { mutableStateOf("None") }
+    var extraCost by remember { mutableStateOf("") }
+    var confirmDelete by remember { mutableStateOf<ProjectChangeOrderRow?>(null) }
+    var error by remember { mutableStateOf<String?>(null) }
+    val scope = rememberCoroutineScope()
+
+    LaunchedEffect(project.id, showArchived, refreshTrigger) {
+        safe({
+            changeOrders = if (showArchived) Repo.listArchivedChangeOrders(project.id)
+                else Repo.listChangeOrders(project.id)
+        }) { error = it }
+    }
+
+    Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+            Text("Change orders", style = MaterialTheme.typography.labelLarge, modifier = Modifier.weight(1f))
+            TextButton(onClick = { showArchived = !showArchived }) {
+                Text(if (showArchived) "Show active" else "Show archived")
+            }
+        }
+        if (!showArchived) {
+            TextField(description, { description = it }, "Description")
+            CategoryDropdown("Work category", workCategory, { workCategory = it })
+            NumberField(extraCost, { extraCost = it }, "Extra cost (₹, optional)")
+            Text(
+                "Any extra cost is added to this project's budget right away.",
+                style = MaterialTheme.typography.labelSmall,
+            )
+            Button(
+                onClick = {
+                    if (description.isBlank()) { error = "Description is required"; return@Button }
+                    scope.launch {
+                        safe({
+                            Repo.createChangeOrder(
+                                project.id, description, workCategory.takeIf { it != "None" },
+                                extraCost.toDoubleOrNull() ?: 0.0,
+                            )
+                            description = ""; extraCost = ""; workCategory = "None"
+                            refreshTrigger++; onChanged()
+                        }) { error = it }
+                    }
+                },
+                modifier = Modifier.padding(top = 4.dp),
+            ) { Text("Add change order") }
+        }
+        if (changeOrders.isEmpty()) {
+            Text(
+                if (showArchived) "No archived change orders." else "No change orders logged yet.",
+                style = MaterialTheme.typography.bodySmall,
+                modifier = Modifier.padding(top = 8.dp),
+            )
+        } else {
+            changeOrders.forEach { co ->
+                ItemCard(
+                    co.description,
+                    listOfNotNull(co.createdAt?.take(10), co.workCategory).joinToString(" · "),
+                    if (co.extraCost > 0.0) "+${money(co.extraCost)}" else null,
+                    actions = {
+                        if (showArchived) {
+                            TextButton(onClick = {
+                                scope.launch {
+                                    safe({ Repo.unarchiveChangeOrder(co.id); refreshTrigger++; onChanged() }) { error = it }
+                                }
+                            }) { Text("Restore") }
+                            if (isOwner) {
+                                TextButton(onClick = { confirmDelete = co }) {
+                                    Text("Delete forever", color = MaterialTheme.colorScheme.error)
+                                }
+                            }
+                        } else {
+                            TextButton(onClick = {
+                                scope.launch {
+                                    safe({ Repo.archiveChangeOrder(co.id); refreshTrigger++; onChanged() }) { error = it }
+                                }
+                            }) { Text("Archive") }
+                        }
+                    },
+                )
+            }
+        }
+        error?.let {
+            Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.labelSmall)
+        }
+    }
+
+    confirmDelete?.let { co ->
+        AlertDialog(
+            onDismissRequest = { confirmDelete = null },
+            title = { Text("Delete this change order?") },
+            text = { Text("This cannot be undone: \"${co.description}\"") },
+            confirmButton = {
+                TextButton(onClick = {
+                    confirmDelete = null
+                    scope.launch {
+                        safe({ Repo.deleteChangeOrderForever(co.id); refreshTrigger++ }) { error = it }
+                    }
+                }) { Text("Delete forever", color = MaterialTheme.colorScheme.error) }
+            },
+            dismissButton = {
+                TextButton(onClick = { confirmDelete = null }) { Text("Cancel") }
+            },
+        )
     }
 }
 

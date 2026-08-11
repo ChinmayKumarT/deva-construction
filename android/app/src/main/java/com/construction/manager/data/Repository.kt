@@ -383,6 +383,58 @@ object Repo {
             else put("next_payment_amount", JsonNull)
         }) { filter { eq("id", projectId) } }
     }
+    // ---------- Change orders ----------
+    // Extra scope a client asks for mid-project, logged with the cost it
+    // adds to the project's budget -- mirrors web's createChangeOrder /
+    // adjustChangeOrderArchive in app/admin/actions.ts. Creating one bumps
+    // projects.total_cost right away, same as extendProjectEndDate bumps
+    // end_date directly above.
+    suspend fun listChangeOrders(projectId: String) = supabase.from("project_change_orders")
+        .select { filter { eq("project_id", projectId) }; activeOnly(); order("created_at", Order.DESCENDING) }
+        .decodeList<ProjectChangeOrderRow>()
+    suspend fun listArchivedChangeOrders(projectId: String) = supabase.from("project_change_orders")
+        .select { filter { eq("project_id", projectId) }; archivedOnly(); order("created_at", Order.DESCENDING) }
+        .decodeList<ProjectChangeOrderRow>()
+    suspend fun createChangeOrder(projectId: String, description: String, workCategory: String?, extraCost: Double) {
+        supabase.from("project_change_orders").insert(buildJsonObject {
+            put("project_id", projectId)
+            put("description", description)
+            if (workCategory != null) put("work_category", workCategory)
+            put("extra_cost", extraCost)
+        })
+        if (extraCost > 0.0) {
+            val project = supabase.from("projects").select { filter { eq("id", projectId) } }
+                .decodeSingleOrNull<ProjectRow>()
+            if (project != null) {
+                supabase.from("projects").update(buildJsonObject {
+                    put("total_cost", project.totalCost + extraCost)
+                }) { filter { eq("id", projectId) } }
+            }
+        }
+    }
+    // Change orders bump the project's budget when created (above), so
+    // archiving/restoring one must reverse/reapply that adjustment --
+    // otherwise undoing a mistaken entry would leave the budget permanently
+    // inflated.
+    private suspend fun adjustChangeOrderArchive(id: String, archived: Boolean) {
+        val changeOrder = supabase.from("project_change_orders").select { filter { eq("id", id) } }
+            .decodeSingleOrNull<ProjectChangeOrderRow>() ?: return
+        setArchived("project_change_orders", id, archived)
+        if (changeOrder.extraCost > 0.0) {
+            val project = supabase.from("projects").select { filter { eq("id", changeOrder.projectId) } }
+                .decodeSingleOrNull<ProjectRow>()
+            if (project != null) {
+                val delta = if (archived) -changeOrder.extraCost else changeOrder.extraCost
+                supabase.from("projects").update(buildJsonObject {
+                    put("total_cost", project.totalCost + delta)
+                }) { filter { eq("id", changeOrder.projectId) } }
+            }
+        }
+    }
+    suspend fun archiveChangeOrder(id: String) = adjustChangeOrderArchive(id, true)
+    suspend fun unarchiveChangeOrder(id: String) = adjustChangeOrderArchive(id, false)
+    suspend fun deleteChangeOrderForever(id: String) = ownerDeleteRow("project_change_orders", id)
+
     // Uploaded image goes through uploadProjectImage (same project-images
     // bucket); this just points/clears the project row's agreement field.
     suspend fun setProjectAgreementImage(projectId: String, url: String?) {
@@ -636,6 +688,20 @@ object Repo {
                     filter("archived_at", FilterOperator.IS, "null")
                 }
                 order("paid_on", Order.DESCENDING)
+            }.decodeList()
+    }
+    // Read-only for the client -- client_own_change_orders RLS policy scopes
+    // this to the caller's own projects regardless of what project IDs are
+    // passed in here.
+    suspend fun myChangeOrders(projectIds: List<String>): List<ProjectChangeOrderRow> {
+        if (projectIds.isEmpty()) return emptyList()
+        return supabase.from("project_change_orders")
+            .select {
+                filter {
+                    isIn("project_id", projectIds)
+                    filter("archived_at", FilterOperator.IS, "null")
+                }
+                order("created_at", Order.DESCENDING)
             }.decodeList()
     }
     suspend fun supplierMaterials(supplierId: String) = supabase.from("materials")

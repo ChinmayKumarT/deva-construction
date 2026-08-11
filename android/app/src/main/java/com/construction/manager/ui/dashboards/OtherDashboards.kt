@@ -248,6 +248,7 @@ fun ClientDashboard(vm: AuthViewModel) = RoleScaffold("Client", vm) { padding ->
     var clientPayments by remember { mutableStateOf<List<ClientPaymentRow>>(emptyList()) }
     var wageTotals by remember { mutableStateOf<List<ProjectWageTotalRow>>(emptyList()) }
     var projectLabourers by remember { mutableStateOf<List<LabourOnProjectRow>>(emptyList()) }
+    var changeOrders by remember { mutableStateOf<List<ProjectChangeOrderRow>>(emptyList()) }
     var error by remember { mutableStateOf<String?>(null) }
     var reportProject by remember { mutableStateOf<ProjectRow?>(null) }
     LaunchedEffect(Unit) {
@@ -261,6 +262,7 @@ fun ClientDashboard(vm: AuthViewModel) = RoleScaffold("Client", vm) { padding ->
                 clientPayments = Repo.myClientPayments(ids)
                 wageTotals = Repo.myProjectWageTotals()
                 projectLabourers = Repo.myProjectLabourers()
+                changeOrders = Repo.myChangeOrders(ids)
             }
         } catch (e: Exception) { error = e.message }
     }
@@ -362,6 +364,22 @@ fun ClientDashboard(vm: AuthViewModel) = RoleScaffold("Client", vm) { padding ->
                                 style = MaterialTheme.typography.bodySmall,
                                 modifier = Modifier.padding(top = 2.dp),
                             )
+                        }
+                        changeOrders.filter { it.projectId == p.id }.takeIf { it.isNotEmpty() }?.let { orders ->
+                            Text(
+                                "ADDITIONAL WORK REQUESTED",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.padding(top = 8.dp),
+                            )
+                            orders.forEach { co ->
+                                Text(
+                                    co.description + (co.createdAt?.take(10)?.let { " · $it" } ?: "") +
+                                        (if (co.extraCost > 0.0) " · +${money(co.extraCost)}" else ""),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    modifier = Modifier.padding(top = 2.dp),
+                                )
+                            }
                         }
                         Row {
                             TextButton(
