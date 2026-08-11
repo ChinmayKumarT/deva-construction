@@ -41,8 +41,9 @@ private suspend fun safe(block: suspend () -> Unit, onError: (String) -> Unit) {
 @Composable
 private fun ItemCard(title: String, sub: String, trailing: String? = null,
                      thumbnailUrl: String? = null,
+                     modifier: Modifier = Modifier,
                      actions: (@Composable RowScope.() -> Unit)? = null) {
-    ElevatedCard(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp)) {
+    ElevatedCard(modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp)) {
         Column(Modifier.padding(12.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 if (thumbnailUrl != null) {
@@ -318,11 +319,16 @@ fun AdminProjects(isOwner: Boolean = false) {
                 StatCard("Total cost", money(rows.sumOf { it.totalCost }), modifier = Modifier.padding(horizontal = 16.dp), accent = true)
                 Spacer(Modifier.height(8.dp))
                 rows.forEach { p ->
-                    StatCard(
-                        p.name, money(p.totalCost),
-                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 2.dp)
-                            .clickable { selectedProject = p },
-                    )
+                    val spent = remember(materials, payments, attendance, labourerWage, p) {
+                        materials.filter { it.projectId == p.id && it.status != "returned" }
+                            .sumOf { lineTotal(it.quantity, it.unitCost) } +
+                        payments.filter {
+                            it.projectId == p.id && it.payeeType == "labour" && it.status in listOf("paid", "approved")
+                        }.sumOf { it.amount } +
+                        attendance.filter { it.projectId == p.id }
+                            .sumOf { roundMoney((ReportWageFactor[it.status] ?: 0.0) * (labourerWage[it.labourerId] ?: 0.0)) }
+                    }
+                    ProjectListRow(project = p, spent = spent, onClick = { selectedProject = p })
                 }
                 Spacer(Modifier.height(8.dp))
             }
@@ -554,6 +560,61 @@ private fun ProjectChangeOrdersSection(project: ProjectRow, isOwner: Boolean, on
                 TextButton(onClick = { confirmDelete = null }) { Text("Cancel") }
             },
         )
+    }
+}
+
+private fun projectStatusColor(status: String): androidx.compose.ui.graphics.Color = when (status) {
+    "active" -> androidx.compose.ui.graphics.Color(0xFF7DA3D6)
+    "completed" -> androidx.compose.ui.graphics.Color(0xFF16A34A)
+    "on_hold" -> androidx.compose.ui.graphics.Color(0xFFD97706)
+    "cancelled" -> androidx.compose.ui.graphics.Color(0xFFDC2626)
+    else -> androidx.compose.ui.graphics.Color(0xFF726C64) // planned
+}
+
+// Richer project-picker row: status badge, stage, progress bar and a
+// budget/spent summary line, all visible without drilling in -- previously
+// this list only showed the name and total cost. Matches the project cards
+// on the client dashboard and web's Projects index.
+@Composable
+private fun ProjectListRow(project: ProjectRow, spent: Double, onClick: () -> Unit) {
+    val statusColor = projectStatusColor(project.status)
+    ElevatedCard(
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp).clickable(onClick = onClick),
+    ) {
+        Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(project.name, style = MaterialTheme.typography.titleSmall, modifier = Modifier.weight(1f))
+                Surface(
+                    color = statusColor.copy(alpha = 0.14f),
+                    contentColor = statusColor,
+                    shape = androidx.compose.foundation.shape.RoundedCornerShape(100),
+                ) {
+                    Text(
+                        project.status.replace("_", " ").replaceFirstChar { it.uppercase() },
+                        style = MaterialTheme.typography.labelSmall,
+                        fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
+                    )
+                }
+            }
+            if (!project.currentStage.isNullOrBlank()) {
+                Text(
+                    project.currentStage,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            LinearProgressIndicator(
+                progress = { (project.completionPct / 100.0).toFloat().coerceIn(0f, 1f) },
+                modifier = Modifier.fillMaxWidth(),
+                color = statusColor,
+            )
+            Text(
+                "${"%.0f".format(project.completionPct)}% · Budget ${money(project.totalCost)} · Spent ${money(spent)}",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
     }
 }
 
@@ -836,6 +897,7 @@ private fun NextPaymentDateDialog(project: ProjectRow, onDismiss: () -> Unit, on
 fun AdminClients(isOwner: Boolean = false) {
     var rows by remember { mutableStateOf<List<ClientRow>>(emptyList()) }
     var profiles by remember { mutableStateOf<List<Profile>>(emptyList()) }
+    var projects by remember { mutableStateOf<List<ProjectRow>>(emptyList()) }
     var version by remember { mutableStateOf(0) }
     var error by remember { mutableStateOf<String?>(null) }
     var showArchived by remember { mutableStateOf(false) }
@@ -847,10 +909,16 @@ fun AdminClients(isOwner: Boolean = false) {
         safe({
             rows = if (showArchived) Repo.listArchivedClients() else Repo.listClients()
             profiles = Repo.listProfilesByRole(Role.client)
+            projects = Repo.listProjects()
         }) { error = it }
     }
     val linked = rows.mapNotNull { it.profileId }.toSet()
     val unlinked = profiles.filter { it.id !in linked }
+    // First project per client -- mirrors the mockup's clientRows.projectName;
+    // a client with several projects just shows the first, same simplification
+    // the mockup makes (its seed data is one project per client).
+    val projectNameByClient = projects.filter { it.clientId != null }
+        .associate { it.clientId!! to it.name }
 
     var name by remember { mutableStateOf("") }
     var email by remember { mutableStateOf("") }
@@ -888,7 +956,8 @@ fun AdminClients(isOwner: Boolean = false) {
         }
         rows.forEach { c ->
             ItemCard(
-                c.name, "${c.email ?: "—"} · ${c.phone ?: "—"}",
+                c.name,
+                "${c.email ?: "—"} · ${c.phone ?: "—"} · ${projectNameByClient[c.id] ?: "No project"}",
                 if (c.profileId != null) "linked" else "no login",
                 actions = {
                     EntityActions(
@@ -967,17 +1036,24 @@ private fun EditClientDialog(client: ClientRow, onDismiss: () -> Unit, onSaved: 
 fun AdminSuppliers(isOwner: Boolean = false) {
     var rows by remember { mutableStateOf<List<SupplierRow>>(emptyList()) }
     var profiles by remember { mutableStateOf<List<Profile>>(emptyList()) }
+    var materials by remember { mutableStateOf<List<MaterialRow>>(emptyList()) }
+    var payments by remember { mutableStateOf<List<PaymentRow>>(emptyList()) }
+    var projects by remember { mutableStateOf<List<ProjectRow>>(emptyList()) }
     var version by remember { mutableStateOf(0) }
     var error by remember { mutableStateOf<String?>(null) }
     var showArchived by remember { mutableStateOf(false) }
     var editing by remember { mutableStateOf<SupplierRow?>(null) }
     var archiving by remember { mutableStateOf<SupplierRow?>(null) }
     var deleting by remember { mutableStateOf<SupplierRow?>(null) }
+    var selected by remember { mutableStateOf<SupplierRow?>(null) }
     val scope = rememberCoroutineScope()
     LaunchedEffect(version, showArchived) {
         safe({
             rows = if (showArchived) Repo.listArchivedSuppliers() else Repo.listSuppliers()
             profiles = Repo.listProfilesByRole(Role.supplier)
+            materials = Repo.listMaterials()
+            payments = Repo.listPayments()
+            projects = Repo.listProjects()
         }) { error = it }
     }
     val linked = rows.mapNotNull { it.profileId }.toSet()
@@ -986,6 +1062,18 @@ fun AdminSuppliers(isOwner: Boolean = false) {
     var email by remember { mutableStateOf("") }
     var phone by remember { mutableStateOf("") }
     var profile by remember { mutableStateOf<Profile?>(null) }
+
+    val sel = selected
+    if (sel != null) {
+        SupplierDetail(
+            supplier = sel,
+            materials = materials.filter { it.supplierId == sel.id },
+            payments = payments.filter { it.supplierId == sel.id && it.payeeType == "supplier" },
+            projectName = projects.associate { it.id to it.name },
+            onBack = { selected = null },
+        )
+        return
+    }
 
     FormColumn {
         ArchivedSwitch(showArchived) { showArchived = !showArchived }
@@ -1017,9 +1105,15 @@ fun AdminSuppliers(isOwner: Boolean = false) {
                 Modifier.padding(16.dp))
         }
         rows.forEach { s ->
+            val deliveries = materials.count { it.supplierId == s.id && it.status == "delivered" }
+            val pending = payments.filter {
+                it.supplierId == s.id && it.payeeType == "supplier" && it.status in listOf("pending", "approved")
+            }.sumOf { it.amount }
             ItemCard(
-                s.name, "${s.email ?: "—"} · ${s.phone ?: "—"}",
+                s.name,
+                "${s.email ?: "—"} · ${s.phone ?: "—"} · $deliveries deliveries · Pending ${money(pending)}",
                 if (s.profileId != null) "linked" else "no login",
+                modifier = if (!showArchived) Modifier.clickable { selected = s } else Modifier,
                 actions = {
                     EntityActions(
                         archived = showArchived,
@@ -1060,6 +1154,56 @@ fun AdminSuppliers(isOwner: Boolean = false) {
                 scope.launch { safe({ Repo.deleteSupplierForever(s.id); version++ }) { error = it } }
             },
         )
+    }
+}
+
+@Composable
+private fun SupplierDetail(
+    supplier: SupplierRow,
+    materials: List<MaterialRow>,
+    payments: List<PaymentRow>,
+    projectName: Map<String, String>,
+    onBack: () -> Unit,
+) {
+    val deliveredCount = materials.count { it.status == "delivered" }
+    val pending = payments.filter { it.status in listOf("pending", "approved") }.sumOf { it.amount }
+    val received = payments.filter { it.status == "paid" }.sumOf { it.amount }
+
+    FormColumn {
+        Row(
+            Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(supplier.name, style = MaterialTheme.typography.titleSmall, modifier = Modifier.weight(1f))
+            TextButton(onClick = onBack) { Text("← Suppliers") }
+        }
+        Row(
+            Modifier.padding(horizontal = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            StatCard("Deliveries", deliveredCount.toString(), Modifier.weight(1f))
+            StatCard("Pending", money(pending), Modifier.weight(1f))
+            StatCard("Received", money(received), Modifier.weight(1f))
+        }
+        Divider()
+        SectionTitle("Deliveries (${materials.size})")
+        if (materials.isEmpty()) {
+            Text("No deliveries recorded yet.", Modifier.padding(16.dp))
+        }
+        materials.forEach { m ->
+            ItemCard(
+                m.name,
+                "${projectName[m.projectId] ?: "—"} · ${m.quantity} ${m.unit} · ${m.status}",
+                money(lineTotal(m.quantity, m.unitCost)),
+            )
+        }
+        Divider()
+        SectionTitle("Payments (${payments.size})")
+        if (payments.isEmpty()) {
+            Text("No payments recorded yet.", Modifier.padding(16.dp))
+        }
+        payments.forEach { p ->
+            ItemCard(p.description ?: "—", "${formatDateTime(p.createdAt)} · ${p.status}", money(p.amount))
+        }
     }
 }
 
@@ -2422,8 +2566,14 @@ fun AdminUpdates(isOwner: Boolean = false) {
         rows.forEach { u ->
             ElevatedCard(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp)) {
                 Column(Modifier.padding(12.dp)) {
-                    Text(projects.find { it.id == u.projectId }?.name ?: "—",
-                        style = MaterialTheme.typography.titleSmall)
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(projects.find { it.id == u.projectId }?.name ?: "—",
+                            style = MaterialTheme.typography.titleSmall, modifier = Modifier.weight(1f))
+                        u.createdAt?.let {
+                            Text(formatDateTime(it), style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                    }
                     if (!u.stage.isNullOrBlank()) Text("Stage: ${u.stage}",
                         style = MaterialTheme.typography.bodySmall)
                     if (!u.note.isNullOrBlank()) Text(u.note,

@@ -18,14 +18,27 @@ export default async function SuppliersPage({
     .select("id, name, email, phone, profile_id, archived_at")
     .order("created_at", { ascending: false });
 
-  const [{ data: suppliers }, { data: profiles }, { count: archivedCount }] = await Promise.all([
+  const [{ data: suppliers }, { data: profiles }, { count: archivedCount }, { data: materials }, { data: payments }] = await Promise.all([
     showArchived ? base.not("archived_at", "is", null) : base.is("archived_at", null),
     supabase.from("profiles").select("id, full_name").eq("role", "supplier"),
     supabase.from("suppliers").select("id", { count: "exact", head: true }).not("archived_at", "is", null),
+    supabase.from("materials").select("supplier_id, status").is("archived_at", null),
+    supabase.from("payments").select("supplier_id, amount, status").is("archived_at", null).eq("payee_type", "supplier"),
   ]);
 
   const linked = new Set((suppliers ?? []).map((s) => s.profile_id).filter(Boolean));
   const unlinkedProfiles = (profiles ?? []).filter((p) => !linked.has(p.id));
+
+  const deliveriesBySupplier = new Map<string, number>();
+  for (const m of materials ?? []) {
+    if (m.status !== "delivered" || !m.supplier_id) continue;
+    deliveriesBySupplier.set(m.supplier_id, (deliveriesBySupplier.get(m.supplier_id) ?? 0) + 1);
+  }
+  const pendingBySupplier = new Map<string, number>();
+  for (const p of payments ?? []) {
+    if ((p.status !== "pending" && p.status !== "approved") || !p.supplier_id) continue;
+    pendingBySupplier.set(p.supplier_id, (pendingBySupplier.get(p.supplier_id) ?? 0) + Number(p.amount));
+  }
 
   return (
     <AdminPage>
@@ -77,6 +90,16 @@ export default async function SuppliersPage({
               <p className="mt-2 text-sm text-slate-600">
                 {s.email ?? "No email"} · {s.phone ?? "No phone"}
               </p>
+              <div className="mt-3 flex gap-2">
+                <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
+                  <div className="text-[10px] font-medium uppercase tracking-wide text-slate-500">Deliveries</div>
+                  <div className="text-sm font-semibold">{deliveriesBySupplier.get(s.id) ?? 0}</div>
+                </div>
+                <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2">
+                  <div className="text-[10px] font-medium uppercase tracking-wide text-amber-700">Pending</div>
+                  <div className="text-sm font-semibold text-amber-700">₹{(pendingBySupplier.get(s.id) ?? 0).toLocaleString()}</div>
+                </div>
+              </div>
               <p className="mt-3 text-sm font-medium text-brand-700">Manage →</p>
             </Link>
           ))}
