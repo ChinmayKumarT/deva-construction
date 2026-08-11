@@ -4,21 +4,21 @@
 
 :root {
   color-scheme: light;
-  --brand: #7da3d6;
-  --brand-dark: #242424;
-  --brand-deep: #395580;
-  --ink: #232323;
-  --ink-muted: #6e6e6e;
-  --line: #e3ded8;
-  --bg: #e8e1da;
+  --brand: #635bff;
+  --brand-dark: #1a1f36;
+  --brand-deep: #4338ca;
+  --ink: #1a1f36;
+  --ink-muted: #697386;
+  --line: #e3e8ee;
+  --bg: #f6f9fc;
   --card: #ffffff;
-  --dark-card: #242424;
+  --dark-card: #1a1f36;
 }
 
 html, body { background: var(--bg); color: var(--ink); }
 body { font-feature-settings: "ss01", "cv11"; }
 
-::selection { background: #dce7f3; color: var(--brand-deep); }
+::selection { background: #ebeafe; color: var(--brand-deep); }
 
 /* Hide scrollbar visuals but keep scrolling */
 .no-scrollbar { scrollbar-width: none; -ms-overflow-style: none; }

@@ -79,7 +79,7 @@ export default async function PaymentsIndexPage({
   const chartBars = Array.from(chartProjectTotals.entries()).map(([id, value]) => ({
     label: projectName.get(id) ?? "No project",
     value,
-    color: "#16a34a",
+    color: "#635bff",
   }));
   const payeeSplitByProject = payeeTypeSplitByProject(payments ?? []);
   const cumulativeDaily = toCumulative(dailyPaymentTotals(payments ?? []));

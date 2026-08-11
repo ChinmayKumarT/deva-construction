@@ -98,7 +98,7 @@ export default async function ProjectPaymentsPage({
   const categoryTotals = byCategoryTotals(payments ?? []);
   const categoryBars = Array.from(categoryTotals.entries())
     .sort((a, b) => b[1] - a[1])
-    .map(([label, value]) => ({ label, value, color: "#16a34a" }));
+    .map(([label, value]) => ({ label, value, color: "#635bff" }));
 
   return (
     <AdminPage>

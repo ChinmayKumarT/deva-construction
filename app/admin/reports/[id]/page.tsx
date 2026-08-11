@@ -12,11 +12,11 @@ import { wageForStatus } from "@/lib/wages";
 import { lineTotal } from "@/lib/money";
 import { formatDateOnly, formatDateTime } from "@/lib/dateFormat";
 
-const BRAND = "#16a34a";
+const BRAND = "#635bff";
 const SPEND = "#F59E0B";
 const TRACK = "#E2E8F0";
 const OVER_BUDGET = "#DC2626";
-const MATERIALS_COLOR = "#16a34a";
+const MATERIALS_COLOR = "#635bff";
 const LABOUR_COLOR = "#0EA5E9";
 const WAGES_COLOR = "#A855F7";
 

@@ -6,7 +6,7 @@ import { DownloadCashFlowPdfButton } from "@/components/admin/ReportPdf";
 import { DownloadCashFlowCsvButton } from "@/components/admin/ReportCsv";
 import { computeCashFlow, defaultCashFlowRange } from "@/lib/cashflow";
 
-const MATERIALS_COLOR = "#16a34a";
+const MATERIALS_COLOR = "#635bff";
 const LABOUR_COLOR = "#0EA5E9";
 const WAGES_COLOR = "#A855F7";
 
@@ -115,15 +115,10 @@ export default async function CashFlowPage({
 function SummaryCard({ label, value, accent }: { label: string; value: number; accent?: boolean }) {
   return (
     <div
-      className={
-        "rounded-xl p-5 transition " +
-        (accent ? "bg-brand text-white shadow-sm" : "border border-[var(--line)] bg-white hover:border-brand/40")
-      }
+      className="rounded-lg border border-[var(--line)] bg-white p-5 transition hover:border-brand/30 hover:shadow-sm"
     >
-      <div className={"text-[11px] uppercase tracking-[0.12em] " + (accent ? "text-white/80" : "text-slate-500")}>
-        {label}
-      </div>
-      <div className={"mt-2 text-2xl font-semibold " + (accent ? "text-white" : "text-ink")}>
+      <div className="text-[11px] uppercase tracking-[0.12em] text-slate-500">{label}</div>
+      <div className={"mt-2 text-2xl font-semibold tabular-nums " + (accent ? "text-brand-600" : "text-ink")}>
         ₹{value.toLocaleString()}
       </div>
     </div>

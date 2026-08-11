@@ -61,7 +61,7 @@ export default async function ManageMaterialPage({
         <InfoBox
           label="Total"
           value={`₹${lineTotal(material.quantity, material.unit_cost).toLocaleString()}`}
-          className="border-forest bg-forest text-white"
+          className="border-brand/25 bg-brand-50"
         />
         <InfoBox
           label="Status"

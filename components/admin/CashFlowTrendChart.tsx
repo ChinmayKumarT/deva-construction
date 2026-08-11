@@ -4,8 +4,8 @@
 // steady, or spiking. Hand-rolled SVG, same convention as PieChart.tsx /
 // CashFlowBarChart.tsx -- no charting library, fixed colors (no CSS vars).
 
-const LINE = "#16a34a";
-const FILL = "#16a34a1a";
+const LINE = "#635bff";
+const FILL = "#635bff1a";
 const AXIS = "#94A3B8";
 
 export function CashFlowTrendChart({

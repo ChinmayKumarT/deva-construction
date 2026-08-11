@@ -8,7 +8,7 @@ import { PieChart, PieLegend } from "@/components/admin/PieChart";
 import { dailyTotalsFromDatedAmounts } from "@/lib/paymentsChart";
 import { toCumulative } from "@/lib/cashflow";
 
-const RECEIVED_COLOR = "#16a34a";
+const RECEIVED_COLOR = "#635bff";
 const REMAINING_COLOR = "#E2E8F0";
 
 export default async function ClientDashboard() {

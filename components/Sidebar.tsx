@@ -43,7 +43,7 @@ export function Sidebar({
       )}
       <aside
         className={
-          "h-screen bg-[#0f0f0f] text-white flex flex-col transition-[width] duration-150 " +
+          "h-screen bg-white text-[var(--ink)] border-r border-[var(--line)] flex flex-col transition-[width] duration-150 " +
           (expanded
             ? "w-[240px] fixed inset-y-0 left-0 z-50 lg:sticky lg:top-0 lg:z-40"
             : "w-[72px] sticky top-0 z-40")
@@ -54,7 +54,7 @@ export function Sidebar({
         <button
           onClick={() => setExpanded((v) => !v)}
           aria-label="Toggle sidebar"
-          className="inline-flex items-center justify-center h-10 w-10 rounded-full hover:bg-white/10"
+          className="inline-flex items-center justify-center h-10 w-10 rounded-full text-slate-500 hover:bg-[var(--bg)] hover:text-[var(--ink)]"
         >
           <Icon name="menu" size={22} />
         </button>
@@ -64,10 +64,10 @@ export function Sidebar({
               src="/icon.png" alt="" width={28} height={28}
               className="rounded-md" style={{ objectFit: "contain" }}
             />
-            <span className="text-[18px] font-semibold leading-none tracking-tight">
-              Deva <span className="font-normal text-white/85">Construction</span>
+            <span className="text-[15px] font-semibold leading-none tracking-tight text-[var(--ink)]">
+              Deva <span className="font-normal text-slate-500">Construction</span>
             </span>
-            <sup className="ml-0.5 text-[10px] font-medium uppercase tracking-wider text-white/60">{role}</sup>
+            <sup className="ml-0.5 text-[10px] font-medium uppercase tracking-wider text-slate-400">{role}</sup>
           </Link>
         )}
       </div>
@@ -80,14 +80,14 @@ export function Sidebar({
           : rail.map((item) => <RailRow key={item.href} item={item} />)}
       </nav>
 
-      <div className="border-t border-white/10 px-2 py-2 shrink-0">
+      <div className="border-t border-[var(--line)] px-2 py-2 shrink-0">
         {expanded ? (
           <>
             <ExpandedAction icon="signout" label="Sign out" action={signOut} />
             <ExpandedDelete />
             <div className="px-3 pt-3 pb-1">
-              <p className="text-[10px] uppercase tracking-[0.14em] text-white/40 capitalize">{role}</p>
-              <p className="truncate text-xs text-white/75 mt-0.5">{email}</p>
+              <p className="text-[10px] uppercase tracking-[0.14em] text-slate-400 capitalize">{role}</p>
+              <p className="truncate text-xs text-slate-600 mt-0.5">{email}</p>
             </div>
           </>
         ) : (
@@ -106,9 +106,11 @@ export function Sidebar({
 
 function ExpandedGroup({ group, showDivider }: { group: NavGroup; showDivider: boolean }) {
   return (
-    <div className={showDivider ? "border-t border-white/10 pt-3 mt-3" : "mt-2"}>
+    <div className={showDivider ? "border-t border-[var(--line)] pt-3 mt-3" : "mt-2"}>
       {group.title && (
-        <h3 className="px-3 mb-1 text-base font-medium text-white">{group.title}</h3>
+        <h3 className="px-3 mb-1 text-[11px] font-semibold uppercase tracking-wide text-slate-400">
+          {group.title}
+        </h3>
       )}
       {group.items.map((item) => (
         <ExpandedRow key={item.href} item={item} />
@@ -125,7 +127,7 @@ function ExpandedRow({ item }: { item: NavItem }) {
       href={item.href}
       className={
         "flex items-center gap-6 px-3 h-10 rounded-lg text-sm transition-colors " +
-        (isActive ? "bg-white/15 font-medium" : "text-white/90 hover:bg-white/10")
+        (isActive ? "bg-brand/10 text-brand-700 font-medium" : "text-slate-600 hover:bg-[var(--bg)]")
       }
     >
       <Icon name={item.icon} size={22} />
@@ -141,7 +143,7 @@ function ExpandedAction({
     <form action={action}>
       <button
         type="submit"
-        className="w-full flex items-center gap-6 px-3 h-10 rounded-lg text-sm text-white/90 hover:bg-white/10"
+        className="w-full flex items-center gap-6 px-3 h-10 rounded-lg text-sm text-slate-600 hover:bg-[var(--bg)]"
       >
         <Icon name={icon} size={22} />
         <span>{label}</span>
@@ -158,7 +160,7 @@ function ExpandedDelete() {
     <>
       <button
         onClick={() => setShow(true)}
-        className="w-full flex items-center gap-6 px-3 h-10 rounded-lg text-sm text-red-300/90 hover:bg-red-500/10 hover:text-red-200"
+        className="w-full flex items-center gap-6 px-3 h-10 rounded-lg text-sm text-red-600 hover:bg-red-50 hover:text-red-700"
       >
         <Icon name="trash" size={22} />
         <span>Delete account</span>
@@ -179,7 +181,7 @@ function RailRow({ item }: { item: NavItem }) {
       title={item.label}
       className={
         "flex flex-col items-center justify-center py-3 my-0.5 rounded-lg transition-colors " +
-        (isActive ? "bg-white/15" : "text-white/90 hover:bg-white/10")
+        (isActive ? "bg-brand/10 text-brand-700" : "text-slate-500 hover:bg-[var(--bg)] hover:text-[var(--ink)]")
       }
     >
       <Icon name={item.icon} size={24} />
@@ -198,7 +200,7 @@ function RailAction({
       <button
         type="submit"
         title={label}
-        className="w-full flex flex-col items-center justify-center py-3 my-0.5 rounded-lg text-white/90 hover:bg-white/10"
+        className="w-full flex flex-col items-center justify-center py-3 my-0.5 rounded-lg text-slate-500 hover:bg-[var(--bg)] hover:text-[var(--ink)]"
       >
         <Icon name={icon} size={24} />
         <span className="mt-1.5 text-[10px] leading-none">{label}</span>
@@ -216,7 +218,7 @@ function RailDelete() {
       <button
         onClick={() => setShow(true)}
         title="Delete account"
-        className="w-full flex flex-col items-center justify-center py-3 my-0.5 rounded-lg text-red-300/85 hover:bg-red-500/10 hover:text-red-200"
+        className="w-full flex flex-col items-center justify-center py-3 my-0.5 rounded-lg text-red-500 hover:bg-red-50 hover:text-red-600"
       >
         <Icon name="trash" size={24} />
         <span className="mt-1.5 text-[10px] leading-none">Delete</span>

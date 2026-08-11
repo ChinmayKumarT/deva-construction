@@ -15,7 +15,7 @@ export default function AdminError({
   return (
     <div className="px-4 py-6 sm:px-6 sm:py-8 lg:px-8 lg:py-10 w-full">
       <div className="mx-auto max-w-lg rounded-xl border border-red-200 bg-red-50 p-6">
-        <h1 className="font-serif text-xl font-semibold text-red-900">Something went wrong</h1>
+        <h1 className="text-xl font-semibold text-red-900">Something went wrong</h1>
         <p className="mt-2 text-sm text-red-800">{error.message || "An unexpected error occurred."}</p>
         <button
           onClick={reset}

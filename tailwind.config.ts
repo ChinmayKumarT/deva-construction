@@ -5,35 +5,36 @@ export default {
   theme: {
     extend: {
       colors: {
-        // Blue accent -- replaces the old green brand identity.
+        // Stripe-inspired indigo accent -- restrained use (primary actions,
+        // active nav, links, small data accents), never a page-scale fill.
         brand: {
-          DEFAULT: "#7da3d6",
-          50: "#eff4fa",
-          100: "#dce7f3",
-          200: "#bfd4ea",
-          400: "#93b6de",
-          500: "#7da3d6",
-          600: "#6c93c9",
-          700: "#5c89c4",
-          800: "#4a70a3",
-          900: "#395580",
+          DEFAULT: "#635bff",
+          50: "#f5f4ff",
+          100: "#ebeafe",
+          200: "#d1cffc",
+          400: "#8f88fb",
+          500: "#635bff",
+          600: "#5147e5",
+          700: "#4338ca",
+          800: "#372da3",
+          900: "#2c2482",
         },
-        // Near-black dark-card tone -- used for the stat-card / dark-panel
-        // treatment (UNIX-style bold numbers on dark background). Same slot
-        // that used to hold the green "forest" dark accent.
+        // Dark navy-slate -- reused where a dark surface is still needed
+        // (e.g. the sidebar's occasional dark states); no longer the
+        // default stat-card treatment, see components/admin/Page.tsx.
         forest: {
-          DEFAULT: "#242424",
-          50: "#f2f1ef",
-          100: "#dcdad7",
-          800: "#1a1a1a",
-          900: "#141414",
-          950: "#0d0d0d",
+          DEFAULT: "#1a1f36",
+          50: "#f6f9fc",
+          100: "#e3e8ee",
+          800: "#151a2e",
+          900: "#0f1324",
+          950: "#0a0d1a",
         },
-        ink: "#232323",
+        ink: "#1a1f36",
         cream: {
-          DEFAULT: "#e8e1da",
-          50: "#f6f3ef",
-          100: "#efe9e2",
+          DEFAULT: "#f6f9fc",
+          50: "#fbfcfe",
+          100: "#f6f9fc",
         },
       },
       fontFamily: {
@@ -47,6 +48,8 @@ export default {
           "sans-serif",
         ],
         // Wired to next/font/google in app/layout.tsx as --font-fraunces.
+        // Kept for the marketing showcase page (a Persuade surface) --
+        // the admin dashboard (Operate) no longer uses it, see Page.tsx.
         serif: ["var(--font-fraunces)", "Georgia", "serif"],
       },
     },

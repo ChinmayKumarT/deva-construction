@@ -1,8 +1,8 @@
 export function AdminPageHeader({ title, subtitle }: { title: string; subtitle?: React.ReactNode }) {
   return (
     <header className="mb-8">
-      <h1 className="font-serif text-3xl font-semibold tracking-tight text-ink">{title}</h1>
-      {subtitle && <p className="mt-1 text-sm text-slate-600">{subtitle}</p>}
+      <h1 className="text-2xl font-semibold tracking-tight text-ink">{title}</h1>
+      {subtitle && <p className="mt-1 text-sm text-slate-500">{subtitle}</p>}
     </header>
   );
 }
@@ -44,7 +44,7 @@ export function Field({
         min={min}
         max={max}
         maxLength={maxLength}
-        className="w-full rounded-lg border border-[var(--line)] bg-white px-3 py-2 outline-none focus:border-brand focus:ring-2 focus:ring-brand/20"
+        className="w-full rounded-md border border-[var(--line)] bg-white px-3 py-2 outline-none focus:border-brand focus:ring-2 focus:ring-brand/20"
       />
     </label>
   );
@@ -67,7 +67,7 @@ export function Select({
       <select
         name={name}
         defaultValue={defaultValue}
-        className="w-full rounded-lg border border-[var(--line)] bg-white px-3 py-2 focus:outline-none focus:border-brand focus:ring-2 focus:ring-brand/20"
+        className="w-full rounded-md border border-[var(--line)] bg-white px-3 py-2 focus:outline-none focus:border-brand focus:ring-2 focus:ring-brand/20"
       >
         {children}
       </select>
@@ -79,25 +79,21 @@ export function SubmitButton({ children }: { children: React.ReactNode }) {
   return (
     <button
       type="submit"
-      className="rounded-lg bg-brand px-4 py-2 text-sm font-medium text-white hover:bg-brand-700 active:bg-brand-800 transition"
+      className="rounded-md bg-brand px-4 py-2 text-sm font-medium text-white hover:bg-brand-700 active:bg-brand-800 transition"
     >
       {children}
     </button>
   );
 }
 
+// `accent` calls out the headline figure (e.g. "Total cost" among a row of
+// otherwise-equal stats) with a colored number, not a solid fill -- a full-
+// color tile reads as a marketing stat, not a dashboard figure.
 export function CostBox({ label, value, accent }: { label: string; value: number; accent?: boolean }) {
   return (
-    <div
-      className={
-        "rounded-2xl p-5 transition " +
-        (accent ? "bg-forest text-white shadow-sm" : "border border-[var(--line)] bg-white hover:border-brand/40")
-      }
-    >
-      <div className={"text-[11px] uppercase tracking-[0.12em] " + (accent ? "text-white/60" : "text-slate-500")}>
-        {label}
-      </div>
-      <div className={"mt-2 font-serif text-3xl font-semibold " + (accent ? "text-white" : "text-ink")}>
+    <div className="rounded-lg border border-[var(--line)] bg-white p-5 transition hover:border-brand/30 hover:shadow-sm">
+      <div className="text-[11px] uppercase tracking-[0.12em] text-slate-500">{label}</div>
+      <div className={"mt-2 text-2xl font-semibold tabular-nums " + (accent ? "text-brand-600" : "text-ink")}>
         ₹{value.toLocaleString()}
       </div>
     </div>

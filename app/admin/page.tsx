@@ -49,22 +49,10 @@ export default async function AdminOverview() {
         {metrics.map((m) => (
           <div
             key={m.label}
-            className={
-              "rounded-xl p-5 transition " +
-              (m.accent
-                ? "bg-brand text-white shadow-sm"
-                : "border border-[var(--line)] bg-white hover:border-brand/40")
-            }
+            className="rounded-lg border border-[var(--line)] bg-white p-5 transition hover:border-brand/30 hover:shadow-sm"
           >
-            <div
-              className={
-                "text-[11px] uppercase tracking-[0.12em] " +
-                (m.accent ? "text-white/80" : "text-slate-500")
-              }
-            >
-              {m.label}
-            </div>
-            <div className={"mt-2 text-2xl font-semibold " + (m.accent ? "text-white" : "text-ink")}>
+            <div className="text-[11px] uppercase tracking-[0.12em] text-slate-500">{m.label}</div>
+            <div className={"mt-2 text-2xl font-semibold tabular-nums " + (m.accent ? "text-brand-600" : "text-ink")}>
               {m.value}
             </div>
           </div>

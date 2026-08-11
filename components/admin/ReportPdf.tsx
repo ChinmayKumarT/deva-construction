@@ -4,7 +4,7 @@
 // offscreen <canvas> (same colors as PieChart.tsx) and embedded as images,
 // so the PDF mirrors what's on screen instead of being a bare text dump.
 
-const BRAND = "#16a34a";
+const BRAND = "#635bff";
 const SPEND = "#F59E0B";
 const TRACK = "#E2E8F0";
 const OVER_BUDGET = "#DC2626";
