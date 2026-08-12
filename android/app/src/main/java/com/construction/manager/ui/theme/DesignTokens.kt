@@ -60,9 +60,9 @@ fun statusBadgeColors(status: String): Pair<Color, Color> {
     val primary = androidx.compose.material3.MaterialTheme.colorScheme.primary
     return when (status) {
         "active", "approved" -> primary to c.primaryTint
-        "completed", "paid", "delivered", "linked" -> c.success to c.successTint
+        "completed", "paid", "delivered", "linked", "income" -> c.success to c.successTint
         "pending", "ordered" -> c.warning to c.warningTint
-        "cancelled", "rejected", "returned" -> c.danger to c.dangerTint
+        "cancelled", "rejected", "returned", "expense" -> c.danger to c.dangerTint
         else -> c.muted to c.divider
     }
 }

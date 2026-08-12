@@ -624,10 +624,11 @@ private fun ProjectRowCard(
 
     ItemCard(
         p.name,
-        "${p.status} · ${p.currentStage ?: "—"} · ${"%.1f".format(p.completionPct)}%" +
+        "${p.currentStage ?: "—"} · ${"%.1f".format(p.completionPct)}%" +
             (p.endDate?.let { " · Finish $it" } ?: "") +
             (p.nextPaymentDate?.let { " · Next payment $it" } ?: ""),
         money(p.totalCost),
+        status = p.status,
         actions = {
             if (archived) {
                 TextButton(onClick = {
@@ -2758,9 +2759,10 @@ fun AdminCosts(
                     val paymentCount = payments.count { it.projectId == p.id }
                     ItemCard(
                         p.name,
-                        "${p.status} · Materials ${money(mat)} · Labour ${money(labour)} · " +
+                        "Materials ${money(mat)} · Labour ${money(labour)} · " +
                             "Supplier bills ${money(supplierPaid)} · Wages ${money(wages)}",
                         "${money(spent)} / ${money(p.totalCost)}",
+                        status = p.status,
                         actions = {
                             TextButton(onClick = { editingBudget = p }) { Text("Edit budget") }
                             TextButton(onClick = { onJumpToMaterials(p) }) {
@@ -2953,7 +2955,7 @@ fun AdminPersonal(isOwner: Boolean = false) {
         if (!showArchived) {
             StatCard("Net balance", money(netBalance), modifier = Modifier.padding(horizontal = 16.dp), accent = true)
             SectionTitle("Add transaction")
-            Dropdown("Type", listOf("income", "expense"), type, { it }, { type = it })
+            LabeledChipPicker("Type", listOf("income", "expense"), type, { it }, { type = it })
             NumberField(amount, { amount = it }, "Amount")
             DateField(occurredAt, { occurredAt = it }, "Date")
             TextField(description, { description = it }, "Description")
@@ -2982,8 +2984,9 @@ fun AdminPersonal(isOwner: Boolean = false) {
         rows.forEach { t ->
             ItemCard(
                 t.description?.ifBlank { null } ?: if (t.type == "income") "Income" else "Expense",
-                "${t.occurredAt ?: "—"} · ${t.type}",
+                t.occurredAt ?: "—",
                 (if (t.type == "income") "+" else "-") + money(t.amount),
+                status = t.type,
                 actions = {
                     if (showArchived) {
                         TextButton(onClick = {
@@ -3436,8 +3439,9 @@ private fun SiteReportList(
         val s = spent[p.id] ?: 0.0
         ItemCard(
             p.name,
-            "${p.status} · ${"%.1f".format(p.completionPct)}% · Budget ${money(p.totalCost)}",
+            "${"%.1f".format(p.completionPct)}% · Budget ${money(p.totalCost)}",
             money(s),
+            status = p.status,
             actions = { TextButton(onClick = { onSelect(p) }) { Text("View report") } },
         )
     }
@@ -3610,8 +3614,9 @@ private fun SiteReportDetail(
         transactions.forEach { t ->
             ItemCard(
                 "${t.type} · ${t.description}",
-                "${formatTxDate(t)} · ${t.status}",
+                formatTxDate(t),
                 money(t.amount),
+                status = t.status,
             )
         }
     }

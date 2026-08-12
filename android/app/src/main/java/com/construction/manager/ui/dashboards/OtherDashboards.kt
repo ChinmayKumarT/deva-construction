@@ -28,6 +28,9 @@ import com.construction.manager.ui.StatCard
 import com.construction.manager.ui.lineTotal
 import com.construction.manager.ui.money
 import com.construction.manager.ui.RoleScaffold
+import com.construction.manager.ui.components.LabeledChipPicker
+import com.construction.manager.ui.components.MockupCard
+import com.construction.manager.ui.components.StatusBadge
 import com.construction.manager.util.ImageSaver
 import kotlinx.coroutines.launch
 
@@ -112,14 +115,14 @@ fun SupplierDashboard(vm: AuthViewModel) = RoleScaffold("Supplier", vm) { paddin
             }
 
             SectionTitle("Record delivery")
-            com.construction.manager.ui.Dropdown(
+            LabeledChipPicker(
                 "Project (site)", projects, dProject, { it.name }, { dProject = it },
             )
             com.construction.manager.ui.TextField(dName, { dName = it }, "Material (e.g. Cement)")
             com.construction.manager.ui.TextField(dUnit, { dUnit = it }, "Unit (bag, kg, m³…)")
             com.construction.manager.ui.NumberField(dQty, { dQty = it }, "Quantity")
             com.construction.manager.ui.NumberField(dUnitCost, { dUnitCost = it }, "Unit cost")
-            com.construction.manager.ui.Dropdown(
+            LabeledChipPicker(
                 "Status", listOf("delivered","ordered"), dStatus, { it }, { dStatus = it },
             )
             Row(Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
@@ -163,7 +166,7 @@ fun SupplierDashboard(vm: AuthViewModel) = RoleScaffold("Supplier", vm) { paddin
             ) { Text("Record delivery") }
 
             SectionTitle("Generate bill")
-            com.construction.manager.ui.Dropdown(
+            LabeledChipPicker(
                 "Project",
                 projects.filter { p -> materials.any { it.projectId == p.id } },
                 billProject, { it.name }, { billProject = it },
@@ -188,13 +191,14 @@ fun SupplierDashboard(vm: AuthViewModel) = RoleScaffold("Supplier", vm) { paddin
 
             SectionTitle("Deliveries")
             materials.forEach { m ->
-                ElevatedCard(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp)) {
-                    Row(Modifier.padding(12.dp)) {
-                        Column(Modifier.weight(1f)) {
-                            Text(m.name, style = MaterialTheme.typography.titleSmall)
-                            Text("${m.quantity} ${m.unit} · ${m.status}",
-                                style = MaterialTheme.typography.bodySmall)
-                        }
+                MockupCard(Modifier.padding(horizontal = 16.dp, vertical = 4.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(m.name, style = MaterialTheme.typography.titleSmall, modifier = Modifier.weight(1f))
+                        StatusBadge(m.status)
+                    }
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text("${m.quantity} ${m.unit}", style = MaterialTheme.typography.bodySmall,
+                            modifier = Modifier.weight(1f))
                         Text(money(lineTotal(m.quantity, m.unitCost)))
                     }
                 }
@@ -202,11 +206,11 @@ fun SupplierDashboard(vm: AuthViewModel) = RoleScaffold("Supplier", vm) { paddin
 
             SectionTitle("Payments")
             payments.forEach { p ->
-                ElevatedCard(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp)) {
-                    Row(Modifier.padding(12.dp)) {
+                MockupCard(Modifier.padding(horizontal = 16.dp, vertical = 4.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
                         Text(p.description ?: "—", Modifier.weight(1f))
-                        Text(p.status, Modifier.padding(end = 8.dp))
-                        Text(money(p.amount))
+                        StatusBadge(p.status)
+                        Text(money(p.amount), modifier = Modifier.padding(start = 8.dp))
                     }
                 }
             }
@@ -293,18 +297,17 @@ fun ClientDashboard(vm: AuthViewModel) = RoleScaffold("Client", vm) { padding ->
                 modifier = Modifier.padding(16.dp)) }
             SectionTitle("Your projects")
             projects.forEach { p ->
-                ElevatedCard(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp)) {
-                    Column(Modifier.padding(12.dp)) {
+                MockupCard(Modifier.padding(horizontal = 16.dp, vertical = 4.dp)) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Text(p.name, Modifier.weight(1f),
                                 style = MaterialTheme.typography.titleSmall)
-                            Text(p.status)
+                            StatusBadge(p.status)
                         }
                         Text("Stage: ${p.currentStage ?: "—"}",
                             style = MaterialTheme.typography.bodySmall)
-                        LinearProgressIndicator(
-                            progress = { (p.completionPct / 100.0).toFloat().coerceIn(0f, 1f) },
-                            modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp),
+                        com.construction.manager.ui.components.MockupProgressTrack(
+                            fraction = (p.completionPct / 100.0).toFloat(),
+                            color = MaterialTheme.colorScheme.primary,
                         )
                         Text(
                             "${"%.1f".format(p.completionPct)}% · Budget ${money(p.totalCost)} · " +
@@ -393,14 +396,12 @@ fun ClientDashboard(vm: AuthViewModel) = RoleScaffold("Client", vm) { padding ->
                                 ) { Text("View agreement") }
                             }
                         }
-                    }
                 }
             }
             SectionTitle("Recent updates")
             if (updates.isEmpty()) Text("No updates yet.", Modifier.padding(16.dp))
             updates.forEach { u ->
-                ElevatedCard(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp)) {
-                    Column(Modifier.padding(12.dp)) {
+                MockupCard(Modifier.padding(horizontal = 16.dp, vertical = 4.dp)) {
                         Text(projects.find { it.id == u.projectId }?.name ?: "—",
                             style = MaterialTheme.typography.titleSmall)
                         if (!u.stage.isNullOrBlank()) Text("Stage: ${u.stage}",
@@ -417,7 +418,6 @@ fun ClientDashboard(vm: AuthViewModel) = RoleScaffold("Client", vm) { padding ->
                                 }
                             }) { Text("Save image") }
                         }
-                    }
                 }
             }
 
