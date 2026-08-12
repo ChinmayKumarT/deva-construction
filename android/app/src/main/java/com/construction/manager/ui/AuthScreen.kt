@@ -1,5 +1,6 @@
 package com.construction.manager.ui
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -83,10 +84,34 @@ private fun AuthForm(
             Modifier.fillMaxSize().padding(24.dp).verticalScroll(rememberScrollState()),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            Spacer(Modifier.height(48.dp))
-            Text("Deva Construction", style = MaterialTheme.typography.headlineMedium)
-            Text(if (mode == "signin") "Sign in" else "Create an account",
-                style = MaterialTheme.typography.titleMedium)
+            Spacer(Modifier.weight(1f))
+            // Mockup's logoCircleStyle: a Forest-colored circle badge with the
+            // brand initial, above the centered Fraunces title/subtitle --
+            // matches loginWrapStyle's centered layout instead of a plain
+            // top-aligned form.
+            Box(
+                Modifier.size(52.dp).align(Alignment.CenterHorizontally)
+                    .background(Forest, androidx.compose.foundation.shape.CircleShape),
+                contentAlignment = Alignment.Center,
+            ) {
+                Text(
+                    "D",
+                    color = androidx.compose.ui.graphics.Color.White,
+                    style = MaterialTheme.typography.titleLarge,
+                )
+            }
+            Text(
+                "Deva Construction",
+                style = MaterialTheme.typography.headlineMedium,
+                modifier = Modifier.align(Alignment.CenterHorizontally),
+            )
+            Text(
+                if (mode == "signin") "Sign in" else "Create an account",
+                style = MaterialTheme.typography.titleMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.align(Alignment.CenterHorizontally),
+            )
+            Spacer(Modifier.height(8.dp))
 
         if (mode == "signup") {
             OutlinedTextField(fullName, onFullNameChange, label = { Text("Full name") },
@@ -161,6 +186,7 @@ private fun AuthForm(
                 Text("Delete account", style = MaterialTheme.typography.bodySmall)
             }
         }
+        Spacer(Modifier.weight(1f))
         }
     }
 }
