@@ -22,12 +22,17 @@ import coil3.compose.AsyncImage
 import com.construction.manager.data.*
 import com.construction.manager.ui.*
 import com.construction.manager.ui.components.ChipPicker
+import com.construction.manager.ui.components.ChipRow
 import com.construction.manager.ui.components.CollapsibleCreateSection
+import com.construction.manager.ui.components.ImagePlaceholder
 import com.construction.manager.ui.components.LabeledChipPicker
+import com.construction.manager.ui.components.MiniStatCard
 import com.construction.manager.ui.components.MockupCard
 import com.construction.manager.ui.components.MockupProgressTrack
 import com.construction.manager.ui.components.SegButton
+import com.construction.manager.ui.components.SelectableChip
 import com.construction.manager.ui.components.StatusBadge
+import com.construction.manager.ui.components.WarningBanner
 import com.construction.manager.ui.theme.statusBadgeColors
 import com.construction.manager.util.PdfCashFlowCategory
 import com.construction.manager.util.PdfCashFlowProject
@@ -211,12 +216,14 @@ fun AdminProjects(isOwner: Boolean = false) {
     var payments by remember { mutableStateOf<List<PaymentRow>>(emptyList()) }
     var attendance by remember { mutableStateOf<List<AttendanceRow>>(emptyList()) }
     var labourers by remember { mutableStateOf<List<LabourerRow>>(emptyList()) }
+    var updates by remember { mutableStateOf<List<ProjectUpdateRow>>(emptyList()) }
     var error by remember { mutableStateOf<String?>(null) }
     var version by remember { mutableStateOf(0) }
     val scope = rememberCoroutineScope()
 
     var showArchived by remember { mutableStateOf(false) }
     var selectedProject by remember { mutableStateOf<ProjectRow?>(null) }
+    var detailTab by remember { mutableStateOf("overview") }
 
     BackHandler(enabled = !showArchived && selectedProject != null) { selectedProject = null }
 
@@ -228,6 +235,7 @@ fun AdminProjects(isOwner: Boolean = false) {
             payments = Repo.listPayments()
             attendance = Repo.listAllAttendance()
             labourers = Repo.listLabourers()
+            updates = Repo.listUpdates()
         }) { error = it }
     }
     val labourerWage = labourers.associate { it.id to it.dailyWage }
@@ -264,13 +272,32 @@ fun AdminProjects(isOwner: Boolean = false) {
 
         if (!showArchived && selectedProject != null) {
             val p = selectedProject!!
+            LaunchedEffect(p.id) { detailTab = "overview" }
+            TextButton(
+                onClick = { selectedProject = null },
+                modifier = Modifier.padding(horizontal = 8.dp),
+            ) { Text("‹ Projects") }
             Row(
                 Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Text(p.name, style = MaterialTheme.typography.titleSmall, modifier = Modifier.weight(1f))
-                TextButton(onClick = { selectedProject = null }) { Text("← All projects") }
+                Text(p.name, style = MaterialTheme.typography.titleMedium.copy(
+                    fontFamily = com.construction.manager.ui.theme.Fraunces,
+                ), modifier = Modifier.weight(1f))
+                StatusBadge(p.status)
             }
+            if (!p.currentStage.isNullOrBlank()) {
+                Text(
+                    p.currentStage, style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(horizontal = 16.dp),
+                )
+            }
+            MockupProgressTrack(
+                fraction = (p.completionPct / 100.0).toFloat(),
+                color = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.padding(horizontal = 16.dp),
+            )
             error?.let { Text(it, color = MaterialTheme.colorScheme.error,
                 modifier = Modifier.padding(16.dp)) }
             // Same "spent" definition as the web Costs/Reports pages:
@@ -295,32 +322,76 @@ fun AdminProjects(isOwner: Boolean = false) {
                 Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                StatCard("Budget", money(p.totalCost), Modifier.weight(1f))
-                StatCard("Spent", money(spent), Modifier.weight(1f))
-                StatCard("Remaining", money(p.totalCost - spent), Modifier.weight(1f), accent = true)
+                MiniStatCard("Budget", money(p.totalCost), Modifier.weight(1f))
+                MiniStatCard("Spent", money(spent), Modifier.weight(1f))
+                MiniStatCard("Remaining", money(p.totalCost - spent), Modifier.weight(1f))
             }
             val client = clients.find { it.id == p.clientId }
-            if (client != null) {
-                ItemCard(
-                    client.name,
-                    "${client.phone ?: "No phone"} · ${client.email ?: "No email"}",
-                )
-            } else {
-                Text(
-                    "No client assigned to this project.",
-                    style = MaterialTheme.typography.bodySmall,
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
-                )
-            }
-            ProjectAgreementSection(project = p, onChanged = { version++ })
-            ProjectChangeOrdersSection(project = p, isOwner = isOwner, onChanged = { version++ })
-            ProjectRowCard(
-                project = p,
-                clients = clients,
-                archived = false,
-                isOwner = isOwner,
-                onChanged = { version++ },
+            Text(
+                (client?.let { "Client ${it.name}" } ?: "No client assigned") +
+                    (p.endDate?.let { " · Expected finish $it" } ?: ""),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(horizontal = 16.dp),
             )
+
+            val projectTabs = listOf("overview" to "Overview", "materials" to "Materials",
+                "payments" to "Payments", "updates" to "Updates")
+            ChipRow(Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
+                projectTabs.forEach { (key, label) ->
+                    SelectableChip(label, selected = detailTab == key, onClick = { detailTab = key })
+                }
+            }
+
+            when (detailTab) {
+                "materials" -> {
+                    val projectMaterials = materials.filter { it.projectId == p.id }
+                    if (projectMaterials.isEmpty()) {
+                        Text("No materials for this project yet.", Modifier.padding(16.dp))
+                    }
+                    projectMaterials.forEach { m ->
+                        ItemCard(m.name, "${m.quantity} ${m.unit}",
+                            money(lineTotal(m.quantity, m.unitCost)), status = m.status)
+                    }
+                }
+                "payments" -> {
+                    val projectPayments = payments.filter { it.projectId == p.id }
+                    if (projectPayments.isEmpty()) {
+                        Text("No payments for this project yet.", Modifier.padding(16.dp))
+                    }
+                    projectPayments.forEach { pay ->
+                        ItemCard("${pay.payeeType} · ${pay.description ?: "—"}",
+                            formatDateTime(pay.createdAt), money(pay.amount), status = pay.status)
+                    }
+                }
+                "updates" -> {
+                    val projectUpdates = updates.filter { it.projectId == p.id }
+                    if (projectUpdates.isEmpty()) {
+                        Text("No updates for this project yet.", Modifier.padding(16.dp))
+                    }
+                    projectUpdates.forEach { u ->
+                        ItemCard(u.stage ?: "Update", u.note ?: "", thumbnailUrl = u.imageUrl)
+                    }
+                }
+                else -> {
+                    if (p.nextPaymentDate != null) {
+                        WarningBanner(
+                            "Next payment due  ${p.nextPaymentDate}" +
+                                (p.nextPaymentAmount?.let { "  ·  ${money(it)}" } ?: ""),
+                            modifier = Modifier.padding(horizontal = 16.dp),
+                        )
+                    }
+                    ProjectAgreementSection(project = p, onChanged = { version++ })
+                    ProjectChangeOrdersSection(project = p, isOwner = isOwner, onChanged = { version++ })
+                    ProjectRowCard(
+                        project = p,
+                        clients = clients,
+                        archived = false,
+                        isOwner = isOwner,
+                        onChanged = { version++ },
+                    )
+                }
+            }
             return@FormColumn
         }
 
@@ -432,11 +503,12 @@ private fun ProjectAgreementSection(project: ProjectRow, onChanged: () -> Unit) 
         if (url != null) {
             AsyncImage(url, contentDescription = null,
                 modifier = Modifier.fillMaxWidth().heightIn(max = 220.dp).padding(top = 4.dp))
-            Row(Modifier.padding(top = 6.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                TextButton(
+            Row(Modifier.padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedButton(
                     enabled = !uploading,
+                    shape = androidx.compose.foundation.shape.RoundedCornerShape(100),
                     onClick = { picker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) },
-                ) { Text(if (uploading) "Uploading…" else "Replace") }
+                ) { Text(if (uploading) "Uploading…" else "Replace agreement") }
                 TextButton(onClick = {
                     scope.launch {
                         safe({ Repo.setProjectAgreementImage(project.id, null); onChanged() }) { error = it }
@@ -444,9 +516,11 @@ private fun ProjectAgreementSection(project: ProjectRow, onChanged: () -> Unit) 
                 }) { Text("Remove") }
             }
         } else {
+            ImagePlaceholder("No agreement uploaded", modifier = Modifier.padding(top = 4.dp))
             OutlinedButton(
                 enabled = !uploading,
-                modifier = Modifier.padding(top = 4.dp),
+                shape = androidx.compose.foundation.shape.RoundedCornerShape(100),
+                modifier = Modifier.padding(top = 8.dp),
                 onClick = { picker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) },
             ) { Text(if (uploading) "Uploading…" else "Upload agreement") }
         }
@@ -472,6 +546,7 @@ private fun ProjectChangeOrdersSection(project: ProjectRow, isOwner: Boolean, on
     var extraCost by remember { mutableStateOf("") }
     var confirmDelete by remember { mutableStateOf<ProjectChangeOrderRow?>(null) }
     var error by remember { mutableStateOf<String?>(null) }
+    var showCreate by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
 
     LaunchedEffect(project.id, showArchived, refreshTrigger) {
@@ -489,29 +564,32 @@ private fun ProjectChangeOrdersSection(project: ProjectRow, isOwner: Boolean, on
             }
         }
         if (!showArchived) {
-            TextField(description, { description = it }, "Description")
-            CategoryDropdown("Work category", workCategory, { workCategory = it })
-            NumberField(extraCost, { extraCost = it }, "Extra cost (₹, optional)")
-            Text(
-                "Any extra cost is added to this project's budget right away.",
-                style = MaterialTheme.typography.labelSmall,
-            )
-            Button(
-                onClick = {
-                    if (description.isBlank()) { error = "Description is required"; return@Button }
-                    scope.launch {
-                        safe({
-                            Repo.createChangeOrder(
-                                project.id, description, workCategory.takeIf { it != "None" },
-                                extraCost.toDoubleOrNull() ?: 0.0,
-                            )
-                            description = ""; extraCost = ""; workCategory = "None"
-                            refreshTrigger++; onChanged()
-                        }) { error = it }
-                    }
-                },
-                modifier = Modifier.padding(top = 4.dp),
-            ) { Text("Add change order") }
+            CollapsibleCreateSection("Add change order", expanded = showCreate, onToggle = { showCreate = !showCreate }) {
+                TextField(description, { description = it }, "Description")
+                CategoryDropdown("Work category", workCategory, { workCategory = it })
+                NumberField(extraCost, { extraCost = it }, "Extra cost (₹, optional)")
+                Text(
+                    "Any extra cost is added to this project's budget right away.",
+                    style = MaterialTheme.typography.labelSmall,
+                )
+                Button(
+                    onClick = {
+                        if (description.isBlank()) { error = "Description is required"; return@Button }
+                        scope.launch {
+                            safe({
+                                Repo.createChangeOrder(
+                                    project.id, description, workCategory.takeIf { it != "None" },
+                                    extraCost.toDoubleOrNull() ?: 0.0,
+                                )
+                                description = ""; extraCost = ""; workCategory = "None"
+                                showCreate = false
+                                refreshTrigger++; onChanged()
+                            }) { error = it }
+                        }
+                    },
+                    modifier = Modifier.padding(top = 4.dp),
+                ) { Text("Add change order") }
+            }
         }
         if (changeOrders.isEmpty()) {
             Text(
