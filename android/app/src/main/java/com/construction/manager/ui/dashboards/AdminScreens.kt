@@ -345,9 +345,9 @@ fun AdminProjects(isOwner: Boolean = false) {
             TextField(stage, { stage = it }, "Current stage")
             NumberField(cost, { cost = it }, "Total cost")
             NumberField(completion, { completion = it }, "Completion %", max = 100.0)
-            Dropdown("Status", listOf("planned","active","on_hold","completed","cancelled"), status,
+            LabeledChipPicker("Status", listOf("planned","active","on_hold","completed","cancelled"), status,
                 { it }, { status = it })
-            Dropdown("Client", clients, client, { it.name }, { client = it })
+            LabeledChipPicker("Client", clients, client, { it.name }, { client = it })
             DateField(endDate, { endDate = it }, "Planned finish date")
             error?.let { Text(it, color = MaterialTheme.colorScheme.error,
                 modifier = Modifier.padding(16.dp)) }
