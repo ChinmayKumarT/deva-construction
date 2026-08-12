@@ -325,24 +325,6 @@ fun AdminProjects(isOwner: Boolean = false) {
         }
 
         if (!showArchived) {
-            if (rows.isNotEmpty()) {
-                StatCard("Total cost", money(rows.sumOf { it.totalCost }), modifier = Modifier.padding(horizontal = 16.dp), accent = true)
-                Spacer(Modifier.height(8.dp))
-                rows.forEach { p ->
-                    val spent = remember(materials, payments, attendance, labourerWage, p) {
-                        materials.filter { it.projectId == p.id && it.status != "returned" }
-                            .sumOf { lineTotal(it.quantity, it.unitCost) } +
-                        payments.filter {
-                            it.projectId == p.id && it.payeeType == "labour" && it.status in listOf("paid", "approved")
-                        }.sumOf { it.amount } +
-                        attendance.filter { it.projectId == p.id }
-                            .sumOf { roundMoney((ReportWageFactor[it.status] ?: 0.0) * (labourerWage[it.labourerId] ?: 0.0)) }
-                    }
-                    ProjectListRow(project = p, spent = spent, onClick = { selectedProject = p })
-                }
-                Spacer(Modifier.height(8.dp))
-            }
-
             CollapsibleCreateSection("Create project", expanded = showCreate, onToggle = { showCreate = !showCreate }) {
                 TextField(name, { name = it }, "Name")
                 TextField(stage, { stage = it }, "Current stage")
@@ -372,7 +354,23 @@ fun AdminProjects(isOwner: Boolean = false) {
                     modifier = Modifier.padding(top = 4.dp),
                 ) { Text("Create project") }
             }
-            if (rows.isEmpty()) {
+
+            if (rows.isNotEmpty()) {
+                StatCard("Total cost", money(rows.sumOf { it.totalCost }), modifier = Modifier.padding(horizontal = 16.dp), accent = true)
+                Spacer(Modifier.height(8.dp))
+                rows.forEach { p ->
+                    val spent = remember(materials, payments, attendance, labourerWage, p) {
+                        materials.filter { it.projectId == p.id && it.status != "returned" }
+                            .sumOf { lineTotal(it.quantity, it.unitCost) } +
+                        payments.filter {
+                            it.projectId == p.id && it.payeeType == "labour" && it.status in listOf("paid", "approved")
+                        }.sumOf { it.amount } +
+                        attendance.filter { it.projectId == p.id }
+                            .sumOf { roundMoney((ReportWageFactor[it.status] ?: 0.0) * (labourerWage[it.labourerId] ?: 0.0)) }
+                    }
+                    ProjectListRow(project = p, spent = spent, onClick = { selectedProject = p })
+                }
+            } else {
                 Divider()
                 Text("No projects yet.", Modifier.padding(16.dp))
             }
