@@ -21,6 +21,13 @@ import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
 import com.construction.manager.data.*
 import com.construction.manager.ui.*
+import com.construction.manager.ui.components.ChipPicker
+import com.construction.manager.ui.components.LabeledChipPicker
+import com.construction.manager.ui.components.MockupCard
+import com.construction.manager.ui.components.MockupProgressTrack
+import com.construction.manager.ui.components.SegButton
+import com.construction.manager.ui.components.StatusBadge
+import com.construction.manager.ui.theme.statusBadgeColors
 import com.construction.manager.util.PdfCashFlowCategory
 import com.construction.manager.util.PdfCashFlowProject
 import com.construction.manager.util.CsvExporter
@@ -41,25 +48,25 @@ private suspend fun safe(block: suspend () -> Unit, onError: (String) -> Unit) {
 @Composable
 private fun ItemCard(title: String, sub: String, trailing: String? = null,
                      thumbnailUrl: String? = null,
+                     status: String? = null,
                      modifier: Modifier = Modifier,
                      actions: (@Composable RowScope.() -> Unit)? = null) {
-    ElevatedCard(modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp)) {
-        Column(Modifier.padding(12.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                if (thumbnailUrl != null) {
-                    AsyncImage(thumbnailUrl, contentDescription = null,
-                        modifier = Modifier.size(40.dp).padding(end = 8.dp))
-                }
-                Column(Modifier.weight(1f)) {
-                    Text(title, style = MaterialTheme.typography.titleSmall)
-                    Text(sub, style = MaterialTheme.typography.bodySmall)
-                }
-                if (trailing != null) Text(trailing, style = MaterialTheme.typography.bodyMedium)
+    MockupCard(modifier.padding(horizontal = 16.dp, vertical = 4.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            if (thumbnailUrl != null) {
+                AsyncImage(thumbnailUrl, contentDescription = null,
+                    modifier = Modifier.size(40.dp).padding(end = 8.dp))
             }
-            if (actions != null) {
-                Spacer(Modifier.height(6.dp))
-                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) { actions() }
+            Column(Modifier.weight(1f)) {
+                Text(title, style = MaterialTheme.typography.titleSmall)
+                Text(sub, style = MaterialTheme.typography.bodySmall)
             }
+            if (status != null) StatusBadge(status, modifier = Modifier.padding(start = 6.dp))
+            if (trailing != null) Text(trailing, style = MaterialTheme.typography.bodyMedium,
+                modifier = Modifier.padding(start = 6.dp))
+        }
+        if (actions != null) {
+            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) { actions() }
         }
     }
 }
@@ -563,58 +570,38 @@ private fun ProjectChangeOrdersSection(project: ProjectRow, isOwner: Boolean, on
     }
 }
 
-private fun projectStatusColor(status: String): androidx.compose.ui.graphics.Color = when (status) {
-    "active" -> androidx.compose.ui.graphics.Color(0xFF7DA3D6)
-    "completed" -> androidx.compose.ui.graphics.Color(0xFF16A34A)
-    "on_hold" -> androidx.compose.ui.graphics.Color(0xFFD97706)
-    "cancelled" -> androidx.compose.ui.graphics.Color(0xFFDC2626)
-    else -> androidx.compose.ui.graphics.Color(0xFF726C64) // planned
-}
-
 // Richer project-picker row: status badge, stage, progress bar and a
 // budget/spent summary line, all visible without drilling in -- previously
 // this list only showed the name and total cost. Matches the project cards
-// on the client dashboard and web's Projects index.
+// on the client dashboard and web's Projects index, styled after the
+// Claude Design mockup's cardStyle/progressTrackStyle/badge().
 @Composable
 private fun ProjectListRow(project: ProjectRow, spent: Double, onClick: () -> Unit) {
-    val statusColor = projectStatusColor(project.status)
-    ElevatedCard(
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp).clickable(onClick = onClick),
+    val (statusColor, _) = statusBadgeColors(project.status)
+    MockupCard(
+        modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+        onClick = onClick,
     ) {
-        Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(project.name, style = MaterialTheme.typography.titleSmall, modifier = Modifier.weight(1f))
-                Surface(
-                    color = statusColor.copy(alpha = 0.14f),
-                    contentColor = statusColor,
-                    shape = androidx.compose.foundation.shape.RoundedCornerShape(100),
-                ) {
-                    Text(
-                        project.status.replace("_", " ").replaceFirstChar { it.uppercase() },
-                        style = MaterialTheme.typography.labelSmall,
-                        fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
-                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
-                    )
-                }
-            }
-            if (!project.currentStage.isNullOrBlank()) {
-                Text(
-                    project.currentStage,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-            LinearProgressIndicator(
-                progress = { (project.completionPct / 100.0).toFloat().coerceIn(0f, 1f) },
-                modifier = Modifier.fillMaxWidth(),
-                color = statusColor,
-            )
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(project.name, style = MaterialTheme.typography.titleSmall, modifier = Modifier.weight(1f))
+            StatusBadge(project.status)
+        }
+        if (!project.currentStage.isNullOrBlank()) {
             Text(
-                "${"%.0f".format(project.completionPct)}% · Budget ${money(project.totalCost)} · Spent ${money(spent)}",
+                project.currentStage,
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
+        MockupProgressTrack(
+            fraction = (project.completionPct / 100.0).toFloat(),
+            color = statusColor,
+        )
+        Text(
+            "${"%.0f".format(project.completionPct)}% · Budget ${money(project.totalCost)} · Spent ${money(spent)}",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
     }
 }
 
@@ -958,7 +945,7 @@ fun AdminClients(isOwner: Boolean = false) {
             ItemCard(
                 c.name,
                 "${c.email ?: "—"} · ${c.phone ?: "—"} · ${projectNameByClient[c.id] ?: "No project"}",
-                if (c.profileId != null) "linked" else "no login",
+                status = if (c.profileId != null) "linked" else "no login",
                 actions = {
                     EntityActions(
                         archived = showArchived,
@@ -1112,7 +1099,7 @@ fun AdminSuppliers(isOwner: Boolean = false) {
             ItemCard(
                 s.name,
                 "${s.email ?: "—"} · ${s.phone ?: "—"} · $deliveries deliveries · Pending ${money(pending)}",
-                if (s.profileId != null) "linked" else "no login",
+                status = if (s.profileId != null) "linked" else "no login",
                 modifier = if (!showArchived) Modifier.clickable { selected = s } else Modifier,
                 actions = {
                     EntityActions(
@@ -1190,11 +1177,17 @@ private fun SupplierDetail(
             Text("No deliveries recorded yet.", Modifier.padding(16.dp))
         }
         materials.forEach { m ->
-            ItemCard(
-                m.name,
-                "${projectName[m.projectId] ?: "—"} · ${m.quantity} ${m.unit} · ${m.status}",
-                money(lineTotal(m.quantity, m.unitCost)),
-            )
+            MockupCard(modifier = Modifier.padding(horizontal = 16.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(m.name, style = MaterialTheme.typography.titleSmall, modifier = Modifier.weight(1f))
+                    StatusBadge(m.status)
+                }
+                Text(
+                    "${projectName[m.projectId] ?: "—"} · ${m.quantity} ${m.unit} · ${money(lineTotal(m.quantity, m.unitCost))}",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
         }
         Divider()
         SectionTitle("Payments (${payments.size})")
@@ -1202,7 +1195,17 @@ private fun SupplierDetail(
             Text("No payments recorded yet.", Modifier.padding(16.dp))
         }
         payments.forEach { p ->
-            ItemCard(p.description ?: "—", "${formatDateTime(p.createdAt)} · ${p.status}", money(p.amount))
+            MockupCard(modifier = Modifier.padding(horizontal = 16.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(p.description ?: "—", style = MaterialTheme.typography.titleSmall, modifier = Modifier.weight(1f))
+                    StatusBadge(p.status)
+                }
+                Text(
+                    "${formatDateTime(p.createdAt)} · ${money(p.amount)}",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
         }
     }
 }
@@ -1488,7 +1491,7 @@ fun AdminMaterials(isOwner: Boolean = false, initialProjectFilter: ProjectRow? =
             TextField(unit, { unit = it }, "Unit (kg, bag…)")
             NumberField(qty, { qty = it }, "Quantity")
             NumberField(unitCost, { unitCost = it }, "Unit cost")
-            Dropdown("Status", listOf("ordered","delivered","returned"), status, { it }, { status = it })
+            LabeledChipPicker("Status", listOf("ordered","delivered","returned"), status, { it }, { status = it })
             Dropdown("Supplier", suppliers, supplier, { it.name }, { supplier = it })
             CategoryDropdown("Work category", workCategory, { workCategory = it })
             Button(onClick = {
@@ -1516,9 +1519,10 @@ fun AdminMaterials(isOwner: Boolean = false, initialProjectFilter: ProjectRow? =
         visibleRows.forEach { m ->
             ItemCard(
                 m.name,
-                "${m.quantity} ${m.unit} · ${m.status}",
+                "${m.quantity} ${m.unit}",
                 money(lineTotal(m.quantity, m.unitCost)),
                 thumbnailUrl = m.imageUrl,
+                status = m.status,
                 actions = {
                     if (!showArchived && m.status == "ordered") {
                         TextButton(onClick = {
@@ -1617,12 +1621,12 @@ private fun MaterialsProjectPicker(
         Spacer(Modifier.height(8.dp))
         SectionTitle("Add material")
         TextField(name, { name = it }, "Name")
-        Dropdown("Project", projects, project, { it.name }, { project = it })
+        LabeledChipPicker("Project", projects, project, { it.name }, { project = it })
         Dropdown("Supplier", suppliers, supplier, { it.name }, { supplier = it })
         TextField(unit, { unit = it }, "Unit (kg, bag…)")
         NumberField(qty, { qty = it }, "Quantity")
         NumberField(unitCost, { unitCost = it }, "Unit cost")
-        Dropdown("Status", listOf("ordered","delivered","returned"), status, { it }, { status = it })
+        LabeledChipPicker("Status", listOf("ordered","delivered","returned"), status, { it }, { status = it })
         CategoryDropdown("Work category", workCategory, { workCategory = it })
         Button(onClick = {
             val p = project ?: return@Button
@@ -1831,7 +1835,8 @@ fun AdminPayments(isOwner: Boolean = false, initialProjectFilter: ProjectRow? = 
         }
         visibleRows.forEach { p ->
             ItemCard("${p.payeeType} · ${p.description ?: "—"}",
-                "${formatDateTime(p.createdAt)} · ${p.status}", money(p.amount),
+                formatDateTime(p.createdAt), money(p.amount),
+                status = p.status,
                 actions = {
                     if (!showArchived) {
                         when (p.status) {
@@ -2035,12 +2040,12 @@ private fun CreatePaymentSection(
 
     SectionTitle("Create payment")
     if (fixedProject == null) {
-        Dropdown(
+        LabeledChipPicker(
             "Project", projects, selectedProject, { it.name },
             { p -> selectedProject = p; purchase = null; labourer = null; supplier = null; desc = "" },
         )
     }
-    Dropdown(
+    LabeledChipPicker(
         "Payee type", listOf("supplier","labour"), payeeType, { it },
         { payeeType = it; supplier = null; labourer = null; desc = ""; purchase = null },
     )
@@ -2455,14 +2460,14 @@ fun AdminAttendance() {
                     (hereStatus[l.id]?.replace("_", " ") ?: "not marked") +
                     (elsewhereText?.let { " · Also $it today" } ?: ""),
                 actions = {
-                    listOf("present","half_day","absent").forEach { s ->
-                        TextButton(onClick = {
+                    listOf("present" to "P", "half_day" to "H", "absent" to "A").forEach { (s, letter) ->
+                        SegButton(letter, selected = hereStatus[l.id] == s, onClick = {
                             scope.launch {
                                 safe({
                                     Repo.upsertAttendance(l.id, filter.id, date, s); version++
                                 }) { error = it }
                             }
-                        }) { Text(s.replace("_"," ")) }
+                        })
                     }
                 },
             )
@@ -2504,7 +2509,7 @@ fun AdminUpdates(isOwner: Boolean = false) {
         ArchivedSwitch(showArchived) { showArchived = !showArchived }
         if (!showArchived) {
             SectionTitle("Post project update")
-            Dropdown("Project", projects, project, { it.name }, { project = it })
+            LabeledChipPicker("Project", projects, project, { it.name }, { project = it })
             TextField(stage, { stage = it }, "Stage")
             NumberField(completion, { completion = it }, "Completion %", max = 100.0)
             TextField(note, { note = it }, "Note")

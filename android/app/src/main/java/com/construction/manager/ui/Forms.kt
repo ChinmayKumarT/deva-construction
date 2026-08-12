@@ -1,7 +1,10 @@
 package com.construction.manager.ui
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CalendarMonth
@@ -50,11 +53,26 @@ fun StatCard(label: String, value: String, modifier: Modifier = Modifier, accent
         }
         return
     }
-    ElevatedCard(modifier = modifier.fillMaxWidth()) {
-        Column(Modifier.padding(16.dp)) {
-            Text(label, style = MaterialTheme.typography.labelMedium)
-            Spacer(Modifier.height(6.dp))
-            Text(value, style = MaterialTheme.typography.titleLarge)
+    // Matches the mockup's statCardStyle/statValueStyle: bordered card
+    // (not a default Material elevation shadow) with a Fraunces-serif value.
+    val colors = com.construction.manager.ui.theme.mockupColors()
+    Box(
+        modifier
+            .fillMaxWidth()
+            .background(MaterialTheme.colorScheme.surface, RoundedCornerShape(14.dp))
+            .border(1.dp, colors.border, RoundedCornerShape(14.dp)),
+    ) {
+        Column(Modifier.padding(horizontal = 14.dp, vertical = 12.dp)) {
+            Text(label, style = MaterialTheme.typography.labelMedium, color = colors.muted)
+            Spacer(Modifier.height(4.dp))
+            Text(
+                value,
+                style = MaterialTheme.typography.titleLarge.copy(
+                    fontFamily = com.construction.manager.ui.theme.Fraunces,
+                    fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold,
+                    fontSize = 19.sp,
+                ),
+            )
         }
     }
 }
