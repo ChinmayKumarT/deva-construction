@@ -7,9 +7,11 @@ import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 
-// Brand palette, kept in sync with tailwind.config.ts on the web app.
-// Blue accent replaces the old green identity; "Forest" now names the
-// near-black dark-card tone (same slot, new color) rather than a dark green.
+// Brand palette. NOT in sync with tailwind.config.ts -- web moved to a
+// Stripe-inspired indigo palette (see "Redesign the admin dashboard in a
+// Stripe-inspired visual language"), a deliberately web-only change. Android
+// keeps this original blue/cream/near-black identity, matching the Claude
+// Design mockup's getColors(). "Forest" names the near-black dark-card tone.
 private val Brand = Color(0xFF7DA3D6)      // brand.DEFAULT / brand.500
 private val Brand400 = Color(0xFF93B6DE)
 private val Brand700 = Color(0xFF5C89C4)
@@ -19,7 +21,11 @@ val Forest = Color(0xFF242424)             // forest.DEFAULT -- dark stat-card b
 private val Forest800 = Color(0xFF1A1A1A)
 private val Forest100 = Color(0xFFDCDAD7)
 private val Ink = Color(0xFF232323)
-private val Cream = Color(0xFFE8E1DA)
+// Page background and body text, light vs dark -- distinct hex values in the
+// design (getColors() in the Claude Design mockup), not the same tone reused.
+private val PageLight = Color(0xFFEFE9E1)
+private val PageDark = Color(0xFF0E0E0E)
+private val TextDark = Color(0xFFEDE7DF)
 
 private val LightColors = lightColorScheme(
     primary = Brand,
@@ -32,7 +38,7 @@ private val LightColors = lightColorScheme(
     onSecondaryContainer = Forest,
     surface = Color.White,
     onSurface = Ink,
-    background = Cream,
+    background = PageLight,
     onBackground = Ink,
 )
 
@@ -42,13 +48,13 @@ private val DarkColors = darkColorScheme(
     primaryContainer = Brand700,
     onPrimaryContainer = Color.White,
     secondary = Forest100,
-    onSecondary = Forest,
+    onSecondary = Ink,
     secondaryContainer = Forest800,
     onSecondaryContainer = Forest100,
     surface = Color(0xFF1E1E1E),
-    onSurface = Cream,
-    background = Color(0xFF141414),
-    onBackground = Cream,
+    onSurface = TextDark,
+    background = PageDark,
+    onBackground = TextDark,
 )
 
 /**
