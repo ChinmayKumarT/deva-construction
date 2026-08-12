@@ -22,6 +22,7 @@ import coil3.compose.AsyncImage
 import com.construction.manager.data.*
 import com.construction.manager.ui.*
 import com.construction.manager.ui.components.ChipPicker
+import com.construction.manager.ui.components.CollapsibleCreateSection
 import com.construction.manager.ui.components.LabeledChipPicker
 import com.construction.manager.ui.components.MockupCard
 import com.construction.manager.ui.components.MockupProgressTrack
@@ -49,6 +50,7 @@ private suspend fun safe(block: suspend () -> Unit, onError: (String) -> Unit) {
 private fun ItemCard(title: String, sub: String, trailing: String? = null,
                      thumbnailUrl: String? = null,
                      status: String? = null,
+                     statusCapitalize: Boolean = true,
                      modifier: Modifier = Modifier,
                      actions: (@Composable RowScope.() -> Unit)? = null) {
     MockupCard(modifier.padding(horizontal = 16.dp, vertical = 4.dp)) {
@@ -61,7 +63,7 @@ private fun ItemCard(title: String, sub: String, trailing: String? = null,
                 Text(title, style = MaterialTheme.typography.titleSmall)
                 Text(sub, style = MaterialTheme.typography.bodySmall)
             }
-            if (status != null) StatusBadge(status, modifier = Modifier.padding(start = 6.dp))
+            if (status != null) StatusBadge(status, modifier = Modifier.padding(start = 6.dp), capitalize = statusCapitalize)
             if (trailing != null) Text(trailing, style = MaterialTheme.typography.bodyMedium,
                 modifier = Modifier.padding(start = 6.dp))
         }
@@ -912,25 +914,27 @@ fun AdminClients(isOwner: Boolean = false) {
     var email by remember { mutableStateOf("") }
     var phone by remember { mutableStateOf("") }
     var profile by remember { mutableStateOf<Profile?>(null) }
+    var showCreate by remember { mutableStateOf(false) }
 
     FormColumn {
         ArchivedSwitch(showArchived) { showArchived = !showArchived }
         if (!showArchived) {
-            SectionTitle("Add client")
-            TextField(name, { name = it }, "Name")
-            TextField(email, { email = it }, "Email")
-            TextField(phone, { phone = it }, "Phone", maxLength = 10)
-            Dropdown("Link to login (optional)", unlinked, profile,
-                { it.fullName ?: it.id.take(8) }, { profile = it })
-            Button(onClick = {
-                scope.launch {
-                    safe({
-                        Repo.createClient(name, email.ifBlank { null }, phone.ifBlank { null },
-                            profile?.id)
-                        name = ""; email = ""; phone = ""; profile = null; version++
-                    }) { error = it }
-                }
-            }, modifier = Modifier.padding(16.dp)) { Text("Create") }
+            CollapsibleCreateSection("Add client", expanded = showCreate, onToggle = { showCreate = !showCreate }) {
+                TextField(name, { name = it }, "Name")
+                TextField(email, { email = it }, "Email")
+                TextField(phone, { phone = it }, "Phone", maxLength = 10)
+                Dropdown("Link to login (optional)", unlinked, profile,
+                    { it.fullName ?: it.id.take(8) }, { profile = it })
+                Button(onClick = {
+                    scope.launch {
+                        safe({
+                            Repo.createClient(name, email.ifBlank { null }, phone.ifBlank { null },
+                                profile?.id)
+                            name = ""; email = ""; phone = ""; profile = null; showCreate = false; version++
+                        }) { error = it }
+                    }
+                }, modifier = Modifier.padding(top = 4.dp)) { Text("Add client") }
+            }
         }
         error?.let { Text(it, color = MaterialTheme.colorScheme.error,
             modifier = Modifier.padding(16.dp)) }
@@ -947,6 +951,7 @@ fun AdminClients(isOwner: Boolean = false) {
                 c.name,
                 "${c.email ?: "—"} · ${c.phone ?: "—"} · ${projectNameByClient[c.id] ?: "No project"}",
                 status = if (c.profileId != null) "linked" else "no login",
+                statusCapitalize = false,
                 actions = {
                     EntityActions(
                         archived = showArchived,
@@ -1050,6 +1055,7 @@ fun AdminSuppliers(isOwner: Boolean = false) {
     var email by remember { mutableStateOf("") }
     var phone by remember { mutableStateOf("") }
     var profile by remember { mutableStateOf<Profile?>(null) }
+    var showCreate by remember { mutableStateOf(false) }
 
     val sel = selected
     if (sel != null) {
@@ -1066,21 +1072,22 @@ fun AdminSuppliers(isOwner: Boolean = false) {
     FormColumn {
         ArchivedSwitch(showArchived) { showArchived = !showArchived }
         if (!showArchived) {
-            SectionTitle("Add supplier")
-            TextField(name, { name = it }, "Name")
-            TextField(email, { email = it }, "Email")
-            TextField(phone, { phone = it }, "Phone", maxLength = 10)
-            Dropdown("Link to login (optional)", unlinked, profile,
-                { it.fullName ?: it.id.take(8) }, { profile = it })
-            Button(onClick = {
-                scope.launch {
-                    safe({
-                        Repo.createSupplier(name, email.ifBlank { null }, phone.ifBlank { null },
-                            profile?.id)
-                        name = ""; email = ""; phone = ""; profile = null; version++
-                    }) { error = it }
-                }
-            }, modifier = Modifier.padding(16.dp)) { Text("Create") }
+            CollapsibleCreateSection("Add supplier", expanded = showCreate, onToggle = { showCreate = !showCreate }) {
+                TextField(name, { name = it }, "Name")
+                TextField(email, { email = it }, "Email")
+                TextField(phone, { phone = it }, "Phone", maxLength = 10)
+                Dropdown("Link to login (optional)", unlinked, profile,
+                    { it.fullName ?: it.id.take(8) }, { profile = it })
+                Button(onClick = {
+                    scope.launch {
+                        safe({
+                            Repo.createSupplier(name, email.ifBlank { null }, phone.ifBlank { null },
+                                profile?.id)
+                            name = ""; email = ""; phone = ""; profile = null; showCreate = false; version++
+                        }) { error = it }
+                    }
+                }, modifier = Modifier.padding(top = 4.dp)) { Text("Add supplier") }
+            }
         }
         error?.let { Text(it, color = MaterialTheme.colorScheme.error,
             modifier = Modifier.padding(16.dp)) }
@@ -1101,6 +1108,7 @@ fun AdminSuppliers(isOwner: Boolean = false) {
                 s.name,
                 "${s.email ?: "—"} · ${s.phone ?: "—"} · $deliveries deliveries · Pending ${money(pending)}",
                 status = if (s.profileId != null) "linked" else "no login",
+                statusCapitalize = false,
                 modifier = if (!showArchived) Modifier.clickable { selected = s } else Modifier,
                 actions = {
                     EntityActions(
@@ -1261,28 +1269,30 @@ fun AdminLabourers(isOwner: Boolean = false) {
     var wage by remember { mutableStateOf("") }
     var active by remember { mutableStateOf(true) }
     var category by remember { mutableStateOf("None") }
+    var showCreate by remember { mutableStateOf(false) }
 
     FormColumn {
         ArchivedSwitch(showArchived) { showArchived = !showArchived }
         if (!showArchived) {
-            SectionTitle("Add labourer")
-            TextField(name, { name = it }, "Name")
-            CategoryDropdown("Category", category, { category = it })
-            TextField(phone, { phone = it }, "Phone", maxLength = 10)
-            NumberField(wage, { wage = it }, "Daily wage")
-            Row(Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
-                verticalAlignment = Alignment.CenterVertically) {
-                Checkbox(active, { active = it }); Text("Active")
-            }
-            Button(onClick = {
-                scope.launch {
-                    safe({
-                        Repo.createLabourer(name, phone.ifBlank { null },
-                            wage.toDoubleOrNull() ?: 0.0, active, category.takeIf { it != "None" })
-                        name = ""; phone = ""; wage = ""; category = "None"; version++
-                    }) { error = it }
+            CollapsibleCreateSection("Add labourer", expanded = showCreate, onToggle = { showCreate = !showCreate }) {
+                TextField(name, { name = it }, "Name")
+                CategoryDropdown("Category", category, { category = it })
+                TextField(phone, { phone = it }, "Phone", maxLength = 10)
+                NumberField(wage, { wage = it }, "Daily wage")
+                Row(Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically) {
+                    Checkbox(active, { active = it }); Text("Active")
                 }
-            }, modifier = Modifier.padding(16.dp)) { Text("Create") }
+                Button(onClick = {
+                    scope.launch {
+                        safe({
+                            Repo.createLabourer(name, phone.ifBlank { null },
+                                wage.toDoubleOrNull() ?: 0.0, active, category.takeIf { it != "None" })
+                            name = ""; phone = ""; wage = ""; category = "None"; showCreate = false; version++
+                        }) { error = it }
+                    }
+                }, modifier = Modifier.padding(top = 4.dp)) { Text("Add labourer") }
+            }
         }
         error?.let { Text(it, color = MaterialTheme.colorScheme.error,
             modifier = Modifier.padding(16.dp)) }
@@ -1467,6 +1477,7 @@ fun AdminMaterials(isOwner: Boolean = false, initialProjectFilter: ProjectRow? =
     var status by remember { mutableStateOf("ordered") }
     var supplier by remember { mutableStateOf<SupplierRow?>(null) }
     var workCategory by remember { mutableStateOf("None") }
+    var showCreate by remember { mutableStateOf(false) }
 
     FormColumn {
         Row(
@@ -1487,25 +1498,26 @@ fun AdminMaterials(isOwner: Boolean = false, initialProjectFilter: ProjectRow? =
         // (the create form always assigns a project below), so there's
         // nothing to add from here -- only existing ones to manage.
         if (!showArchived && !showUnassigned) {
-            SectionTitle("Add material")
-            TextField(name, { name = it }, "Name")
-            TextField(unit, { unit = it }, "Unit (kg, bag…)")
-            NumberField(qty, { qty = it }, "Quantity")
-            NumberField(unitCost, { unitCost = it }, "Unit cost")
-            LabeledChipPicker("Status", listOf("ordered","delivered","returned"), status, { it }, { status = it })
-            Dropdown("Supplier", suppliers, supplier, { it.name }, { supplier = it })
-            CategoryDropdown("Work category", workCategory, { workCategory = it })
-            Button(onClick = {
-                val p = projectFilter ?: return@Button
-                scope.launch {
-                    safe({
-                        Repo.createMaterial(p.id, supplier?.id, name, unit,
-                            qty.toDoubleOrNull() ?: 0.0, unitCost.toDoubleOrNull() ?: 0.0, status,
-                            workCategory.takeIf { it != "None" })
-                        name = ""; qty = ""; unitCost = ""; version++
-                    }) { error = it }
-                }
-            }, modifier = Modifier.padding(16.dp)) { Text("Create") }
+            CollapsibleCreateSection("Add material", expanded = showCreate, onToggle = { showCreate = !showCreate }) {
+                TextField(name, { name = it }, "Name")
+                TextField(unit, { unit = it }, "Unit (kg, bag…)")
+                NumberField(qty, { qty = it }, "Quantity")
+                NumberField(unitCost, { unitCost = it }, "Unit cost")
+                LabeledChipPicker("Status", listOf("ordered","delivered","returned"), status, { it }, { status = it })
+                Dropdown("Supplier", suppliers, supplier, { it.name }, { supplier = it })
+                CategoryDropdown("Work category", workCategory, { workCategory = it })
+                Button(onClick = {
+                    val p = projectFilter ?: return@Button
+                    scope.launch {
+                        safe({
+                            Repo.createMaterial(p.id, supplier?.id, name, unit,
+                                qty.toDoubleOrNull() ?: 0.0, unitCost.toDoubleOrNull() ?: 0.0, status,
+                                workCategory.takeIf { it != "None" })
+                            name = ""; qty = ""; unitCost = ""; showCreate = false; version++
+                        }) { error = it }
+                    }
+                }, modifier = Modifier.padding(top = 4.dp)) { Text("Add material") }
+            }
         }
         error?.let { Text(it, color = MaterialTheme.colorScheme.error,
             modifier = Modifier.padding(16.dp)) }

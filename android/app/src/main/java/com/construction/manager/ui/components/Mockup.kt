@@ -6,7 +6,9 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -19,12 +21,16 @@ import com.construction.manager.ui.theme.statusBadgeColors
 /**
  * Status pill matching the mockup's `badge()` helper exactly: 4x10 padding,
  * fully-rounded, 11sp bold text, color/background from statusBadgeColors().
+ * The mockup's statusStyle() capitalizes known statuses ('Active', 'Paid', …)
+ * but its other badges (clientRows.linkLabel etc.) pass through raw lowercase
+ * text ('linked', 'no login') with no capitalization -- [capitalize] mirrors
+ * that distinction instead of uppercasing every badge uniformly.
  */
 @Composable
-fun StatusBadge(status: String, modifier: Modifier = Modifier) {
+fun StatusBadge(status: String, modifier: Modifier = Modifier, capitalize: Boolean = true) {
     val (fg, bg) = statusBadgeColors(status)
     Text(
-        status.replace("_", " ").replaceFirstChar { it.uppercase() },
+        if (capitalize) status.replace("_", " ").replaceFirstChar { it.uppercase() } else status,
         color = fg,
         fontSize = 11.sp,
         fontWeight = FontWeight.Bold,
@@ -171,5 +177,32 @@ fun <T> LabeledChipPicker(
     ) {
         Text(label, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurfaceVariant)
         ChipPicker(items, selected, render, onSelect)
+    }
+}
+
+/**
+ * A create-form that's collapsed behind a "+ Add X" pill by default, per the
+ * mockup's actual rendered screens: "Add client"/"Add supplier" etc. are not
+ * always-open inline forms -- they're a small outlined trigger button that
+ * expands into a "Cancel" + bordered form card, and collapses back after.
+ */
+@Composable
+fun CollapsibleCreateSection(
+    label: String,
+    expanded: Boolean,
+    onToggle: () -> Unit,
+    content: @Composable ColumnScope.() -> Unit,
+) {
+    if (!expanded) {
+        OutlinedButton(
+            onClick = onToggle,
+            shape = RoundedCornerShape(100),
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+        ) { Text("+ $label") }
+    } else {
+        Column(Modifier.padding(horizontal = 16.dp, vertical = 4.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            TextButton(onClick = onToggle, modifier = Modifier.align(androidx.compose.ui.Alignment.Start)) { Text("Cancel") }
+            MockupCard(content = content)
+        }
     }
 }
