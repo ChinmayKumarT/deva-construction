@@ -245,6 +245,7 @@ fun AdminProjects(isOwner: Boolean = false) {
     var status by remember { mutableStateOf("planned") }
     var client by remember { mutableStateOf<ClientRow?>(null) }
     var endDate by remember { mutableStateOf("") }
+    var showCreate by remember { mutableStateOf(false) }
 
     FormColumn {
         Row(
@@ -342,33 +343,35 @@ fun AdminProjects(isOwner: Boolean = false) {
                 Spacer(Modifier.height(8.dp))
             }
 
-            SectionTitle("Create project")
-            TextField(name, { name = it }, "Name")
-            TextField(stage, { stage = it }, "Current stage")
-            NumberField(cost, { cost = it }, "Total cost")
-            NumberField(completion, { completion = it }, "Completion %", max = 100.0)
-            LabeledChipPicker("Status", listOf("planned","active","on_hold","completed","cancelled"), status,
-                { it }, { status = it })
-            LabeledChipPicker("Client", clients, client, { it.name }, { client = it })
-            DateField(endDate, { endDate = it }, "Planned finish date")
-            error?.let { Text(it, color = MaterialTheme.colorScheme.error,
-                modifier = Modifier.padding(16.dp)) }
-            Button(
-                onClick = {
-                    scope.launch {
-                        safe({
-                            Repo.createProject(name, client?.id, status,
-                                stage.ifBlank { null },
-                                cost.toDoubleOrNull() ?: 0.0,
-                                completion.toDoubleOrNull() ?: 0.0,
-                                endDate.ifBlank { null })
-                            name = ""; stage = ""; cost = ""; completion = "0"; endDate = ""
-                            version++
-                        }) { error = it }
-                    }
-                },
-                modifier = Modifier.padding(16.dp),
-            ) { Text("Create") }
+            CollapsibleCreateSection("Create project", expanded = showCreate, onToggle = { showCreate = !showCreate }) {
+                TextField(name, { name = it }, "Name")
+                TextField(stage, { stage = it }, "Current stage")
+                NumberField(cost, { cost = it }, "Total cost")
+                NumberField(completion, { completion = it }, "Completion %", max = 100.0)
+                LabeledChipPicker("Status", listOf("planned","active","on_hold","completed","cancelled"), status,
+                    { it }, { status = it })
+                LabeledChipPicker("Client", clients, client, { it.name }, { client = it })
+                DateField(endDate, { endDate = it }, "Planned finish date")
+                error?.let { Text(it, color = MaterialTheme.colorScheme.error,
+                    modifier = Modifier.padding(16.dp)) }
+                Button(
+                    onClick = {
+                        scope.launch {
+                            safe({
+                                Repo.createProject(name, client?.id, status,
+                                    stage.ifBlank { null },
+                                    cost.toDoubleOrNull() ?: 0.0,
+                                    completion.toDoubleOrNull() ?: 0.0,
+                                    endDate.ifBlank { null })
+                                name = ""; stage = ""; cost = ""; completion = "0"; endDate = ""
+                                showCreate = false
+                                version++
+                            }) { error = it }
+                        }
+                    },
+                    modifier = Modifier.padding(top = 4.dp),
+                ) { Text("Create project") }
+            }
             if (rows.isEmpty()) {
                 Divider()
                 Text("No projects yet.", Modifier.padding(16.dp))
