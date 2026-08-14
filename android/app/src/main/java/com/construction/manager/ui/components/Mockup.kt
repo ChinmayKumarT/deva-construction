@@ -4,8 +4,11 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Divider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -278,6 +281,67 @@ fun CollapsibleCreateSection(
             MockupCard(content = content)
         }
     }
+}
+
+/**
+ * Floating action pill pinned to the bottom-end of a Box. Primary-colored with
+ * a shadow, shows "+ label" in bold white text. Wrap the screen content in a
+ * Box and place this alongside it.
+ */
+@Composable
+fun CreateFab(label: String, onClick: () -> Unit, modifier: Modifier = Modifier) {
+    Box(
+        modifier
+            .shadow(10.dp, RoundedCornerShape(16.dp))
+            .background(MaterialTheme.colorScheme.primary, RoundedCornerShape(16.dp))
+            .clickable(onClick = onClick)
+            .padding(horizontal = 20.dp, vertical = 14.dp),
+    ) {
+        Text(
+            "+ $label",
+            color = MaterialTheme.colorScheme.onPrimary,
+            fontSize = 14.sp,
+            fontWeight = FontWeight.Bold,
+        )
+    }
+}
+
+/**
+ * Full-screen dialog for create/add forms triggered by a FAB.
+ * Scrollable, with a title bar and close button.
+ */
+@Composable
+fun CreateDialog(
+    title: String,
+    onDismiss: () -> Unit,
+    content: @Composable ColumnScope.() -> Unit,
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Text(title, style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
+                Box(
+                    Modifier
+                        .size(30.dp)
+                        .background(mockupColors().border, CircleShape)
+                        .clickable(onClick = onDismiss),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Text("✕", fontSize = 13.sp, fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface)
+                }
+            }
+        },
+        text = {
+            Column(
+                Modifier.verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(4.dp),
+                content = content,
+            )
+        },
+        confirmButton = {},
+    )
 }
 
 /**

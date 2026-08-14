@@ -5,8 +5,10 @@ import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Search
@@ -16,14 +18,18 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import coil3.compose.AsyncImage
 import com.construction.manager.data.*
 import com.construction.manager.ui.*
 import com.construction.manager.ui.components.ChipPicker
 import com.construction.manager.ui.components.ChipRow
-import com.construction.manager.ui.components.CollapsibleCreateSection
+import com.construction.manager.ui.components.CreateDialog
+import com.construction.manager.ui.components.CreateFab
 import com.construction.manager.ui.components.ImagePlaceholder
 import com.construction.manager.ui.components.LabeledChipPicker
 import com.construction.manager.ui.components.MiniStatCard
@@ -255,6 +261,39 @@ fun AdminProjects(isOwner: Boolean = false) {
     var endDate by remember { mutableStateOf("") }
     var showCreate by remember { mutableStateOf(false) }
 
+    if (showCreate) {
+        CreateDialog("New project", onDismiss = { showCreate = false }) {
+            TextField(name, { name = it }, "Name")
+            TextField(stage, { stage = it }, "Current stage")
+            NumberField(cost, { cost = it }, "Total cost")
+            NumberField(completion, { completion = it }, "Completion %", max = 100.0)
+            LabeledChipPicker("Status", listOf("planned","active","on_hold","completed","cancelled"), status,
+                { it }, { status = it })
+            LabeledChipPicker("Client", clients, client, { it.name }, { client = it })
+            DateField(endDate, { endDate = it }, "Planned finish date")
+            error?.let { Text(it, color = MaterialTheme.colorScheme.error,
+                modifier = Modifier.padding(16.dp)) }
+            Button(
+                onClick = {
+                    scope.launch {
+                        safe({
+                            Repo.createProject(name, client?.id, status,
+                                stage.ifBlank { null },
+                                cost.toDoubleOrNull() ?: 0.0,
+                                completion.toDoubleOrNull() ?: 0.0,
+                                endDate.ifBlank { null })
+                            name = ""; stage = ""; cost = ""; completion = "0"; endDate = ""
+                            showCreate = false
+                            version++
+                        }) { error = it }
+                    }
+                },
+                modifier = Modifier.padding(top = 4.dp),
+            ) { Text("Create project") }
+        }
+    }
+
+    Box(Modifier.fillMaxSize()) {
     FormColumn {
         Row(
             Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
@@ -396,36 +435,6 @@ fun AdminProjects(isOwner: Boolean = false) {
         }
 
         if (!showArchived) {
-            CollapsibleCreateSection("Create project", expanded = showCreate, onToggle = { showCreate = !showCreate }) {
-                TextField(name, { name = it }, "Name")
-                TextField(stage, { stage = it }, "Current stage")
-                NumberField(cost, { cost = it }, "Total cost")
-                NumberField(completion, { completion = it }, "Completion %", max = 100.0)
-                LabeledChipPicker("Status", listOf("planned","active","on_hold","completed","cancelled"), status,
-                    { it }, { status = it })
-                LabeledChipPicker("Client", clients, client, { it.name }, { client = it })
-                DateField(endDate, { endDate = it }, "Planned finish date")
-                error?.let { Text(it, color = MaterialTheme.colorScheme.error,
-                    modifier = Modifier.padding(16.dp)) }
-                Button(
-                    onClick = {
-                        scope.launch {
-                            safe({
-                                Repo.createProject(name, client?.id, status,
-                                    stage.ifBlank { null },
-                                    cost.toDoubleOrNull() ?: 0.0,
-                                    completion.toDoubleOrNull() ?: 0.0,
-                                    endDate.ifBlank { null })
-                                name = ""; stage = ""; cost = ""; completion = "0"; endDate = ""
-                                showCreate = false
-                                version++
-                            }) { error = it }
-                        }
-                    },
-                    modifier = Modifier.padding(top = 4.dp),
-                ) { Text("Create project") }
-            }
-
             if (rows.isNotEmpty()) {
                 StatCard("Total cost", money(rows.sumOf { it.totalCost }), modifier = Modifier.padding(horizontal = 16.dp), accent = true)
                 Spacer(Modifier.height(8.dp))
@@ -445,6 +454,7 @@ fun AdminProjects(isOwner: Boolean = false) {
                 Divider()
                 Text("No projects yet.", Modifier.padding(16.dp))
             }
+            Spacer(Modifier.height(80.dp))
             return@FormColumn
         }
 
@@ -465,6 +475,11 @@ fun AdminProjects(isOwner: Boolean = false) {
                 )
             }
         }
+    }
+    if (!showArchived && selectedProject == null) {
+        CreateFab("New project", onClick = { showCreate = true },
+            modifier = Modifier.align(Alignment.BottomEnd).padding(16.dp))
+    }
     }
 }
 
@@ -564,7 +579,13 @@ private fun ProjectChangeOrdersSection(project: ProjectRow, isOwner: Boolean, on
             }
         }
         if (!showArchived) {
-            CollapsibleCreateSection("Add change order", expanded = showCreate, onToggle = { showCreate = !showCreate }) {
+            OutlinedButton(
+                onClick = { showCreate = true },
+                shape = RoundedCornerShape(100),
+            ) { Text("+ Add change order") }
+        }
+        if (showCreate) {
+            CreateDialog("Add change order", onDismiss = { showCreate = false }) {
                 TextField(description, { description = it }, "Description")
                 CategoryDropdown("Work category", workCategory, { workCategory = it })
                 NumberField(extraCost, { extraCost = it }, "Extra cost (₹, optional)")
@@ -995,26 +1016,28 @@ fun AdminClients(isOwner: Boolean = false) {
     var profile by remember { mutableStateOf<Profile?>(null) }
     var showCreate by remember { mutableStateOf(false) }
 
+    if (showCreate) {
+        CreateDialog("Add client", onDismiss = { showCreate = false }) {
+            TextField(name, { name = it }, "Name")
+            TextField(email, { email = it }, "Email")
+            TextField(phone, { phone = it }, "Phone", maxLength = 10)
+            Dropdown("Link to login (optional)", unlinked, profile,
+                { it.fullName ?: it.id.take(8) }, { profile = it })
+            Button(onClick = {
+                scope.launch {
+                    safe({
+                        Repo.createClient(name, email.ifBlank { null }, phone.ifBlank { null },
+                            profile?.id)
+                        name = ""; email = ""; phone = ""; profile = null; showCreate = false; version++
+                    }) { error = it }
+                }
+            }, modifier = Modifier.padding(top = 4.dp)) { Text("Add client") }
+        }
+    }
+
+    Box(Modifier.fillMaxSize()) {
     FormColumn {
         ArchivedSwitch(showArchived) { showArchived = !showArchived }
-        if (!showArchived) {
-            CollapsibleCreateSection("Add client", expanded = showCreate, onToggle = { showCreate = !showCreate }) {
-                TextField(name, { name = it }, "Name")
-                TextField(email, { email = it }, "Email")
-                TextField(phone, { phone = it }, "Phone", maxLength = 10)
-                Dropdown("Link to login (optional)", unlinked, profile,
-                    { it.fullName ?: it.id.take(8) }, { profile = it })
-                Button(onClick = {
-                    scope.launch {
-                        safe({
-                            Repo.createClient(name, email.ifBlank { null }, phone.ifBlank { null },
-                                profile?.id)
-                            name = ""; email = ""; phone = ""; profile = null; showCreate = false; version++
-                        }) { error = it }
-                    }
-                }, modifier = Modifier.padding(top = 4.dp)) { Text("Add client") }
-            }
-        }
         error?.let { Text(it, color = MaterialTheme.colorScheme.error,
             modifier = Modifier.padding(16.dp)) }
         Divider()
@@ -1046,6 +1069,12 @@ fun AdminClients(isOwner: Boolean = false) {
                 },
             )
         }
+        Spacer(Modifier.height(80.dp))
+    }
+    if (!showArchived) {
+        CreateFab("Add client", onClick = { showCreate = true },
+            modifier = Modifier.align(Alignment.BottomEnd).padding(16.dp))
+    }
     }
 
     editing?.let { c ->
@@ -1148,26 +1177,28 @@ fun AdminSuppliers(isOwner: Boolean = false) {
         return
     }
 
+    if (showCreate) {
+        CreateDialog("Add supplier", onDismiss = { showCreate = false }) {
+            TextField(name, { name = it }, "Name")
+            TextField(email, { email = it }, "Email")
+            TextField(phone, { phone = it }, "Phone", maxLength = 10)
+            Dropdown("Link to login (optional)", unlinked, profile,
+                { it.fullName ?: it.id.take(8) }, { profile = it })
+            Button(onClick = {
+                scope.launch {
+                    safe({
+                        Repo.createSupplier(name, email.ifBlank { null }, phone.ifBlank { null },
+                            profile?.id)
+                        name = ""; email = ""; phone = ""; profile = null; showCreate = false; version++
+                    }) { error = it }
+                }
+            }, modifier = Modifier.padding(top = 4.dp)) { Text("Add supplier") }
+        }
+    }
+
+    Box(Modifier.fillMaxSize()) {
     FormColumn {
         ArchivedSwitch(showArchived) { showArchived = !showArchived }
-        if (!showArchived) {
-            CollapsibleCreateSection("Add supplier", expanded = showCreate, onToggle = { showCreate = !showCreate }) {
-                TextField(name, { name = it }, "Name")
-                TextField(email, { email = it }, "Email")
-                TextField(phone, { phone = it }, "Phone", maxLength = 10)
-                Dropdown("Link to login (optional)", unlinked, profile,
-                    { it.fullName ?: it.id.take(8) }, { profile = it })
-                Button(onClick = {
-                    scope.launch {
-                        safe({
-                            Repo.createSupplier(name, email.ifBlank { null }, phone.ifBlank { null },
-                                profile?.id)
-                            name = ""; email = ""; phone = ""; profile = null; showCreate = false; version++
-                        }) { error = it }
-                    }
-                }, modifier = Modifier.padding(top = 4.dp)) { Text("Add supplier") }
-            }
-        }
         error?.let { Text(it, color = MaterialTheme.colorScheme.error,
             modifier = Modifier.padding(16.dp)) }
         Divider()
@@ -1204,6 +1235,12 @@ fun AdminSuppliers(isOwner: Boolean = false) {
                 },
             )
         }
+        Spacer(Modifier.height(80.dp))
+    }
+    if (!showArchived) {
+        CreateFab("Add supplier", onClick = { showCreate = true },
+            modifier = Modifier.align(Alignment.BottomEnd).padding(16.dp))
+    }
     }
 
     editing?.let { s ->
@@ -1350,29 +1387,31 @@ fun AdminLabourers(isOwner: Boolean = false) {
     var category by remember { mutableStateOf("None") }
     var showCreate by remember { mutableStateOf(false) }
 
+    if (showCreate) {
+        CreateDialog("Add labourer", onDismiss = { showCreate = false }) {
+            TextField(name, { name = it }, "Name")
+            CategoryDropdown("Category", category, { category = it })
+            TextField(phone, { phone = it }, "Phone", maxLength = 10)
+            NumberField(wage, { wage = it }, "Daily wage")
+            Row(Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+                verticalAlignment = Alignment.CenterVertically) {
+                Checkbox(active, { active = it }); Text("Active")
+            }
+            Button(onClick = {
+                scope.launch {
+                    safe({
+                        Repo.createLabourer(name, phone.ifBlank { null },
+                            wage.toDoubleOrNull() ?: 0.0, active, category.takeIf { it != "None" })
+                        name = ""; phone = ""; wage = ""; category = "None"; showCreate = false; version++
+                    }) { error = it }
+                }
+            }, modifier = Modifier.padding(top = 4.dp)) { Text("Add labourer") }
+        }
+    }
+
+    Box(Modifier.fillMaxSize()) {
     FormColumn {
         ArchivedSwitch(showArchived) { showArchived = !showArchived }
-        if (!showArchived) {
-            CollapsibleCreateSection("Add labourer", expanded = showCreate, onToggle = { showCreate = !showCreate }) {
-                TextField(name, { name = it }, "Name")
-                CategoryDropdown("Category", category, { category = it })
-                TextField(phone, { phone = it }, "Phone", maxLength = 10)
-                NumberField(wage, { wage = it }, "Daily wage")
-                Row(Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
-                    verticalAlignment = Alignment.CenterVertically) {
-                    Checkbox(active, { active = it }); Text("Active")
-                }
-                Button(onClick = {
-                    scope.launch {
-                        safe({
-                            Repo.createLabourer(name, phone.ifBlank { null },
-                                wage.toDoubleOrNull() ?: 0.0, active, category.takeIf { it != "None" })
-                            name = ""; phone = ""; wage = ""; category = "None"; showCreate = false; version++
-                        }) { error = it }
-                    }
-                }, modifier = Modifier.padding(top = 4.dp)) { Text("Add labourer") }
-            }
-        }
         error?.let { Text(it, color = MaterialTheme.colorScheme.error,
             modifier = Modifier.padding(16.dp)) }
         Divider()
@@ -1404,6 +1443,12 @@ fun AdminLabourers(isOwner: Boolean = false) {
                 },
             )
         }
+        Spacer(Modifier.height(80.dp))
+    }
+    if (!showArchived) {
+        CreateFab("Add labourer", onClick = { showCreate = true },
+            modifier = Modifier.align(Alignment.BottomEnd).padding(16.dp))
+    }
     }
 
     editing?.let { l ->
@@ -1558,6 +1603,30 @@ fun AdminMaterials(isOwner: Boolean = false, initialProjectFilter: ProjectRow? =
     var workCategory by remember { mutableStateOf("None") }
     var showCreate by remember { mutableStateOf(false) }
 
+    if (showCreate) {
+        CreateDialog("Add material", onDismiss = { showCreate = false }) {
+            TextField(name, { name = it }, "Name")
+            TextField(unit, { unit = it }, "Unit (kg, bag…)")
+            NumberField(qty, { qty = it }, "Quantity")
+            NumberField(unitCost, { unitCost = it }, "Unit cost")
+            LabeledChipPicker("Status", listOf("ordered","delivered","returned"), status, { it }, { status = it })
+            Dropdown("Supplier", suppliers, supplier, { it.name }, { supplier = it })
+            CategoryDropdown("Work category", workCategory, { workCategory = it })
+            Button(onClick = {
+                val p = projectFilter ?: return@Button
+                scope.launch {
+                    safe({
+                        Repo.createMaterial(p.id, supplier?.id, name, unit,
+                            qty.toDoubleOrNull() ?: 0.0, unitCost.toDoubleOrNull() ?: 0.0, status,
+                            workCategory.takeIf { it != "None" })
+                        name = ""; qty = ""; unitCost = ""; showCreate = false; version++
+                    }) { error = it }
+                }
+            }, modifier = Modifier.padding(top = 4.dp)) { Text("Add material") }
+        }
+    }
+
+    Box(Modifier.fillMaxSize()) {
     FormColumn {
         Row(
             Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
@@ -1573,31 +1642,6 @@ fun AdminMaterials(isOwner: Boolean = false, initialProjectFilter: ProjectRow? =
             }
         }
         ArchivedSwitch(showArchived) { showArchived = !showArchived }
-        // Materials with no project were never created through this screen
-        // (the create form always assigns a project below), so there's
-        // nothing to add from here -- only existing ones to manage.
-        if (!showArchived && !showUnassigned) {
-            CollapsibleCreateSection("Add material", expanded = showCreate, onToggle = { showCreate = !showCreate }) {
-                TextField(name, { name = it }, "Name")
-                TextField(unit, { unit = it }, "Unit (kg, bag…)")
-                NumberField(qty, { qty = it }, "Quantity")
-                NumberField(unitCost, { unitCost = it }, "Unit cost")
-                LabeledChipPicker("Status", listOf("ordered","delivered","returned"), status, { it }, { status = it })
-                Dropdown("Supplier", suppliers, supplier, { it.name }, { supplier = it })
-                CategoryDropdown("Work category", workCategory, { workCategory = it })
-                Button(onClick = {
-                    val p = projectFilter ?: return@Button
-                    scope.launch {
-                        safe({
-                            Repo.createMaterial(p.id, supplier?.id, name, unit,
-                                qty.toDoubleOrNull() ?: 0.0, unitCost.toDoubleOrNull() ?: 0.0, status,
-                                workCategory.takeIf { it != "None" })
-                            name = ""; qty = ""; unitCost = ""; showCreate = false; version++
-                        }) { error = it }
-                    }
-                }, modifier = Modifier.padding(top = 4.dp)) { Text("Add material") }
-            }
-        }
         error?.let { Text(it, color = MaterialTheme.colorScheme.error,
             modifier = Modifier.padding(16.dp)) }
         Divider()
@@ -1637,6 +1681,12 @@ fun AdminMaterials(isOwner: Boolean = false, initialProjectFilter: ProjectRow? =
                 },
             )
         }
+        Spacer(Modifier.height(80.dp))
+    }
+    if (!showArchived && !showUnassigned) {
+        CreateFab("Add material", onClick = { showCreate = true },
+            modifier = Modifier.align(Alignment.BottomEnd).padding(16.dp))
+    }
     }
 
     editing?.let { m ->
@@ -1703,6 +1753,35 @@ private fun MaterialsProjectPicker(
     var error by remember { mutableStateOf<String?>(null) }
     val scope = rememberCoroutineScope()
 
+    var showCreate by remember { mutableStateOf(false) }
+
+    if (showCreate) {
+        CreateDialog("Add material", onDismiss = { showCreate = false }) {
+            TextField(name, { name = it }, "Name")
+            LabeledChipPicker("Project", projects, project, { it.name }, { project = it })
+            Dropdown("Supplier", suppliers, supplier, { it.name }, { supplier = it })
+            TextField(unit, { unit = it }, "Unit (kg, bag…)")
+            NumberField(qty, { qty = it }, "Quantity")
+            NumberField(unitCost, { unitCost = it }, "Unit cost")
+            LabeledChipPicker("Status", listOf("ordered","delivered","returned"), status, { it }, { status = it })
+            CategoryDropdown("Work category", workCategory, { workCategory = it })
+            error?.let { Text(it, color = MaterialTheme.colorScheme.error,
+                modifier = Modifier.padding(16.dp)) }
+            Button(onClick = {
+                val p = project ?: return@Button
+                scope.launch {
+                    safe({
+                        Repo.createMaterial(p.id, supplier?.id, name, unit,
+                            qty.toDoubleOrNull() ?: 0.0, unitCost.toDoubleOrNull() ?: 0.0, status,
+                            workCategory.takeIf { it != "None" })
+                        name = ""; qty = ""; unitCost = ""; showCreate = false; onCreated()
+                    }) { error = it }
+                }
+            }, modifier = Modifier.padding(top = 4.dp)) { Text("Add material") }
+        }
+    }
+
+    Box(Modifier.fillMaxSize()) {
     FormColumn {
         SectionTitle("Materials")
         Text(
@@ -1711,29 +1790,6 @@ private fun MaterialsProjectPicker(
             modifier = Modifier.padding(horizontal = 16.dp),
         )
         Spacer(Modifier.height(8.dp))
-        SectionTitle("Add material")
-        TextField(name, { name = it }, "Name")
-        LabeledChipPicker("Project", projects, project, { it.name }, { project = it })
-        Dropdown("Supplier", suppliers, supplier, { it.name }, { supplier = it })
-        TextField(unit, { unit = it }, "Unit (kg, bag…)")
-        NumberField(qty, { qty = it }, "Quantity")
-        NumberField(unitCost, { unitCost = it }, "Unit cost")
-        LabeledChipPicker("Status", listOf("ordered","delivered","returned"), status, { it }, { status = it })
-        CategoryDropdown("Work category", workCategory, { workCategory = it })
-        Button(onClick = {
-            val p = project ?: return@Button
-            scope.launch {
-                safe({
-                    Repo.createMaterial(p.id, supplier?.id, name, unit,
-                        qty.toDoubleOrNull() ?: 0.0, unitCost.toDoubleOrNull() ?: 0.0, status,
-                        workCategory.takeIf { it != "None" })
-                    name = ""; qty = ""; unitCost = ""; onCreated()
-                }) { error = it }
-            }
-        }, modifier = Modifier.padding(16.dp)) { Text("Create") }
-        error?.let { Text(it, color = MaterialTheme.colorScheme.error,
-            modifier = Modifier.padding(16.dp)) }
-        Divider()
         StatCard("Total cost", money(totalCost), modifier = Modifier.padding(horizontal = 16.dp), accent = true)
         Spacer(Modifier.height(8.dp))
         if (projects.isEmpty()) {
@@ -1753,6 +1809,10 @@ private fun MaterialsProjectPicker(
                     .clickable(onClick = onPickUnassigned),
             )
         }
+        Spacer(Modifier.height(80.dp))
+    }
+    CreateFab("Add material", onClick = { showCreate = true },
+        modifier = Modifier.align(Alignment.BottomEnd).padding(16.dp))
     }
 }
 
@@ -1867,6 +1927,23 @@ fun AdminPayments(isOwner: Boolean = false, initialProjectFilter: ProjectRow? = 
     val visibleClientPayments = if (showUnassigned) emptyList()
         else clientPaymentRows.filter { it.projectId == projectFilter?.id }
 
+    var showCreatePaymentDetail by remember { mutableStateOf(false) }
+    if (showCreatePaymentDetail) {
+        CreateDialog("New payment", onDismiss = { showCreatePaymentDetail = false }) {
+            CreatePaymentSection(
+                fixedProject = projectFilter,
+                projects = projects,
+                suppliers = suppliers,
+                labourers = labourers,
+                materials = materials,
+                assignments = assignments,
+                wageDue = wageDue,
+                onCreated = { showCreatePaymentDetail = false; version++ },
+            )
+        }
+    }
+
+    Box(Modifier.fillMaxSize()) {
     FormColumn {
         Row(
             Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
@@ -1882,21 +1959,6 @@ fun AdminPayments(isOwner: Boolean = false, initialProjectFilter: ProjectRow? = 
             }
         }
         ArchivedSwitch(showArchived) { showArchived = !showArchived }
-        // Payments with no project were never created through this screen
-        // (the create form always assigns the selected project below), so
-        // there's nothing to add from here -- only existing ones to manage.
-        if (!showArchived && !showUnassigned) {
-            CreatePaymentSection(
-                fixedProject = projectFilter,
-                projects = projects,
-                suppliers = suppliers,
-                labourers = labourers,
-                materials = materials,
-                assignments = assignments,
-                wageDue = wageDue,
-                onCreated = { version++ },
-            )
-        }
         if (!showArchived) {
             val categoryTotals = remember(visibleRows) {
                 val totals = mutableMapOf<String, Double>()
@@ -2012,6 +2074,12 @@ fun AdminPayments(isOwner: Boolean = false, initialProjectFilter: ProjectRow? = 
                 )
             }
         }
+        Spacer(Modifier.height(80.dp))
+    }
+    if (!showArchived && !showUnassigned) {
+        CreateFab("New payment", onClick = { showCreatePaymentDetail = true },
+            modifier = Modifier.align(Alignment.BottomEnd).padding(16.dp))
+    }
     }
 
     editing?.let { p ->
@@ -2091,6 +2159,46 @@ private fun dailyTotalsFromDatedAmounts(rows: List<Pair<String, Double>>): List<
 // rows (id "__other__") let the two typed Dropdowns carry an extra option
 // without changing their generic <T> signature. Mirrors web's OTHER_SUPPLIER
 // / OTHER_PURCHASE sentinels in components/admin/PaymentForm.tsx.
+@Composable
+private fun FullScreenCreatePaymentSheet(
+    projects: List<ProjectRow>,
+    suppliers: List<SupplierRow>,
+    labourers: List<LabourerRow>,
+    materials: List<MaterialRow>,
+    assignments: List<ProjectLabourerRow>,
+    wageDue: Map<String, Double>,
+    onCreated: () -> Unit,
+    onDismiss: () -> Unit,
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Text("New payment", style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
+                TextButton(onClick = onDismiss) { Text("✕") }
+            }
+        },
+        text = {
+            Column(
+                Modifier.verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(4.dp),
+            ) {
+                CreatePaymentSection(
+                    fixedProject = null,
+                    projects = projects,
+                    suppliers = suppliers,
+                    labourers = labourers,
+                    materials = materials,
+                    assignments = assignments,
+                    wageDue = wageDue,
+                    onCreated = onCreated,
+                )
+            }
+        },
+        confirmButton = {},
+    )
+}
+
 private val OtherSupplierSentinel = SupplierRow(id = "__other__", name = "Other…")
 private val OtherPurchaseSentinel = MaterialRow(id = "__other__", name = "Other…")
 
@@ -2130,94 +2238,97 @@ private fun CreatePaymentSection(
         labourers.filter { it.id in ids }
     } ?: emptyList()
 
-    SectionTitle("Create payment")
-    if (fixedProject == null) {
+    val formContent: @Composable ColumnScope.() -> Unit = {
+        if (fixedProject == null) {
+            LabeledChipPicker(
+                "Project", projects, selectedProject, { it.name },
+                { p -> selectedProject = p; purchase = null; labourer = null; supplier = null; desc = "" },
+            )
+        }
         LabeledChipPicker(
-            "Project", projects, selectedProject, { it.name },
-            { p -> selectedProject = p; purchase = null; labourer = null; supplier = null; desc = "" },
+            "Payee type", listOf("supplier","labour"), payeeType, { it },
+            { payeeType = it; supplier = null; labourer = null; desc = ""; purchase = null },
         )
-    }
-    LabeledChipPicker(
-        "Payee type", listOf("supplier","labour"), payeeType, { it },
-        { payeeType = it; supplier = null; labourer = null; desc = ""; purchase = null },
-    )
-    if (payeeType == "labour") {
-        Dropdown(
-            "Labourer", assignedLabourers, labourer, { it.name },
-            { l ->
-                labourer = l
-                val pid = project?.id
-                if (pid != null) amount = (wageDue[wageDueKey(pid, l.id)] ?: 0.0).toString()
-            },
-        )
-        Text(
-            "Only labourers currently assigned to this project. Selecting one fills in " +
-                "the wages owed based on their attendance.",
-            style = MaterialTheme.typography.labelSmall,
-            modifier = Modifier.padding(horizontal = 16.dp),
-        )
-    } else {
-        Dropdown(
-            "Purchase (optional)", projectMaterials + OtherPurchaseSentinel, purchase,
-            { m -> if (m.id == OtherPurchaseSentinel.id) m.name
-                   else "${m.name} (${m.quantity} ${m.unit}) — ${money(lineTotal(m.quantity, m.unitCost))}" },
-            { m ->
-                purchase = m
-                payeeType = "supplier"
-                if (m.id != OtherPurchaseSentinel.id) {
-                    supplier = suppliers.find { it.id == m.supplierId }
-                    amount = (lineTotal(m.quantity, m.unitCost)).toString()
-                    desc = "${m.name} (${m.quantity} ${m.unit})"
-                    workCategory = m.workCategory ?: "None"
+        if (payeeType == "labour") {
+            Dropdown(
+                "Labourer", assignedLabourers, labourer, { it.name },
+                { l ->
+                    labourer = l
+                    val pid = project?.id
+                    if (pid != null) amount = (wageDue[wageDueKey(pid, l.id)] ?: 0.0).toString()
+                },
+            )
+            Text(
+                "Only labourers currently assigned to this project. Selecting one fills in " +
+                    "the wages owed based on their attendance.",
+                style = MaterialTheme.typography.labelSmall,
+                modifier = Modifier.padding(horizontal = 16.dp),
+            )
+        } else {
+            Dropdown(
+                "Purchase (optional)", projectMaterials + OtherPurchaseSentinel, purchase,
+                { m -> if (m.id == OtherPurchaseSentinel.id) m.name
+                       else "${m.name} (${m.quantity} ${m.unit}) — ${money(lineTotal(m.quantity, m.unitCost))}" },
+                { m ->
+                    purchase = m
+                    payeeType = "supplier"
+                    if (m.id != OtherPurchaseSentinel.id) {
+                        supplier = suppliers.find { it.id == m.supplierId }
+                        amount = (lineTotal(m.quantity, m.unitCost)).toString()
+                        desc = "${m.name} (${m.quantity} ${m.unit})"
+                        workCategory = m.workCategory ?: "None"
+                    }
+                },
+            )
+            if (purchase?.id == OtherPurchaseSentinel.id) {
+                TextField(purchaseOtherText, { purchaseOtherText = it; desc = it }, "Describe the purchase")
+            }
+            Dropdown(
+                "Supplier", suppliers + OtherSupplierSentinel, supplier, { it.name },
+                { s -> supplier = s; if (s.id != OtherSupplierSentinel.id) supplierOtherName = "" },
+            )
+            if (supplier?.id == OtherSupplierSentinel.id) {
+                TextField(supplierOtherName, { supplierOtherName = it }, "Enter supplier name")
+            }
+            TextField(desc, { desc = it }, "Description")
+        }
+        CategoryDropdown("Work category", workCategory, { workCategory = it })
+        NumberField(amount, { amount = it }, "Amount")
+        error?.let { Text(it, color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(16.dp)) }
+        Button(
+            onClick = {
+                val pid = project?.id ?: return@Button
+                if (workCategory == "None" || workCategory.isBlank()) {
+                    error = "Work category is required"
+                    return@Button
+                }
+                scope.launch {
+                    safe({
+                        val resolvedSupplierId = if (payeeType == "supplier" && supplier?.id == OtherSupplierSentinel.id) {
+                            Repo.createSupplier(supplierOtherName, null, null, null)
+                        } else {
+                            supplier?.id
+                        }
+                        Repo.createPayment(pid, payeeType,
+                            resolvedSupplierId, labourer?.id,
+                            amount.toDoubleOrNull() ?: 0.0, desc.ifBlank { null },
+                            workCategory.takeIf { it != "None" })
+                        val billedMaterialId = purchase?.id
+                        if (billedMaterialId != null && billedMaterialId != OtherPurchaseSentinel.id) {
+                            Repo.markMaterialBilled(billedMaterialId)
+                        }
+                        amount = ""; desc = ""
+                        if (supplier?.id == OtherSupplierSentinel.id) { supplier = null; supplierOtherName = "" }
+                        purchase = null; purchaseOtherText = ""
+                        onCreated()
+                    }) { error = it }
                 }
             },
-        )
-        if (purchase?.id == OtherPurchaseSentinel.id) {
-            TextField(purchaseOtherText, { purchaseOtherText = it; desc = it }, "Describe the purchase")
-        }
-        Dropdown(
-            "Supplier", suppliers + OtherSupplierSentinel, supplier, { it.name },
-            { s -> supplier = s; if (s.id != OtherSupplierSentinel.id) supplierOtherName = "" },
-        )
-        if (supplier?.id == OtherSupplierSentinel.id) {
-            TextField(supplierOtherName, { supplierOtherName = it }, "Enter supplier name")
-        }
-        TextField(desc, { desc = it }, "Description")
+            modifier = Modifier.padding(top = 4.dp),
+        ) { Text("Create") }
     }
-    CategoryDropdown("Work category", workCategory, { workCategory = it })
-    NumberField(amount, { amount = it }, "Amount")
-    Button(
-        onClick = {
-            val pid = project?.id ?: return@Button
-            if (workCategory == "None" || workCategory.isBlank()) {
-                error = "Work category is required"
-                return@Button
-            }
-            scope.launch {
-                safe({
-                    val resolvedSupplierId = if (payeeType == "supplier" && supplier?.id == OtherSupplierSentinel.id) {
-                        Repo.createSupplier(supplierOtherName, null, null, null)
-                    } else {
-                        supplier?.id
-                    }
-                    Repo.createPayment(pid, payeeType,
-                        resolvedSupplierId, labourer?.id,
-                        amount.toDoubleOrNull() ?: 0.0, desc.ifBlank { null },
-                        workCategory.takeIf { it != "None" })
-                    val billedMaterialId = purchase?.id
-                    if (billedMaterialId != null && billedMaterialId != OtherPurchaseSentinel.id) {
-                        Repo.markMaterialBilled(billedMaterialId)
-                    }
-                    amount = ""; desc = ""
-                    if (supplier?.id == OtherSupplierSentinel.id) { supplier = null; supplierOtherName = "" }
-                    purchase = null; purchaseOtherText = ""
-                    onCreated()
-                }) { error = it }
-            }
-        },
-        modifier = Modifier.padding(16.dp),
-    ) { Text("Create") }
-    error?.let { Text(it, color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(16.dp)) }
+
+    Column(verticalArrangement = Arrangement.spacedBy(4.dp), content = formContent)
 }
 
 @Composable
@@ -2272,6 +2383,8 @@ private fun PaymentsProjectPicker(
         )
     }
 
+    var showCreatePayment by remember { mutableStateOf(false) }
+
     FormColumn {
         SectionTitle("Payments")
         Text(
@@ -2283,16 +2396,25 @@ private fun PaymentsProjectPicker(
         StatCard("Total cost", money(totalCost), modifier = Modifier.padding(horizontal = 16.dp), accent = true)
         Spacer(Modifier.height(8.dp))
 
-        CreatePaymentSection(
-            fixedProject = null,
-            projects = projects,
-            suppliers = suppliers,
-            labourers = labourers,
-            materials = materials,
-            assignments = assignments,
-            wageDue = wageDue,
-            onCreated = onPaymentCreated,
-        )
+        if (projects.isEmpty()) {
+            Text("No projects yet.", Modifier.padding(16.dp))
+        }
+        projects.forEach { p ->
+            StatCard(
+                p.name, money(statsByProject[p.id]?.second ?: 0.0),
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 2.dp)
+                    .clickable { onPickProject(p) },
+            )
+        }
+        if (unassignedRows.isNotEmpty()) {
+            StatCard(
+                "No project", money(unassignedSpend),
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 2.dp)
+                    .clickable(onClick = onPickUnassigned),
+            )
+        }
+
+        Spacer(Modifier.height(12.dp))
         Divider()
 
         if (dailyTotals.isNotEmpty()) {
@@ -2334,21 +2456,38 @@ private fun PaymentsProjectPicker(
             }
         }
 
-        if (projects.isEmpty()) {
-            Text("No projects yet.", Modifier.padding(16.dp))
-        }
-        projects.forEach { p ->
-            StatCard(
-                p.name, money(statsByProject[p.id]?.second ?: 0.0),
-                modifier = Modifier.padding(horizontal = 16.dp, vertical = 2.dp)
-                    .clickable { onPickProject(p) },
-            )
-        }
-        if (unassignedRows.isNotEmpty()) {
-            StatCard(
-                "No project", money(unassignedSpend),
-                modifier = Modifier.padding(horizontal = 16.dp, vertical = 2.dp)
-                    .clickable(onClick = onPickUnassigned),
+        Spacer(Modifier.height(80.dp))
+    }
+
+    if (showCreatePayment) {
+        FullScreenCreatePaymentSheet(
+            projects = projects,
+            suppliers = suppliers,
+            labourers = labourers,
+            materials = materials,
+            assignments = assignments,
+            wageDue = wageDue,
+            onCreated = { showCreatePayment = false; onPaymentCreated() },
+            onDismiss = { showCreatePayment = false },
+        )
+    }
+
+    Box(
+        Modifier.fillMaxSize().padding(16.dp),
+        contentAlignment = Alignment.BottomEnd,
+    ) {
+        Box(
+            Modifier
+                .shadow(10.dp, RoundedCornerShape(16.dp))
+                .background(MaterialTheme.colorScheme.primary, RoundedCornerShape(16.dp))
+                .clickable { showCreatePayment = true }
+                .padding(horizontal = 20.dp, vertical = 14.dp),
+        ) {
+            Text(
+                "+ New payment",
+                color = MaterialTheme.colorScheme.onPrimary,
+                fontSize = 14.sp,
+                fontWeight = FontWeight.Bold,
             )
         }
     }
@@ -2592,15 +2731,14 @@ fun AdminUpdates(isOwner: Boolean = false) {
     var note by remember { mutableStateOf("") }
     var completion by remember { mutableStateOf("") }
     var pickedUri by remember { mutableStateOf<Uri?>(null) }
+    var showCreate by remember { mutableStateOf(false) }
 
     val picker = rememberLauncherForActivityResult(
         ActivityResultContracts.PickVisualMedia()
     ) { uri -> pickedUri = uri }
 
-    FormColumn {
-        ArchivedSwitch(showArchived) { showArchived = !showArchived }
-        if (!showArchived) {
-            SectionTitle("Post project update")
+    if (showCreate) {
+        CreateDialog("Post update", onDismiss = { showCreate = false }) {
             LabeledChipPicker("Project", projects, project, { it.name }, { project = it })
             TextField(stage, { stage = it }, "Stage")
             NumberField(completion, { completion = it }, "Completion %", max = 100.0)
@@ -2639,6 +2777,7 @@ fun AdminUpdates(isOwner: Boolean = false) {
                             Repo.postProjectUpdate(p.id, stage.ifBlank { null },
                                 note.ifBlank { null }, url, completion.toDoubleOrNull())
                             stage = ""; note = ""; completion = ""; pickedUri = null
+                            showCreate = false
                             version++
                         }) { error = it }
                         posting = false
@@ -2648,6 +2787,11 @@ fun AdminUpdates(isOwner: Boolean = false) {
                 modifier = Modifier.padding(16.dp),
             ) { Text(if (posting) "Posting…" else "Post") }
         }
+    }
+
+    Box(Modifier.fillMaxSize()) {
+    FormColumn {
+        ArchivedSwitch(showArchived) { showArchived = !showArchived }
 
         error?.let { Text(it, color = MaterialTheme.colorScheme.error,
             modifier = Modifier.padding(16.dp)) }
@@ -2698,6 +2842,12 @@ fun AdminUpdates(isOwner: Boolean = false) {
                 }
             }
         }
+        Spacer(Modifier.height(80.dp))
+    }
+    if (!showArchived) {
+        CreateFab("Post update", onClick = { showCreate = true },
+            modifier = Modifier.align(Alignment.BottomEnd).padding(16.dp))
+    }
     }
 
     editing?.let { u ->
