@@ -1928,6 +1928,7 @@ fun AdminPayments(isOwner: Boolean = false, initialProjectFilter: ProjectRow? = 
         else clientPaymentRows.filter { it.projectId == projectFilter?.id }
 
     var showCreatePaymentDetail by remember { mutableStateOf(false) }
+    var showRecordPayment by remember { mutableStateOf(false) }
     if (showCreatePaymentDetail) {
         CreateDialog("New payment", onDismiss = { showCreatePaymentDetail = false }) {
             CreatePaymentSection(
@@ -1983,11 +1984,13 @@ fun AdminPayments(isOwner: Boolean = false, initialProjectFilter: ProjectRow? = 
         SectionTitle(
             if (showArchived) "Archived payments (${visibleRows.size})" else "Payments (${visibleRows.size})",
         )
+        var showAllPayments by remember { mutableStateOf(false) }
         if (visibleRows.isEmpty()) {
             Text(if (showArchived) "No archived payments." else "No payments yet.",
                 Modifier.padding(16.dp))
         }
-        visibleRows.forEach { p ->
+        val displayedRows = if (showAllPayments) visibleRows else visibleRows.take(5)
+        displayedRows.forEach { p ->
             ItemCard("${p.payeeType} · ${p.description ?: "—"}",
                 formatDateTime(p.createdAt), money(p.amount),
                 status = p.status,
@@ -2027,31 +2030,68 @@ fun AdminPayments(isOwner: Boolean = false, initialProjectFilter: ProjectRow? = 
                 },
             )
         }
+        if (!showAllPayments && visibleRows.size > 5) {
+            TextButton(
+                onClick = { showAllPayments = true },
+                modifier = Modifier.padding(horizontal = 16.dp),
+            ) { Text("Show ${visibleRows.size - 5} more payments") }
+        } else if (showAllPayments && visibleRows.size > 5) {
+            TextButton(
+                onClick = { showAllPayments = false },
+                modifier = Modifier.padding(horizontal = 16.dp),
+            ) { Text("Show less") }
+        }
 
         if (!showUnassigned) {
+            var showAllClientPayments by remember { mutableStateOf(false) }
+            val totalReceived = remember(visibleClientPayments) {
+                visibleClientPayments.sumOf { it.amount }
+            }
+            val totalSpent = remember(visibleRows) {
+                visibleRows.filter { it.status in listOf("paid", "approved") }.sumOf { it.amount }
+            }
+
             Divider()
             SectionTitle(
                 if (showArchived) "Archived client payments (${visibleClientPayments.size})"
-                else "Client payments received (${visibleClientPayments.size})",
+                else "Client payments",
             )
             if (!showArchived) {
-                NumberField(cpAmount, { cpAmount = it }, "Amount")
-                TextField(cpDesc, { cpDesc = it }, "Description")
-                Button(onClick = {
-                    val pid = projectFilter?.id ?: return@Button
-                    scope.launch {
-                        safe({
-                            Repo.createClientPayment(pid, cpAmount.toDoubleOrNull() ?: 0.0, cpDesc.ifBlank { null }, null)
-                            cpAmount = ""; cpDesc = ""; version++
-                        }) { error = it }
+                Row(
+                    Modifier.padding(horizontal = 8.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    MiniStatCard("Received", money(totalReceived), Modifier.weight(1f))
+                    MiniStatCard("Spent", money(totalSpent), Modifier.weight(1f))
+                    MiniStatCard(
+                        "Balance",
+                        money(totalReceived - totalSpent),
+                        Modifier.weight(1f),
+                    )
+                }
+                Spacer(Modifier.height(8.dp))
+                if (showRecordPayment) {
+                    CreateDialog("Record client payment", onDismiss = { showRecordPayment = false }) {
+                        NumberField(cpAmount, { cpAmount = it }, "Amount")
+                        TextField(cpDesc, { cpDesc = it }, "Description")
+                        Button(onClick = {
+                            val pid = projectFilter?.id ?: return@Button
+                            scope.launch {
+                                safe({
+                                    Repo.createClientPayment(pid, cpAmount.toDoubleOrNull() ?: 0.0, cpDesc.ifBlank { null }, null)
+                                    cpAmount = ""; cpDesc = ""; showRecordPayment = false; version++
+                                }) { error = it }
+                            }
+                        }, modifier = Modifier.padding(top = 4.dp)) { Text("Record payment") }
                     }
-                }, modifier = Modifier.padding(16.dp)) { Text("Record payment") }
+                }
             }
             if (visibleClientPayments.isEmpty()) {
                 Text(if (showArchived) "No archived client payments." else "No client payments recorded yet.",
                     Modifier.padding(16.dp))
             }
-            visibleClientPayments.forEach { cp ->
+            val displayedClientPayments = if (showAllClientPayments) visibleClientPayments else visibleClientPayments.take(5)
+            displayedClientPayments.forEach { cp ->
                 ItemCard(
                     cp.description?.ifBlank { null } ?: "Client payment",
                     cp.paidOn ?: "—", money(cp.amount),
@@ -2073,12 +2113,29 @@ fun AdminPayments(isOwner: Boolean = false, initialProjectFilter: ProjectRow? = 
                     },
                 )
             }
+            if (!showAllClientPayments && visibleClientPayments.size > 5) {
+                TextButton(
+                    onClick = { showAllClientPayments = true },
+                    modifier = Modifier.padding(horizontal = 16.dp),
+                ) { Text("Show ${visibleClientPayments.size - 5} more") }
+            } else if (showAllClientPayments && visibleClientPayments.size > 5) {
+                TextButton(
+                    onClick = { showAllClientPayments = false },
+                    modifier = Modifier.padding(horizontal = 16.dp),
+                ) { Text("Show less") }
+            }
         }
         Spacer(Modifier.height(80.dp))
     }
     if (!showArchived && !showUnassigned) {
-        CreateFab("New payment", onClick = { showCreatePaymentDetail = true },
-            modifier = Modifier.align(Alignment.BottomEnd).padding(16.dp))
+        Column(
+            Modifier.align(Alignment.BottomEnd).padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp),
+            horizontalAlignment = Alignment.End,
+        ) {
+            CreateFab("Client payment", onClick = { showRecordPayment = true })
+            CreateFab("New payment", onClick = { showCreatePaymentDetail = true })
+        }
     }
     }
 
