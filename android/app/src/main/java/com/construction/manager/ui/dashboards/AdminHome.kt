@@ -20,6 +20,7 @@ import com.construction.manager.data.Repo
 import com.construction.manager.ui.AuthViewModel
 import com.construction.manager.ui.DeleteAccountButton
 import com.construction.manager.ui.StatCard
+import com.construction.manager.ui.components.AccountMenuButton
 import com.construction.manager.ui.money
 import kotlinx.coroutines.launch
 
@@ -34,8 +35,7 @@ enum class AdminSection(val label: String) {
     Attendance("Attendance"),
     Updates("Project updates"),
     Costs("Cost tracking"),
-    Reports("Reports"),
-    CashFlow("Cash flow"),
+    Reports("Reports & cash flow"),
     TeamAccess("Team access"),
     Personal("Personal"),
 }
@@ -54,6 +54,7 @@ fun AdminHome(vm: AuthViewModel, isAdmin: Boolean = true, isOwner: Boolean = fal
     }
     var materialsProjectFilter by remember { mutableStateOf<ProjectRow?>(null) }
     var paymentsProjectFilter by remember { mutableStateOf<ProjectRow?>(null) }
+    var showDeleteDialog by remember { mutableStateOf(false) }
     val visibleSections = remember(isOwner) {
         AdminSection.entries.filter { it != AdminSection.TeamAccess || isOwner }
     }
@@ -149,6 +150,9 @@ fun AdminHome(vm: AuthViewModel, isAdmin: Boolean = true, isOwner: Boolean = fal
             }
         },
     ) {
+        if (showDeleteDialog) {
+            DeleteAccountButton(vm, triggerImmediately = true, onDismiss = { showDeleteDialog = false })
+        }
         Scaffold(
             topBar = {
                 TopAppBar(
@@ -165,6 +169,14 @@ fun AdminHome(vm: AuthViewModel, isAdmin: Boolean = true, isOwner: Boolean = fal
                         IconButton(onClick = { scope.launch { drawerState.open() } }) {
                             Icon(Icons.Default.Menu, contentDescription = "Menu")
                         }
+                    },
+                    actions = {
+                        AccountMenuButton(
+                            initial = if (isAdmin) "D" else "S",
+                            onSignOut = { vm.signOut() },
+                            onDeleteAccount = { showDeleteDialog = true },
+                            modifier = Modifier.padding(end = 8.dp),
+                        )
                     },
                 )
             },
@@ -184,8 +196,7 @@ fun AdminHome(vm: AuthViewModel, isAdmin: Boolean = true, isOwner: Boolean = fal
                         onJumpToMaterials = { p -> materialsProjectFilter = p; navigateTo(AdminSection.Materials) },
                         onJumpToPayments = { p -> paymentsProjectFilter = p; navigateTo(AdminSection.Payments) },
                     )
-                    AdminSection.Reports -> AdminReports()
-                    AdminSection.CashFlow -> AdminCashFlow()
+                    AdminSection.Reports -> AdminReportsAndCashFlow()
                     AdminSection.TeamAccess -> AdminTeamAccess()
                     AdminSection.Personal -> AdminPersonal(isOwner)
                 }

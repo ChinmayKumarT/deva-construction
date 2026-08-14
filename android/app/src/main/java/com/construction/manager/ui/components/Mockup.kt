@@ -4,17 +4,28 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Divider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Popup
+import androidx.compose.ui.window.PopupProperties
 import com.construction.manager.ui.theme.mockupColors
 import com.construction.manager.ui.theme.statusBadgeColors
 
@@ -181,6 +192,68 @@ fun <T> LabeledChipPicker(
 }
 
 /**
+ * Center-aligned mini stat box matching miniStatStyle -- used for the
+ * Budget/Spent/Remaining row inside a project detail, distinct from the
+ * left-aligned StatCard used in list-level stat rows.
+ */
+@Composable
+fun MiniStatCard(label: String, value: String, modifier: Modifier = Modifier) {
+    val colors = mockupColors()
+    Column(
+        modifier
+            .fillMaxWidth()
+            .background(MaterialTheme.colorScheme.surface, RoundedCornerShape(12.dp))
+            .border(1.dp, colors.border, RoundedCornerShape(12.dp))
+            .padding(10.dp),
+        horizontalAlignment = androidx.compose.ui.Alignment.CenterHorizontally,
+    ) {
+        Text(label, fontSize = 10.sp, fontWeight = FontWeight.Bold, color = colors.muted)
+        Text(
+            value,
+            fontSize = 13.sp,
+            fontWeight = FontWeight.Bold,
+            modifier = Modifier.padding(top = 3.dp),
+        )
+    }
+}
+
+/** Amber notice banner matching noticeStyle -- e.g. a project's "Next payment due" callout. */
+@Composable
+fun WarningBanner(text: String, modifier: Modifier = Modifier) {
+    val colors = mockupColors()
+    Row(
+        modifier
+            .fillMaxWidth()
+            .background(colors.warningTint, RoundedCornerShape(10.dp))
+            .drawBehind {
+                drawRect(
+                    color = colors.warning,
+                    size = androidx.compose.ui.geometry.Size(3.dp.toPx(), size.height),
+                )
+            }
+            .padding(start = 12.dp, top = 10.dp, end = 12.dp, bottom = 10.dp),
+    ) {
+        Text(text, color = colors.warning, fontSize = 12.5.sp, fontWeight = FontWeight.Bold)
+    }
+}
+
+/** Diagonal-stripe placeholder box matching imagePlaceholderStyle, for an unset image slot. */
+@Composable
+fun ImagePlaceholder(label: String, modifier: Modifier = Modifier, height: androidx.compose.ui.unit.Dp = 120.dp) {
+    val colors = mockupColors()
+    Box(
+        modifier
+            .fillMaxWidth()
+            .height(height)
+            .background(colors.divider, RoundedCornerShape(10.dp))
+            .border(1.dp, colors.border, RoundedCornerShape(10.dp)),
+        contentAlignment = androidx.compose.ui.Alignment.Center,
+    ) {
+        Text(label, fontSize = 11.sp, color = colors.muted)
+    }
+}
+
+/**
  * A create-form that's collapsed behind a "+ Add X" pill by default, per the
  * mockup's actual rendered screens: "Add client"/"Add supplier" etc. are not
  * always-open inline forms -- they're a small outlined trigger button that
@@ -203,6 +276,78 @@ fun CollapsibleCreateSection(
         Column(Modifier.padding(horizontal = 16.dp, vertical = 4.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             TextButton(onClick = onToggle, modifier = Modifier.align(androidx.compose.ui.Alignment.Start)) { Text("Cancel") }
             MockupCard(content = content)
+        }
+    }
+}
+
+/**
+ * Avatar circle button matching the mockup's avatarStyle (30x30, primaryTint bg,
+ * primaryHover text). Tapping opens a popup with "Sign out" and "Delete account"
+ * matching accountMenuStyle (card bg, bordered, rounded, shadow).
+ */
+@Composable
+fun AccountMenuButton(
+    initial: String,
+    onSignOut: () -> Unit,
+    onDeleteAccount: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val colors = mockupColors()
+    var open by remember { mutableStateOf(false) }
+    Box(modifier) {
+        Box(
+            Modifier
+                .size(30.dp)
+                .background(colors.primaryTint, CircleShape)
+                .clickable { open = !open },
+            contentAlignment = Alignment.Center,
+        ) {
+            Text(
+                initial,
+                color = MaterialTheme.colorScheme.primary,
+                fontSize = 13.sp,
+                fontWeight = FontWeight.Bold,
+            )
+        }
+        if (open) {
+            Popup(
+                alignment = Alignment.TopEnd,
+                onDismissRequest = { open = false },
+                properties = PopupProperties(focusable = true),
+            ) {
+                Column(
+                    Modifier
+                        .padding(top = 36.dp)
+                        .widthIn(min = 180.dp)
+                        .shadow(8.dp, RoundedCornerShape(12.dp))
+                        .background(MaterialTheme.colorScheme.surface, RoundedCornerShape(12.dp))
+                        .border(1.dp, colors.border, RoundedCornerShape(12.dp))
+                        .padding(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(2.dp),
+                ) {
+                    Text(
+                        "Sign out",
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { open = false; onSignOut() }
+                            .padding(8.dp),
+                    )
+                    Divider(color = colors.divider)
+                    Text(
+                        "Delete account",
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = colors.danger,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { open = false; onDeleteAccount() }
+                            .padding(8.dp),
+                    )
+                }
+            }
         }
     }
 }

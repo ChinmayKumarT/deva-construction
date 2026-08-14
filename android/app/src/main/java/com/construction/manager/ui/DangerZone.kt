@@ -8,21 +8,28 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 
 @Composable
-fun DeleteAccountButton(vm: AuthViewModel, modifier: Modifier = Modifier) {
-    var open by remember { mutableStateOf(false) }
+fun DeleteAccountButton(
+    vm: AuthViewModel,
+    modifier: Modifier = Modifier,
+    triggerImmediately: Boolean = false,
+    onDismiss: (() -> Unit)? = null,
+) {
+    var open by remember { mutableStateOf(triggerImmediately) }
     var typed by remember { mutableStateOf("") }
     var busy by remember { mutableStateOf(false) }
     val error by vm.error.collectAsState()
 
-    TextButton(
-        onClick = { open = true },
-        colors = ButtonDefaults.textButtonColors(contentColor = Color(0xFFB00020)),
-        modifier = modifier,
-    ) { Text("Delete account") }
+    if (!triggerImmediately) {
+        TextButton(
+            onClick = { open = true },
+            colors = ButtonDefaults.textButtonColors(contentColor = Color(0xFFB00020)),
+            modifier = modifier,
+        ) { Text("Delete account") }
+    }
 
     if (open) {
         AlertDialog(
-            onDismissRequest = { if (!busy) { open = false; typed = "" } },
+            onDismissRequest = { if (!busy) { open = false; typed = ""; onDismiss?.invoke() } },
             title = { Text("Delete your account?") },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -55,7 +62,7 @@ fun DeleteAccountButton(vm: AuthViewModel, modifier: Modifier = Modifier) {
                 ) { Text(if (busy) "Deleting…" else "Delete") }
             },
             dismissButton = {
-                TextButton(enabled = !busy, onClick = { open = false; typed = "" }) { Text("Cancel") }
+                TextButton(enabled = !busy, onClick = { open = false; typed = ""; onDismiss?.invoke() }) { Text("Cancel") }
             },
         )
     }

@@ -3121,9 +3121,24 @@ fun AdminPersonal(isOwner: Boolean = false) {
     }
 }
 
-// ---------- Reports ----------
+// ---------- Reports & cash flow (combined with tabs per mockup) ----------
 @Composable
-fun AdminReports() {
+fun AdminReportsAndCashFlow() {
+    var tab by remember { mutableStateOf("reports") }
+    Column {
+        ChipRow(Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
+            SelectableChip("Reports", tab == "reports", onClick = { tab = "reports" })
+            SelectableChip("Cash flow", tab == "cashflow", onClick = { tab = "cashflow" })
+        }
+        when (tab) {
+            "reports" -> AdminReports()
+            "cashflow" -> AdminCashFlow()
+        }
+    }
+}
+
+@Composable
+private fun AdminReports() {
     var projects by remember { mutableStateOf<List<ProjectRow>>(emptyList()) }
     var payments by remember { mutableStateOf<List<PaymentRow>>(emptyList()) }
     var materials by remember { mutableStateOf<List<MaterialRow>>(emptyList()) }
@@ -3409,7 +3424,7 @@ private val CashFlowLabourColor = androidx.compose.ui.graphics.Color(0xFF0EA5E9)
 private val CashFlowWagesColor = androidx.compose.ui.graphics.Color(0xFFA855F7)
 
 @Composable
-fun AdminCashFlow() {
+private fun AdminCashFlow() {
     var materials by remember { mutableStateOf<List<MaterialRow>>(emptyList()) }
     var payments by remember { mutableStateOf<List<PaymentRow>>(emptyList()) }
     var attendance by remember { mutableStateOf<List<AttendanceRow>>(emptyList()) }
