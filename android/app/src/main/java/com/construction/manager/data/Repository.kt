@@ -214,6 +214,10 @@ object Repo {
         val totalProjects: Int, val activeProjects: Int, val totalCost: Double,
         val pendingPayments: Double, val materialStock: Double,
         val labourCount: Int, val completion: Double,
+        val overBudgetCount: Int = 0,
+        val nearBudgetCount: Int = 0,
+        val overBudgetNames: List<String> = emptyList(),
+        val nearBudgetNames: List<String> = emptyList(),
     )
     suspend fun adminMetrics(): AdminMetrics {
         // Archived rows are excluded everywhere so the dashboard totals match
@@ -235,19 +239,45 @@ object Repo {
                 filter("archived_at", FilterOperator.IS, "null")
             }
         }.decodeList<PaymentRow>()
-        val materialStock = supabase.from("materials").select {
-            filter {
-                eq("status", "delivered")
-                filter("archived_at", FilterOperator.IS, "null")
-            }
-        }.decodeList<MaterialRow>().sumOf { it.quantity }
-        val labour = supabase.from("labourers").select {
-            filter {
-                eq("active", true)
-                filter("archived_at", FilterOperator.IS, "null")
-            }
-            count(Count.EXACT)
-        }.countOrNull() ?: 0L
+        val allMaterials = supabase.from("materials").select {
+            filter { filter("archived_at", FilterOperator.IS, "null") }
+        }.decodeList<MaterialRow>()
+        val materialStock = allMaterials.filter { it.status == "delivered" }.sumOf { it.quantity }
+        val allPayments = supabase.from("payments").select {
+            filter { filter("archived_at", FilterOperator.IS, "null") }
+        }.decodeList<PaymentRow>()
+        val allAttendance = supabase.from("attendance").select().decodeList<AttendanceRow>()
+        val allLabourers = supabase.from("labourers").select { filter { filter("archived_at", FilterOperator.IS, "null") } }
+            .decodeList<LabourerRow>()
+        val labourerWage = allLabourers.associate { it.id to it.dailyWage }
+        val labour = allLabourers.count { it.active }.toLong()
+
+        val wageFactor = mapOf("present" to 1.0, "half_day" to 0.5, "absent" to 0.0)
+        val spentByProject = mutableMapOf<String, Double>()
+        for (m in allMaterials) {
+            if (m.projectId == null || m.status == "returned") continue
+            spentByProject[m.projectId] = (spentByProject[m.projectId] ?: 0.0) + m.quantity * m.unitCost
+        }
+        for (p in allPayments) {
+            if (p.projectId == null || p.payeeType != "labour" || (p.status != "paid" && p.status != "approved")) continue
+            spentByProject[p.projectId] = (spentByProject[p.projectId] ?: 0.0) + p.amount
+        }
+        for (a in allAttendance) {
+            if (a.projectId == null) continue
+            val w = (wageFactor[a.status] ?: 0.0) * (labourerWage[a.labourerId] ?: 0.0)
+            if (w > 0) spentByProject[a.projectId!!] = (spentByProject[a.projectId!!] ?: 0.0) + w
+        }
+
+        val overNames = mutableListOf<String>()
+        val nearNames = mutableListOf<String>()
+        for (p in projects) {
+            if (p.totalCost <= 0) continue
+            val spent = spentByProject[p.id] ?: 0.0
+            val pct = spent / p.totalCost
+            if (pct >= 1.0) overNames.add(p.name)
+            else if (pct >= 0.8) nearNames.add(p.name)
+        }
+
         return AdminMetrics(
             total.toInt(), active.toInt(),
             projects.sumOf { it.totalCost },
@@ -255,6 +285,10 @@ object Repo {
             materialStock,
             labour.toInt(),
             if (projects.isEmpty()) 0.0 else projects.sumOf { it.completionPct } / projects.size,
+            overBudgetCount = overNames.size,
+            nearBudgetCount = nearNames.size,
+            overBudgetNames = overNames,
+            nearBudgetNames = nearNames,
         )
     }
 

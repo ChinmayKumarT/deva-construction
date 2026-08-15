@@ -23,6 +23,7 @@ import com.construction.manager.ui.AuthViewModel
 import com.construction.manager.ui.DeleteAccountButton
 import com.construction.manager.ui.StatCard
 import com.construction.manager.ui.components.AccountMenuButton
+import com.construction.manager.ui.components.WarningBanner
 import com.construction.manager.ui.money
 import kotlinx.coroutines.launch
 
@@ -245,9 +246,6 @@ fun AdminOverview() {
             err != null -> Text("Error: $err")
             m == null -> CircularProgressIndicator()
             else -> {
-                // Headline metric full-width, the rest paired 2-up so the
-                // dashboard stays compact on a phone instead of a long column
-                // of oversized cards. Mirrors web's grid sm:grid-cols-2.
                 StatCard("Total Cost", money(m!!.totalCost), accent = true)
                 val two = Arrangement.spacedBy(12.dp)
                 Row(horizontalArrangement = two) {
@@ -261,6 +259,16 @@ fun AdminOverview() {
                 Row(horizontalArrangement = two) {
                     StatCard("Labour Count", m!!.labourCount.toString(), Modifier.weight(1f))
                     StatCard("Completion %", "%.1f%%".format(m!!.completion), Modifier.weight(1f))
+                }
+                if (m!!.overBudgetCount > 0) {
+                    WarningBanner(
+                        "${m!!.overBudgetCount} project${if (m!!.overBudgetCount > 1) "s" else ""} over budget: ${m!!.overBudgetNames.joinToString(", ")}",
+                    )
+                }
+                if (m!!.nearBudgetCount > 0) {
+                    WarningBanner(
+                        "${m!!.nearBudgetCount} project${if (m!!.nearBudgetCount > 1) "s" else ""} approaching budget: ${m!!.nearBudgetNames.joinToString(", ")}",
+                    )
                 }
             }
         }

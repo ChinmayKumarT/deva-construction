@@ -89,13 +89,40 @@ export function SubmitButton({ children }: { children: React.ReactNode }) {
 // `accent` calls out the headline figure (e.g. "Total cost" among a row of
 // otherwise-equal stats) with a colored number, not a solid fill -- a full-
 // color tile reads as a marketing stat, not a dashboard figure.
-export function CostBox({ label, value, accent }: { label: string; value: number; accent?: boolean }) {
+// `warn` paints the value amber (80-99% of budget); `danger` paints it red (>=100%).
+export function CostBox({ label, value, accent, warn, danger }: { label: string; value: number; accent?: boolean; warn?: boolean; danger?: boolean }) {
+  const color = danger ? "text-red-600" : warn ? "text-amber-600" : accent ? "text-brand-600" : "text-ink";
+  const border = danger ? "border-red-200" : warn ? "border-amber-200" : "border-[var(--line)]";
   return (
-    <div className="rounded-lg border border-[var(--line)] bg-white p-5 transition hover:border-brand/30 hover:shadow-sm">
+    <div className={`rounded-lg border ${border} bg-white p-5 transition hover:shadow-sm`}>
       <div className="text-[11px] uppercase tracking-[0.12em] text-slate-500">{label}</div>
-      <div className={"mt-2 text-2xl font-semibold tabular-nums " + (accent ? "text-brand-600" : "text-ink")}>
+      <div className={`mt-2 text-2xl font-semibold tabular-nums ${color}`}>
         ₹{value.toLocaleString()}
       </div>
+    </div>
+  );
+}
+
+export function BudgetAlert({ budget, spent }: { budget: number; spent: number }) {
+  if (budget <= 0) return null;
+  const pct = (spent / budget) * 100;
+  if (pct < 80) return null;
+  const over = pct >= 100;
+  return (
+    <div className={`mb-4 flex items-center gap-3 rounded-lg border px-4 py-3 text-sm ${
+      over
+        ? "border-red-200 bg-red-50 text-red-800"
+        : "border-amber-200 bg-amber-50 text-amber-800"
+    }`}>
+      <span className="text-lg">{over ? "⚠" : "⚡"}</span>
+      <span>
+        <span className="font-semibold">
+          {over ? "Over budget" : "Approaching budget"}
+        </span>
+        {" — "}
+        {pct.toFixed(1)}% of ₹{budget.toLocaleString()} spent
+        {over && ` (₹${(spent - budget).toLocaleString()} over)`}
+      </span>
     </div>
   );
 }

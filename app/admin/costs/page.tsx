@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { AdminPage, AdminPageHeader, DataTable } from "@/components/admin/Page";
+import { AdminPage, AdminPageHeader, DataTable, BudgetAlert } from "@/components/admin/Page";
 import { wageForStatus } from "@/lib/wages";
 import { lineTotal } from "@/lib/money";
 
@@ -56,6 +56,8 @@ export default async function CostsPage() {
 
   let totalBudget = 0;
   let totalSpent = 0;
+  const overBudgetProjects: { name: string; budget: number; spent: number }[] = [];
+  const nearBudgetProjects: { name: string; budget: number; spent: number }[] = [];
 
   const rows =
     projects?.map((p) => {
@@ -65,6 +67,11 @@ export default async function CostsPage() {
       totalBudget += budget;
       totalSpent += spent;
       const remaining = budget - spent;
+      if (budget > 0) {
+        const pct = spent / budget;
+        if (pct >= 1) overBudgetProjects.push({ name: p.name, budget, spent });
+        else if (pct >= 0.8) nearBudgetProjects.push({ name: p.name, budget, spent });
+      }
       return [
         p.name,
         p.status,
@@ -80,6 +87,21 @@ export default async function CostsPage() {
   return (
     <AdminPage>
       <AdminPageHeader title="Cost tracking" subtitle="Budget vs spend across all projects." />
+
+      <BudgetAlert budget={totalBudget} spent={totalSpent} />
+
+      {overBudgetProjects.length > 0 && (
+        <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
+          <span className="font-semibold">{overBudgetProjects.length} project{overBudgetProjects.length > 1 ? "s" : ""} over budget:</span>{" "}
+          {overBudgetProjects.map((p) => `${p.name} (${((p.spent / p.budget) * 100).toFixed(0)}%)`).join(", ")}
+        </div>
+      )}
+      {nearBudgetProjects.length > 0 && (
+        <div className="mb-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+          <span className="font-semibold">{nearBudgetProjects.length} project{nearBudgetProjects.length > 1 ? "s" : ""} approaching budget:</span>{" "}
+          {nearBudgetProjects.map((p) => `${p.name} (${((p.spent / p.budget) * 100).toFixed(0)}%)`).join(", ")}
+        </div>
+      )}
 
       <section className="mb-8 grid gap-4 sm:grid-cols-3">
         <Stat label="Total budget" value={`₹${totalBudget.toLocaleString()}`} />

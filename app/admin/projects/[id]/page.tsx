@@ -2,7 +2,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createSupabaseServerClient, getSessionAndRole } from "@/lib/supabase/server";
-import { AdminPage, AdminPageHeader, CostBox } from "@/components/admin/Page";
+import { AdminPage, AdminPageHeader, CostBox, BudgetAlert } from "@/components/admin/Page";
 import { AutoSubmitFileInput } from "@/components/admin/AutoSubmitFileInput";
 import { ArchivedToggle, DeleteForeverButton, RestoreAction } from "@/components/admin/RowActions";
 import { CategoryField } from "@/components/admin/CategoryField";
@@ -94,10 +94,11 @@ export default async function ManageProjectPage({
         }
       />
 
+      <BudgetAlert budget={budget} spent={spent} />
       <div className="mb-6 grid max-w-xl gap-3 sm:grid-cols-3">
         <CostBox label="Budget" value={budget} />
-        <CostBox label="Spent" value={spent} />
-        <CostBox label="Remaining" value={budget - spent} accent />
+        <CostBox label="Spent" value={spent} warn={budget > 0 && spent / budget >= 0.8 && spent / budget < 1} danger={budget > 0 && spent >= budget} />
+        <CostBox label="Remaining" value={budget - spent} accent={budget - spent >= 0} danger={budget - spent < 0} />
       </div>
 
       <div className="mb-6 flex max-w-xl items-center justify-between rounded-xl border border-slate-200 bg-white p-4">

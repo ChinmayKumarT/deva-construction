@@ -357,6 +357,15 @@ fun AdminProjects(isOwner: Boolean = false) {
                     .sumOf { roundMoney((ReportWageFactor[it.status] ?: 0.0) * (labourerWage[it.labourerId] ?: 0.0)) }
             }
             val spent = materialsCost + labourPaid + wages
+            val budgetPct = if (p.totalCost > 0) spent / p.totalCost * 100 else 0.0
+            if (p.totalCost > 0 && budgetPct >= 80) {
+                val over = budgetPct >= 100
+                WarningBanner(
+                    if (over) "Over budget — ${"%.1f".format(budgetPct)}% of ${money(p.totalCost)} spent (${money(spent - p.totalCost)} over)"
+                    else "Approaching budget — ${"%.1f".format(budgetPct)}% of ${money(p.totalCost)} spent",
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+                )
+            }
             Row(
                 Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
