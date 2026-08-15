@@ -2,6 +2,7 @@ import "./globals.css";
 import type { Metadata, Viewport } from "next";
 import { Fraunces } from "next/font/google";
 import { ServiceWorkerRegister } from "@/components/ServiceWorkerRegister";
+import { NavProgress } from "@/components/NavProgress";
 
 const fraunces = Fraunces({
   subsets: ["latin"],
@@ -36,6 +37,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en" className={fraunces.variable}>
       <body>
+        <NavProgress />
         {children}
         <ServiceWorkerRegister />
       </body>
