@@ -1,0 +1,43 @@
+name: Daily backup
+
+on:
+  schedule:
+    - cron: "30 18 * * *" # 00:00 IST (midnight Bangalore)
+  workflow_dispatch: # manual trigger from GitHub UI
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: backups
+          fetch-depth: 1
+
+      - name: Download backup
+        run: |
+          DATE=$(date -u +%Y-%m-%d)
+          mkdir -p "$DATE"
+          curl -fsSL \
+            -H "Authorization: Bearer ${{ secrets.BACKUP_API_SECRET }}" \
+            "${{ vars.APP_URL }}/api/backup?format=json" \
+            -o "$DATE/backup.json"
+          echo "Backup saved: $(wc -c < "$DATE/backup.json") bytes"
+
+      - name: Prune backups older than 30 days
+        run: |
+          CUTOFF=$(date -u -d "30 days ago" +%Y-%m-%d)
+          for dir in 20??-??-??; do
+            [ -d "$dir" ] && [ "$dir" \< "$CUTOFF" ] && rm -rf "$dir" && echo "Pruned $dir"
+          done
+
+      - name: Commit and push
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git diff --cached --quiet && echo "No changes" && exit 0
+          DATE=$(date -u +%Y-%m-%d)
+          git commit -m "Backup $DATE"
+          git push
+

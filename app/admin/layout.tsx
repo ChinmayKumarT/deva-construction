@@ -29,7 +29,10 @@ function buildGroups(isOwner: boolean): NavGroup[] {
         { href: "/admin/reports", label: "Reports", icon: "reports" },
         { href: "/admin/cashflow", label: "Cash flow", icon: "reports" },
         ...(isOwner
-          ? [{ href: "/admin/team", label: "Team access", icon: "team" as const }]
+          ? [
+              { href: "/admin/team", label: "Team access", icon: "team" as const },
+              { href: "/admin/backup", label: "Backup", icon: "reports" as const },
+            ]
           : []),
       ],
     },
