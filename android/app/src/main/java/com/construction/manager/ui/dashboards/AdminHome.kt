@@ -14,7 +14,9 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.construction.manager.data.ProjectRow
 import com.construction.manager.data.Repo
 import com.construction.manager.ui.AuthViewModel
@@ -157,13 +159,32 @@ fun AdminHome(vm: AuthViewModel, isAdmin: Boolean = true, isOwner: Boolean = fal
             topBar = {
                 TopAppBar(
                     title = {
-                        Text(
-                            section.label,
-                            style = MaterialTheme.typography.titleLarge.copy(
-                                fontFamily = com.construction.manager.ui.theme.Fraunces,
-                                fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold,
-                            ),
-                        )
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(
+                                section.label,
+                                style = MaterialTheme.typography.titleLarge.copy(
+                                    fontFamily = com.construction.manager.ui.theme.Fraunces,
+                                    fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold,
+                                ),
+                            )
+                            Spacer(Modifier.width(10.dp))
+                            Box(
+                                Modifier
+                                    .background(
+                                        MaterialTheme.colorScheme.primaryContainer,
+                                        RoundedCornerShape(6.dp),
+                                    )
+                                    .padding(horizontal = 8.dp, vertical = 3.dp),
+                            ) {
+                                Text(
+                                    if (isAdmin) "Admin" else "Manager",
+                                    fontSize = 11.sp,
+                                    fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.onPrimaryContainer,
+                                    letterSpacing = 0.5.sp,
+                                )
+                            }
+                        }
                     },
                     navigationIcon = {
                         IconButton(onClick = { scope.launch { drawerState.open() } }) {
@@ -178,6 +199,9 @@ fun AdminHome(vm: AuthViewModel, isAdmin: Boolean = true, isOwner: Boolean = fal
                             modifier = Modifier.padding(end = 8.dp),
                         )
                     },
+                    colors = androidx.compose.material3.TopAppBarDefaults.topAppBarColors(
+                        containerColor = MaterialTheme.colorScheme.surface,
+                    ),
                 )
             },
         ) { padding ->

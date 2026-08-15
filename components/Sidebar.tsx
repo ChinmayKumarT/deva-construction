@@ -59,7 +59,7 @@ export function Sidebar({
           <Icon name="menu" size={22} />
         </button>
         {expanded && (
-          <Link href={homeHref} className="ml-1 flex items-baseline gap-1.5">
+          <Link href={homeHref} className="ml-1 flex items-center gap-2">
             <Image
               src="/icon.png" alt="" width={28} height={28}
               className="rounded-md" style={{ objectFit: "contain" }}
@@ -67,7 +67,9 @@ export function Sidebar({
             <span className="text-[15px] font-semibold leading-none tracking-tight text-[var(--ink)]">
               Deva <span className="font-normal text-slate-500">Construction</span>
             </span>
-            <sup className="ml-0.5 text-[10px] font-medium uppercase tracking-wider text-slate-400">{role}</sup>
+            <span className="ml-0.5 inline-flex items-center rounded-md bg-emerald-50 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-emerald-700 ring-1 ring-inset ring-emerald-200">
+              {role}
+            </span>
           </Link>
         )}
       </div>
@@ -86,8 +88,10 @@ export function Sidebar({
             <ExpandedAction icon="signout" label="Sign out" action={signOut} />
             <ExpandedDelete />
             <div className="px-3 pt-3 pb-1">
-              <p className="text-[10px] uppercase tracking-[0.14em] text-slate-400 capitalize">{role}</p>
-              <p className="truncate text-xs text-slate-600 mt-0.5">{email}</p>
+              <span className="inline-flex items-center rounded-md bg-emerald-50 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-emerald-700 ring-1 ring-inset ring-emerald-200">
+                {role}
+              </span>
+              <p className="truncate text-xs text-slate-600 mt-1">{email}</p>
             </div>
           </>
         ) : (
