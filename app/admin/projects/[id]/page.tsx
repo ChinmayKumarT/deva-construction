@@ -9,6 +9,7 @@ import { CategoryField } from "@/components/admin/CategoryField";
 import { wageForStatus } from "@/lib/wages";
 import { lineTotal } from "@/lib/money";
 import { formatDateOnly } from "@/lib/dateFormat";
+import { DownloadInvoiceButton, type InvoiceData } from "@/components/admin/InvoicePdf";
 import {
   archiveChangeOrder,
   archiveProject,
@@ -40,12 +41,13 @@ export default async function ManageProjectPage({
   const [
     { data: project }, { data: materials }, { data: payments }, { data: attendance }, { data: labourers },
     { data: changeOrders }, { count: archivedChangeOrderCount },
+    { data: materialDetails }, { data: paymentDetails }, { data: clientPayments },
   ] =
     await Promise.all([
       supabase
         .from("projects")
         .select(
-          "id, name, status, current_stage, completion_pct, total_cost, end_date, original_end_date, extension_reason, next_payment_date, next_payment_amount, agreement_image_url, archived_at, clients(id, name, email, phone)",
+          "id, name, status, current_stage, completion_pct, total_cost, end_date, original_end_date, extension_reason, next_payment_date, next_payment_amount, agreement_image_url, archived_at, address, clients(id, name, email, phone)",
         )
         .eq("id", params.id)
         .single(),
@@ -57,6 +59,9 @@ export default async function ManageProjectPage({
         ? supabase.from("project_change_orders").select("id, description, work_category, extra_cost, created_at").eq("project_id", params.id).not("archived_at", "is", null).order("created_at", { ascending: false })
         : supabase.from("project_change_orders").select("id, description, work_category, extra_cost, created_at").eq("project_id", params.id).is("archived_at", null).order("created_at", { ascending: false }),
       supabase.from("project_change_orders").select("id", { count: "exact", head: true }).eq("project_id", params.id).not("archived_at", "is", null),
+      supabase.from("materials").select("name, quantity, unit, unit_cost, status").eq("project_id", params.id).is("archived_at", null).neq("status", "returned"),
+      supabase.from("payments").select("amount, status, payee_type, description").eq("project_id", params.id).is("archived_at", null).eq("payee_type", "labour").in("status", ["paid", "approved"]),
+      supabase.from("client_payments").select("amount").eq("project_id", params.id).is("archived_at", null),
     ]);
   if (!project) notFound();
 
@@ -81,11 +86,43 @@ export default async function ManageProjectPage({
   const spent = materialsCost + labourPaid + wages;
   const budget = Number(project.total_cost);
 
+  const amountPaid = (clientPayments ?? []).reduce((s, r) => s + Number(r.amount ?? 0), 0);
+  const gstRate = 18;
+  const subtotal = spent;
+  const gstAmount = Math.round(subtotal * gstRate / 100);
+  const grandTotal = subtotal + gstAmount;
+  const invoiceData: InvoiceData = {
+    invoiceNo: `DC-${project.id.slice(0, 8).toUpperCase()}`,
+    date: new Date().toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }),
+    project: { name: project.name, address: project.address ?? null },
+    // @ts-expect-error relation
+    client: project.clients ? { name: project.clients.name, email: project.clients.email, phone: project.clients.phone } : null,
+    materials: (materialDetails ?? []).map((m) => ({
+      name: m.name, qty: Number(m.quantity), unit: m.unit ?? "unit",
+      unitCost: Number(m.unit_cost), total: lineTotal(m.quantity, m.unit_cost),
+    })),
+    labourPayments: (paymentDetails ?? []).map((p) => ({
+      description: p.description ?? "Labour payment", amount: Number(p.amount),
+    })),
+    changeOrders: (changeOrders ?? []).map((c) => ({
+      description: c.description, amount: Number(c.extra_cost),
+    })),
+    subtotal,
+    gstRate,
+    gstAmount,
+    grandTotal,
+    amountPaid,
+    amountDue: grandTotal - amountPaid,
+  };
+
   return (
     <AdminPage>
-      <Link href="/admin/projects" className="mb-2 inline-block text-sm text-slate-600 hover:underline">
-        ← Projects
-      </Link>
+      <div className="mb-2 flex items-center justify-between max-w-xl">
+        <Link href="/admin/projects" className="inline-block text-sm text-slate-600 hover:underline">
+          ← Projects
+        </Link>
+        <DownloadInvoiceButton data={invoiceData} />
+      </div>
       <AdminPageHeader
         title={project.name}
         subtitle={

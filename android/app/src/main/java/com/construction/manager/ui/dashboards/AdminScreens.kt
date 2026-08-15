@@ -382,6 +382,29 @@ fun AdminProjects(isOwner: Boolean = false) {
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(horizontal = 16.dp),
             )
+            val ctx = androidx.compose.ui.platform.LocalContext.current
+            val projMaterials = remember(materials, p) { materials.filter { it.projectId == p.id && it.status != "returned" } }
+            val projLabour = remember(payments, p) { payments.filter { it.projectId == p.id && it.payeeType == "labour" && it.status in listOf("paid", "approved") } }
+            val projChangeOrders = remember(p) {
+                emptyList<com.construction.manager.util.PdfExporter.InvoiceChangeOrder>()
+            }
+            OutlinedButton(
+                onClick = {
+                    val gstRate = 18
+                    val gstAmount = Math.round(spent * gstRate / 100.0).toDouble()
+                    val grand = spent + gstAmount
+                    val uri = com.construction.manager.util.PdfExporter.exportInvoice(
+                        ctx, "DC-${p.id.take(8).uppercase()}", java.text.SimpleDateFormat("dd MMM yyyy", java.util.Locale.US).format(java.util.Date()),
+                        p.name, null, client?.name, client?.email, client?.phone,
+                        projMaterials.map { com.construction.manager.util.PdfExporter.InvoiceMaterial(it.name, it.quantity, it.unit, it.unitCost, it.quantity * it.unitCost) },
+                        projLabour.map { com.construction.manager.util.PdfExporter.InvoiceLabour(it.description ?: "Labour payment", it.amount) },
+                        projChangeOrders,
+                        spent, gstRate, gstAmount, grand, 0.0, grand,
+                    )
+                    com.construction.manager.util.PdfExporter.share(ctx, uri)
+                },
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+            ) { Text("Generate Invoice") }
 
             val projectTabs = listOf("overview" to "Overview", "materials" to "Materials",
                 "payments" to "Payments", "updates" to "Updates")

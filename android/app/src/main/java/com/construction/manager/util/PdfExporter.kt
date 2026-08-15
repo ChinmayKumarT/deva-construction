@@ -436,6 +436,173 @@ object PdfExporter {
         }
     }
 
+    data class InvoiceMaterial(val name: String, val qty: Double, val unit: String, val unitCost: Double, val total: Double)
+    data class InvoiceLabour(val description: String, val amount: Double)
+    data class InvoiceChangeOrder(val description: String, val amount: Double)
+
+    fun exportInvoice(
+        context: Context,
+        invoiceNo: String,
+        date: String,
+        projectName: String,
+        projectAddress: String?,
+        clientName: String?,
+        clientEmail: String?,
+        clientPhone: String?,
+        materials: List<InvoiceMaterial>,
+        labourPayments: List<InvoiceLabour>,
+        changeOrders: List<InvoiceChangeOrder>,
+        subtotal: Double,
+        gstRate: Int,
+        gstAmount: Double,
+        grandTotal: Double,
+        amountPaid: Double,
+        amountDue: Double,
+    ): Uri {
+        val fileName = "Invoice-$invoiceNo.pdf"
+        return sharableUri(context, fileName) { file ->
+            val doc = PdfDocument()
+            val w = PageWriter(doc, "")
+            w.newPage()
+
+            val headerBg = Paint().apply { color = BrandColor }
+            w.canvas.drawRect(0f, 0f, PAGE_W.toFloat(), 80f, headerBg)
+            val whiteBold = Paint().apply { color = Color.WHITE; textSize = 20f; isFakeBoldText = true }
+            w.canvas.drawText("DEVA CONSTRUCTION", MARGIN, 32f, whiteBold)
+            val whiteSmall = Paint().apply { color = Color.WHITE; textSize = 9f }
+            w.canvas.drawText("Bangalore, Karnataka, India", MARGIN, 48f, whiteSmall)
+            w.canvas.drawText("thedeva.co@gmail.com", MARGIN, 60f, whiteSmall)
+
+            val invTitle = Paint().apply { color = Color.WHITE; textSize = 22f; isFakeBoldText = true; textAlign = Paint.Align.RIGHT }
+            w.canvas.drawText("INVOICE", PAGE_W - MARGIN, 32f, invTitle)
+            val invDetail = Paint().apply { color = Color.WHITE; textSize = 10f; textAlign = Paint.Align.RIGHT }
+            w.canvas.drawText("#$invoiceNo", PAGE_W - MARGIN, 48f, invDetail)
+            w.canvas.drawText("Date: $date", PAGE_W - MARGIN, 60f, invDetail)
+
+            w.y = 100f
+            val sectionHead = Paint().apply { color = BrandColor; textSize = 10f; isFakeBoldText = true }
+            val bodyPaint = Paint().apply { color = TextColor; textSize = 10f }
+
+            w.canvas.drawText("BILL TO", MARGIN, w.y, sectionHead)
+            w.canvas.drawText("PROJECT", PAGE_W / 2f, w.y, sectionHead)
+            w.y += 14f
+            w.canvas.drawText(clientName ?: "—", MARGIN, w.y, bodyPaint)
+            clientEmail?.let { w.canvas.drawText(it, MARGIN, w.y + 12f, bodyPaint) }
+            clientPhone?.let { w.canvas.drawText(it, MARGIN, w.y + 24f, bodyPaint) }
+            w.canvas.drawText(projectName, PAGE_W / 2f, w.y, bodyPaint)
+            projectAddress?.let { w.canvas.drawText(it, PAGE_W / 2f, w.y + 12f, bodyPaint) }
+            w.y += 46f
+
+            val linePaint = Paint().apply { color = Color.parseColor("#E5E7EB"); strokeWidth = 1f }
+            w.canvas.drawLine(MARGIN, w.y, PAGE_W - MARGIN, w.y, linePaint)
+            w.y += 16f
+
+            val headBg = Paint().apply { color = BrandColor }
+            val headText = Paint().apply { color = Color.WHITE; textSize = 9f; isFakeBoldText = true }
+            val matCols = listOf(30f, 160f, 50f, 50f, 80f, 80f)
+
+            if (materials.isNotEmpty()) {
+                w.canvas.drawText("Materials", MARGIN, w.y, sectionHead)
+                w.y += 10f
+                w.canvas.drawRect(MARGIN, w.y - 10f, PAGE_W - MARGIN, w.y + 4f, headBg)
+                val headers = listOf("#" to matCols[0], "Item" to matCols[1], "Qty" to matCols[2], "Unit" to matCols[3], "Rate" to matCols[4], "Amount" to matCols[5])
+                var x = MARGIN
+                headers.forEach { (label, width) -> w.canvas.drawText(label, x, w.y, headText); x += width }
+                w.y += 16f
+                materials.forEachIndexed { i, m ->
+                    w.ensureSpace(16f)
+                    if (i % 2 == 1) {
+                        val stripe = Paint().apply { color = Color.parseColor("#F8FAFC") }
+                        w.canvas.drawRect(MARGIN, w.y - 10f, PAGE_W - MARGIN, w.y + 4f, stripe)
+                    }
+                    drawTableRow(w.canvas, w.y, listOf(
+                        "${i + 1}" to matCols[0], m.name to matCols[1], "%,.0f".format(m.qty) to matCols[2],
+                        m.unit to matCols[3], money(m.unitCost) to matCols[4], money(m.total) to matCols[5],
+                    ))
+                    w.y += 16f
+                }
+                w.y += 12f
+            }
+
+            if (labourPayments.isNotEmpty()) {
+                w.ensureSpace(40f)
+                w.canvas.drawText("Labour Payments", MARGIN, w.y, sectionHead)
+                w.y += 10f
+                w.canvas.drawRect(MARGIN, w.y - 10f, PAGE_W - MARGIN, w.y + 4f, headBg)
+                var x = MARGIN
+                listOf("#" to 30f, "Description" to 350f, "Amount" to 100f).forEach { (l, cw) -> w.canvas.drawText(l, x, w.y, headText); x += cw }
+                w.y += 16f
+                labourPayments.forEachIndexed { i, l ->
+                    w.ensureSpace(16f)
+                    drawTableRow(w.canvas, w.y, listOf("${i + 1}" to 30f, l.description to 350f, money(l.amount) to 100f))
+                    w.y += 16f
+                }
+                w.y += 12f
+            }
+
+            if (changeOrders.isNotEmpty()) {
+                w.ensureSpace(40f)
+                w.canvas.drawText("Change Orders", MARGIN, w.y, sectionHead)
+                w.y += 10f
+                w.canvas.drawRect(MARGIN, w.y - 10f, PAGE_W - MARGIN, w.y + 4f, headBg)
+                var x = MARGIN
+                listOf("#" to 30f, "Description" to 350f, "Amount" to 100f).forEach { (l, cw) -> w.canvas.drawText(l, x, w.y, headText); x += cw }
+                w.y += 16f
+                changeOrders.forEachIndexed { i, c ->
+                    w.ensureSpace(16f)
+                    drawTableRow(w.canvas, w.y, listOf("${i + 1}" to 30f, c.description to 350f, money(c.amount) to 100f))
+                    w.y += 16f
+                }
+                w.y += 12f
+            }
+
+            w.ensureSpace(120f)
+            val summaryX = PAGE_W - 240f
+            val summaryLabel = Paint().apply { color = Color.GRAY; textSize = 10f }
+            val summaryVal = Paint().apply { color = TextColor; textSize = 10f; textAlign = Paint.Align.RIGHT }
+
+            w.canvas.drawText("Subtotal", summaryX, w.y, summaryLabel)
+            w.canvas.drawText(money(subtotal), PAGE_W - MARGIN, w.y, summaryVal)
+            w.y += 18f
+            w.canvas.drawText("GST ($gstRate%)", summaryX, w.y, summaryLabel)
+            w.canvas.drawText(money(gstAmount), PAGE_W - MARGIN, w.y, summaryVal)
+            w.y += 18f
+
+            val greenLine = Paint().apply { color = BrandColor; strokeWidth = 2f }
+            w.canvas.drawLine(summaryX, w.y - 4f, PAGE_W - MARGIN, w.y - 4f, greenLine)
+            w.y += 12f
+
+            val totalLabel = Paint().apply { color = TextColor; textSize = 13f; isFakeBoldText = true }
+            val totalVal = Paint().apply { color = TextColor; textSize = 13f; isFakeBoldText = true; textAlign = Paint.Align.RIGHT }
+            w.canvas.drawText("Grand Total", summaryX, w.y, totalLabel)
+            w.canvas.drawText(money(grandTotal), PAGE_W - MARGIN, w.y, totalVal)
+            w.y += 20f
+
+            w.canvas.drawText("Amount Paid", summaryX, w.y, summaryLabel)
+            w.canvas.drawText(money(amountPaid), PAGE_W - MARGIN, w.y, summaryVal)
+            w.y += 18f
+
+            val dueColor = if (amountDue > 0) OverBudgetColor else BrandColor
+            val dueLabel = Paint().apply { color = dueColor; textSize = 11f; isFakeBoldText = true }
+            val dueVal = Paint().apply { color = dueColor; textSize = 11f; isFakeBoldText = true; textAlign = Paint.Align.RIGHT }
+            w.canvas.drawText("Amount Due", summaryX, w.y, dueLabel)
+            w.canvas.drawText(money(amountDue), PAGE_W - MARGIN, w.y, dueVal)
+
+            w.y += 30f
+            if (w.y < PAGE_H - 60) {
+                w.canvas.drawLine(MARGIN, w.y, PAGE_W - MARGIN, w.y, linePaint)
+                w.y += 14f
+                val footer = Paint().apply { color = Color.GRAY; textSize = 9f }
+                w.canvas.drawText("Thank you for your business.", MARGIN, w.y, footer)
+                w.canvas.drawText("Deva Construction · Bangalore, India", MARGIN, w.y + 12f, footer)
+            }
+
+            w.finish()
+            FileOutputStream(file).use { doc.writeTo(it) }
+            doc.close()
+        }
+    }
+
     suspend fun downloadBitmap(url: String): android.graphics.Bitmap? =
         kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
             try {
