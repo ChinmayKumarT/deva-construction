@@ -37,7 +37,7 @@ export default function BackupButton() {
       <button
         onClick={download}
         disabled={busy}
-        className="px-5 py-2.5 rounded-lg font-semibold text-sm text-white bg-[var(--primary)] hover:opacity-90 disabled:opacity-50 transition-opacity"
+        className="px-5 py-2.5 rounded-lg font-semibold text-sm bg-emerald-600 text-white hover:bg-emerald-700 disabled:opacity-50 transition-colors"
       >
         {busy ? "Preparing backup…" : "Download backup"}
       </button>
