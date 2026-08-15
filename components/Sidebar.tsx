@@ -10,7 +10,7 @@ export type IconName =
   | "overview" | "projects" | "clients" | "suppliers" | "labourers"
   | "materials" | "costs" | "attendance" | "payments" | "updates" | "reports"
   | "menu" | "signout" | "trash" | "home" | "delivery" | "bill" | "wallet"
-  | "calendar-check" | "photo" | "team";
+  | "calendar-check" | "photo" | "team" | "search";
 
 export type NavItem = { href: string; label: string; icon: IconName };
 export type NavGroup = { title?: string; items: NavItem[] };
@@ -338,5 +338,7 @@ function Icon({ name, size = 18 }: { name: IconName; size?: number }) {
       return (<svg {...props}><path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M5 6l1 14a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2l1-14"/></svg>);
     case "team":
       return (<svg {...props}><circle cx="9" cy="8" r="3"/><path d="M3 21c0-3.5 3-5.5 6-5.5s6 2 6 5.5"/><circle cx="18" cy="9" r="2.2"/><path d="M15.5 15.2c1.8.4 3.5 1.8 3.5 4.3"/></svg>);
+    case "search":
+      return (<svg {...props}><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>);
   }
 }

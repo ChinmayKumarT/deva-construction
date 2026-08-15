@@ -3,7 +3,10 @@ import { Sidebar, type NavGroup } from "@/components/Sidebar";
 
 function buildGroups(isOwner: boolean): NavGroup[] {
   return [
-    { items: [{ href: "/admin", label: "Overview", icon: "overview" }] },
+    { items: [
+      { href: "/admin", label: "Overview", icon: "overview" },
+      { href: "/admin/search", label: "Search", icon: "search" },
+    ] },
     {
       title: "Manage",
       items: [

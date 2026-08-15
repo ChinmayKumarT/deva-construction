@@ -29,6 +29,7 @@ import kotlinx.coroutines.launch
 
 enum class AdminSection(val label: String) {
     Overview("Overview"),
+    Search("Search"),
     Projects("Projects"),
     Clients("Clients"),
     Suppliers("Suppliers"),
@@ -212,6 +213,7 @@ fun AdminHome(vm: AuthViewModel, isAdmin: Boolean = true, isOwner: Boolean = fal
             Box(Modifier.padding(padding)) {
                 when (section) {
                     AdminSection.Overview -> AdminOverview()
+                    AdminSection.Search -> AdminSearch(onNavigateToProject = { navigateTo(AdminSection.Projects) })
                     AdminSection.Projects -> AdminProjects(isOwner)
                     AdminSection.Clients -> AdminClients(isOwner)
                     AdminSection.Suppliers -> AdminSuppliers(isOwner)
@@ -270,6 +272,105 @@ fun AdminOverview() {
                         "${m!!.nearBudgetCount} project${if (m!!.nearBudgetCount > 1) "s" else ""} approaching budget: ${m!!.nearBudgetNames.joinToString(", ")}",
                     )
                 }
+            }
+        }
+    }
+}
+
+@Composable
+fun AdminSearch(onNavigateToProject: () -> Unit = {}) {
+    var query by remember { mutableStateOf("") }
+    var projects by remember { mutableStateOf<List<ProjectRow>>(emptyList()) }
+    var clients by remember { mutableStateOf<List<com.construction.manager.data.ClientRow>>(emptyList()) }
+    var suppliers by remember { mutableStateOf<List<com.construction.manager.data.SupplierRow>>(emptyList()) }
+    var labourers by remember { mutableStateOf<List<com.construction.manager.data.LabourerRow>>(emptyList()) }
+    var loaded by remember { mutableStateOf(false) }
+
+    LaunchedEffect(Unit) {
+        try {
+            projects = Repo.listProjects()
+            clients = Repo.listClients()
+            suppliers = Repo.listSuppliers()
+            labourers = Repo.listLabourers()
+            loaded = true
+        } catch (_: Exception) { loaded = true }
+    }
+
+    Column(Modifier.fillMaxSize().padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        OutlinedTextField(
+            value = query,
+            onValueChange = { query = it },
+            label = { Text("Search projects, clients, suppliers, labour...") },
+            singleLine = true,
+            modifier = Modifier.fillMaxWidth(),
+        )
+
+        if (!loaded) {
+            CircularProgressIndicator()
+            return@Column
+        }
+
+        val q = query.trim().lowercase()
+        if (q.length < 2) {
+            Text("Type at least 2 characters to search.", style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant)
+            return@Column
+        }
+
+        val matchedProjects = projects.filter { it.name.lowercase().contains(q) }
+        val matchedClients = clients.filter { it.name.lowercase().contains(q) || it.email?.lowercase()?.contains(q) == true }
+        val matchedSuppliers = suppliers.filter { it.name.lowercase().contains(q) || it.email?.lowercase()?.contains(q) == true }
+        val matchedLabourers = labourers.filter { it.name.lowercase().contains(q) || it.category?.lowercase()?.contains(q) == true }
+        val total = matchedProjects.size + matchedClients.size + matchedSuppliers.size + matchedLabourers.size
+
+        if (total == 0) {
+            Text("No results for \"$q\".", style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant)
+            return@Column
+        }
+
+        Text("$total result${if (total != 1) "s" else ""}", style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant)
+
+        Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            matchedProjects.forEach { p ->
+                SearchResultCard("Project", p.name, "${p.status} · ${p.currentStage ?: "no stage"}")
+            }
+            matchedClients.forEach { c ->
+                SearchResultCard("Client", c.name, listOfNotNull(c.email, c.phone).joinToString(" · ").ifEmpty { "No contact" })
+            }
+            matchedSuppliers.forEach { s ->
+                SearchResultCard("Supplier", s.name, listOfNotNull(s.email, s.phone).joinToString(" · ").ifEmpty { "No contact" })
+            }
+            matchedLabourers.forEach { l ->
+                SearchResultCard("Labour", l.name, listOfNotNull(l.category, l.phone).joinToString(" · ").ifEmpty { "No details" })
+            }
+        }
+    }
+}
+
+@Composable
+private fun SearchResultCard(type: String, title: String, subtitle: String) {
+    Surface(
+        shape = RoundedCornerShape(10.dp),
+        tonalElevation = 1.dp,
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            Box(
+                Modifier.background(MaterialTheme.colorScheme.secondaryContainer, RoundedCornerShape(6.dp))
+                    .padding(horizontal = 8.dp, vertical = 3.dp),
+            ) {
+                Text(type, fontSize = 10.sp, fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSecondaryContainer)
+            }
+            Column(Modifier.weight(1f)) {
+                Text(title, style = MaterialTheme.typography.titleSmall, maxLines = 1,
+                    overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+                Text(subtitle, style = MaterialTheme.typography.bodySmall, maxLines = 1,
+                    overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
     }
