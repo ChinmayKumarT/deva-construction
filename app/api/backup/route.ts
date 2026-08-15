@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSessionAndRole } from "@/lib/supabase/server";
 import { generateFullBackup } from "@/lib/backup";
-import JSZip from "jszip";
+import * as XLSX from "xlsx";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -30,20 +30,31 @@ export async function GET(req: NextRequest) {
     return NextResponse.json(backup);
   }
 
-  const zip = new JSZip();
-  zip.file("metadata.json", JSON.stringify(backup.metadata, null, 2));
-  zip.file("storage-manifest.json", JSON.stringify(backup.storageManifest, null, 2));
+  const wb = XLSX.utils.book_new();
+
   for (const [table, rows] of Object.entries(backup.tables)) {
-    zip.file(`${table}.json`, JSON.stringify(rows, null, 2));
+    const ws = XLSX.utils.json_to_sheet(rows as Record<string, unknown>[]);
+    XLSX.utils.book_append_sheet(wb, ws, table.slice(0, 31));
   }
 
+  const manifestWs = XLSX.utils.json_to_sheet(backup.storageManifest);
+  XLSX.utils.book_append_sheet(wb, manifestWs, "storage_manifest");
+
+  const metaRows = Object.entries(backup.metadata.tables).map(([t, c]) => ({
+    table: t,
+    rows: c,
+  }));
+  metaRows.push({ table: "storage_files", rows: backup.metadata.storageFiles });
+  const metaWs = XLSX.utils.json_to_sheet(metaRows);
+  XLSX.utils.book_append_sheet(wb, metaWs, "metadata");
+
+  const buf = XLSX.write(wb, { type: "buffer", bookType: "xlsx" });
   const date = new Date().toISOString().slice(0, 10);
-  const buf = await zip.generateAsync({ type: "arraybuffer" });
 
   return new Response(buf, {
     headers: {
-      "Content-Type": "application/zip",
-      "Content-Disposition": `attachment; filename="deva-backup-${date}.zip"`,
+      "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      "Content-Disposition": `attachment; filename="deva-backup-${date}.xlsx"`,
     },
   });
 }

@@ -61,19 +61,24 @@ export async function generateFullBackup(): Promise<BackupResult> {
   }
 
   const storageManifest: { name: string; url: string }[] = [];
-  const { data: files } = await supabase.storage
-    .from("project-images")
-    .list("", { limit: 10000 });
-  if (files) {
-    for (const f of files) {
-      if (f.name) {
+  async function listRecursive(prefix: string) {
+    const { data: items } = await supabase.storage
+      .from("project-images")
+      .list(prefix, { limit: 10000 });
+    if (!items) return;
+    for (const item of items) {
+      const path = prefix ? `${prefix}/${item.name}` : item.name;
+      if (item.metadata) {
         const { data: urlData } = supabase.storage
           .from("project-images")
-          .getPublicUrl(f.name);
-        storageManifest.push({ name: f.name, url: urlData.publicUrl });
+          .getPublicUrl(path);
+        storageManifest.push({ name: path, url: urlData.publicUrl });
+      } else {
+        await listRecursive(path);
       }
     }
   }
+  await listRecursive("");
 
   return {
     metadata: {

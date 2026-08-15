@@ -20,7 +20,7 @@ export default function BackupButton() {
       const a = document.createElement("a");
       a.href = url;
       const date = new Date().toISOString().slice(0, 10);
-      a.download = `deva-backup-${date}.zip`;
+      a.download = `deva-backup-${date}.xlsx`;
       document.body.appendChild(a);
       a.click();
       a.remove();
