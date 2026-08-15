@@ -162,9 +162,12 @@ fun AdminHome(vm: AuthViewModel, isAdmin: Boolean = true, isOwner: Boolean = fal
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Text(
                                 section.label,
+                                maxLines = 1,
+                                overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                                modifier = Modifier.weight(1f, fill = false),
                                 style = MaterialTheme.typography.titleLarge.copy(
                                     fontFamily = com.construction.manager.ui.theme.Fraunces,
-                                    fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold,
+                                    fontWeight = FontWeight.SemiBold,
                                 ),
                             )
                             Spacer(Modifier.width(10.dp))
@@ -179,7 +182,7 @@ fun AdminHome(vm: AuthViewModel, isAdmin: Boolean = true, isOwner: Boolean = fal
                                 Text(
                                     if (isAdmin) "Admin" else "Manager",
                                     fontSize = 11.sp,
-                                    fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
+                                    fontWeight = FontWeight.Bold,
                                     color = MaterialTheme.colorScheme.onPrimaryContainer,
                                     letterSpacing = 0.5.sp,
                                 )

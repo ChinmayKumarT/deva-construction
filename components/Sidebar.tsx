@@ -28,6 +28,7 @@ export function Sidebar({
 }) {
   const [expanded, setExpanded] = useState(false);
   const rail = groups.flatMap((g) => g.items);
+  const roleBadgeCls = "inline-flex items-center rounded-md bg-emerald-50 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-emerald-700 ring-1 ring-inset ring-emerald-200";
 
   return (
     <>
@@ -67,7 +68,7 @@ export function Sidebar({
             <span className="text-[15px] font-semibold leading-none tracking-tight text-[var(--ink)]">
               Deva <span className="font-normal text-slate-500">Construction</span>
             </span>
-            <span className="ml-0.5 inline-flex items-center rounded-md bg-emerald-50 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-emerald-700 ring-1 ring-inset ring-emerald-200">
+            <span className={"ml-0.5 " + roleBadgeCls}>
               {role}
             </span>
           </Link>
@@ -88,7 +89,7 @@ export function Sidebar({
             <ExpandedAction icon="signout" label="Sign out" action={signOut} />
             <ExpandedDelete />
             <div className="px-3 pt-3 pb-1">
-              <span className="inline-flex items-center rounded-md bg-emerald-50 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-emerald-700 ring-1 ring-inset ring-emerald-200">
+              <span className={roleBadgeCls}>
                 {role}
               </span>
               <p className="truncate text-xs text-slate-600 mt-1">{email}</p>
