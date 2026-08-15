@@ -251,16 +251,20 @@ fun AdminOverview() {
                 StatCard("Total Cost", money(m!!.totalCost), accent = true)
                 val two = Arrangement.spacedBy(12.dp)
                 Row(horizontalArrangement = two) {
-                    StatCard("Total Projects", m!!.totalProjects.toString(), Modifier.weight(1f))
+                    StatCard("Total Projects", m!!.totalProjects.toString(), Modifier.weight(1f), trend = m!!.projectsTrend)
                     StatCard("Active Projects", m!!.activeProjects.toString(), Modifier.weight(1f))
                 }
                 Row(horizontalArrangement = two) {
+                    StatCard("Spending", money(m!!.spendingThisMonth), Modifier.weight(1f), trend = m!!.spendingTrend)
                     StatCard("Pending Payments", money(m!!.pendingPayments), Modifier.weight(1f))
-                    StatCard("Material Stock", "%,.0f".format(m!!.materialStock), Modifier.weight(1f))
                 }
                 Row(horizontalArrangement = two) {
-                    StatCard("Labour Count", m!!.labourCount.toString(), Modifier.weight(1f))
+                    StatCard("Attendance", m!!.labourCount.toString(), Modifier.weight(1f), trend = m!!.attendanceTrend)
                     StatCard("Completion %", "%.1f%%".format(m!!.completion), Modifier.weight(1f))
+                }
+                Row(horizontalArrangement = two) {
+                    StatCard("Material Stock", "%,.0f".format(m!!.materialStock), Modifier.weight(1f))
+                    StatCard("Labour Count", m!!.labourCount.toString(), Modifier.weight(1f))
                 }
                 if (m!!.overBudgetCount > 0) {
                     WarningBanner(

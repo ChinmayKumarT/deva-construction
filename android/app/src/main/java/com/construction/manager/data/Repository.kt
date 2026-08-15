@@ -210,6 +210,7 @@ object Repo {
     suspend fun deleteClientPaymentForever(id: String) = ownerDeleteRow("client_payments", id)
 
     // ---------- Admin metrics ----------
+    data class TrendData(val delta: Int, val label: String)
     data class AdminMetrics(
         val totalProjects: Int, val activeProjects: Int, val totalCost: Double,
         val pendingPayments: Double, val materialStock: Double,
@@ -218,6 +219,10 @@ object Repo {
         val nearBudgetCount: Int = 0,
         val overBudgetNames: List<String> = emptyList(),
         val nearBudgetNames: List<String> = emptyList(),
+        val projectsTrend: TrendData? = null,
+        val spendingTrend: TrendData? = null,
+        val attendanceTrend: TrendData? = null,
+        val spendingThisMonth: Double = 0.0,
     )
     suspend fun adminMetrics(): AdminMetrics {
         // Archived rows are excluded everywhere so the dashboard totals match
@@ -278,6 +283,45 @@ object Repo {
             else if (pct >= 0.8) nearNames.add(p.name)
         }
 
+        val cal = java.util.Calendar.getInstance()
+        cal.set(java.util.Calendar.DAY_OF_MONTH, 1)
+        cal.set(java.util.Calendar.HOUR_OF_DAY, 0); cal.set(java.util.Calendar.MINUTE, 0); cal.set(java.util.Calendar.SECOND, 0)
+        val thisMonthStart = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US).format(cal.time)
+        cal.add(java.util.Calendar.MONTH, -1)
+        val lastMonthStart = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US).format(cal.time)
+        cal.add(java.util.Calendar.MONTH, 2)
+        val nextMonthStart = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US).format(cal.time)
+
+        val projThis = supabase.from("projects").select {
+            filter { filter("archived_at", FilterOperator.IS, "null"); gte("created_at", thisMonthStart); lt("created_at", nextMonthStart) }; count(Count.EXACT)
+        }.countOrNull()?.toInt() ?: 0
+        val projLast = supabase.from("projects").select {
+            filter { filter("archived_at", FilterOperator.IS, "null"); gte("created_at", lastMonthStart); lt("created_at", thisMonthStart) }; count(Count.EXACT)
+        }.countOrNull()?.toInt() ?: 0
+
+        val payThis = allPayments.filter { it.createdAt != null && it.createdAt >= thisMonthStart && it.createdAt < nextMonthStart }.sumOf { it.amount }
+        val payLast = allPayments.filter { it.createdAt != null && it.createdAt >= lastMonthStart && it.createdAt < thisMonthStart }.sumOf { it.amount }
+        val matThis = allMaterials.filter { it.orderedAt != null && it.orderedAt!! >= thisMonthStart && it.orderedAt!! < nextMonthStart }.sumOf { it.quantity * it.unitCost }
+        val matLast = allMaterials.filter { it.orderedAt != null && it.orderedAt!! >= lastMonthStart && it.orderedAt!! < thisMonthStart }.sumOf { it.quantity * it.unitCost }
+        val spendThis = payThis + matThis
+        val spendLast = payLast + matLast
+
+        val attThis = allAttendance.count { it.date >= thisMonthStart && it.date < nextMonthStart }
+        val attLast = allAttendance.count { it.date >= lastMonthStart && it.date < thisMonthStart }
+
+        fun trend(cur: Int, prev: Int): TrendData? {
+            if (cur == 0 && prev == 0) return null
+            if (prev == 0) return TrendData(100, "+$cur new")
+            val pct = ((cur - prev).toDouble() / prev * 100).toInt()
+            return TrendData(pct, "${if (pct >= 0) "+" else ""}$pct% vs last month")
+        }
+        fun trendAmount(cur: Double, prev: Double): TrendData? {
+            if (cur == 0.0 && prev == 0.0) return null
+            if (prev == 0.0) return TrendData(100, "New this month")
+            val pct = ((cur - prev) / prev * 100).toInt()
+            return TrendData(pct, "${if (pct >= 0) "+" else ""}$pct% vs last month")
+        }
+
         return AdminMetrics(
             total.toInt(), active.toInt(),
             projects.sumOf { it.totalCost },
@@ -289,6 +333,10 @@ object Repo {
             nearBudgetCount = nearNames.size,
             overBudgetNames = overNames,
             nearBudgetNames = nearNames,
+            projectsTrend = trend(projThis, projLast),
+            spendingTrend = trendAmount(spendThis, spendLast),
+            attendanceTrend = trend(attThis, attLast),
+            spendingThisMonth = spendThis,
         )
     }
 

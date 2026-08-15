@@ -4,8 +4,20 @@ import { AdminPage, AdminPageHeader } from "@/components/admin/Page";
 import { wageForStatus } from "@/lib/wages";
 import { lineTotal } from "@/lib/money";
 
+function monthRange(offset: number) {
+  const d = new Date();
+  d.setDate(1);
+  d.setMonth(d.getMonth() + offset);
+  const start = d.toISOString().slice(0, 10);
+  d.setMonth(d.getMonth() + 1);
+  const end = d.toISOString().slice(0, 10);
+  return { start, end };
+}
+
 export default async function AdminOverview() {
   const supabase = createSupabaseServerClient();
+  const thisMonth = monthRange(0);
+  const lastMonth = monthRange(-1);
 
   const [
     totalProjects,
@@ -20,6 +32,14 @@ export default async function AdminOverview() {
     { data: allPayments },
     { data: allAttendance },
     { data: allLabourers },
+    projectsThisMonth,
+    projectsLastMonth,
+    paymentsThisMonth,
+    paymentsLastMonth,
+    materialsThisMonth,
+    materialsLastMonth,
+    attendanceThisMonth,
+    attendanceLastMonth,
   ] = await Promise.all([
     supabase.from("projects").select("*", { count: "exact", head: true }).is("archived_at", null),
     supabase.from("projects").select("*", { count: "exact", head: true }).is("archived_at", null).eq("status", "active"),
@@ -33,6 +53,14 @@ export default async function AdminOverview() {
     supabase.from("payments").select("project_id, amount, status, payee_type").is("archived_at", null),
     supabase.from("attendance").select("project_id, status, labourer_id"),
     supabase.from("labourers").select("id, daily_wage"),
+    supabase.from("projects").select("*", { count: "exact", head: true }).is("archived_at", null).gte("created_at", thisMonth.start).lt("created_at", thisMonth.end),
+    supabase.from("projects").select("*", { count: "exact", head: true }).is("archived_at", null).gte("created_at", lastMonth.start).lt("created_at", lastMonth.end),
+    supabase.from("payments").select("amount").is("archived_at", null).gte("created_at", thisMonth.start).lt("created_at", thisMonth.end),
+    supabase.from("payments").select("amount").is("archived_at", null).gte("created_at", lastMonth.start).lt("created_at", lastMonth.end),
+    supabase.from("materials").select("quantity, unit_cost").is("archived_at", null).gte("created_at", thisMonth.start).lt("created_at", thisMonth.end),
+    supabase.from("materials").select("quantity, unit_cost").is("archived_at", null).gte("created_at", lastMonth.start).lt("created_at", lastMonth.end),
+    supabase.from("attendance").select("*", { count: "exact", head: true }).gte("created_at", thisMonth.start).lt("created_at", thisMonth.end),
+    supabase.from("attendance").select("*", { count: "exact", head: true }).gte("created_at", lastMonth.start).lt("created_at", lastMonth.end),
   ]);
 
   const totalCost = (costAgg.data ?? []).reduce((s, r) => s + Number(r.total_cost ?? 0), 0);
@@ -70,12 +98,30 @@ export default async function AdminOverview() {
     else if (pct >= 80) nearBudget.push({ id: p.id, name: p.name, pct });
   }
 
-  const metrics: { label: string; value: string; accent?: boolean; warn?: boolean; danger?: boolean }[] = [
-    { label: "Total Projects", value: String(totalProjects.count ?? 0) },
+  const payThisSum = (paymentsThisMonth.data ?? []).reduce((s, r) => s + Number(r.amount ?? 0), 0);
+  const payLastSum = (paymentsLastMonth.data ?? []).reduce((s, r) => s + Number(r.amount ?? 0), 0);
+  const matThisSum = (materialsThisMonth.data ?? []).reduce((s, r) => s + lineTotal(r.quantity, r.unit_cost), 0);
+  const matLastSum = (materialsLastMonth.data ?? []).reduce((s, r) => s + lineTotal(r.quantity, r.unit_cost), 0);
+  const spendThis = payThisSum + matThisSum;
+  const spendLast = payLastSum + matLastSum;
+
+  type Trend = { delta: number; label: string } | null;
+  function trend(current: number, previous: number): Trend {
+    const diff = current - previous;
+    if (diff === 0 && previous === 0) return null;
+    if (previous === 0) return { delta: 100, label: `+${current} new` };
+    const pct = Math.round((diff / previous) * 100);
+    return { delta: pct, label: `${pct >= 0 ? "+" : ""}${pct}% vs last month` };
+  }
+
+  const metrics: { label: string; value: string; accent?: boolean; warn?: boolean; danger?: boolean; trend?: Trend }[] = [
+    { label: "Total Projects", value: String(totalProjects.count ?? 0), trend: trend(projectsThisMonth.count ?? 0, projectsLastMonth.count ?? 0) },
     { label: "Active Projects", value: String(activeProjects.count ?? 0), accent: true },
     { label: "Total Cost", value: `₹${totalCost.toLocaleString()}` },
+    { label: "Spending", value: `₹${spendThis.toLocaleString()}`, trend: trend(spendThis, spendLast) },
     { label: "Pending Payments", value: `₹${pendingTotal.toLocaleString()}` },
     { label: "Material Stock", value: stock.toLocaleString() },
+    { label: "Attendance", value: String(attendanceThisMonth.count ?? 0), trend: trend(attendanceThisMonth.count ?? 0, attendanceLastMonth.count ?? 0) },
     { label: "Labour Count", value: String(labourCount.count ?? 0) },
     { label: "Completion %", value: `${completion.toFixed(1)}%` },
     { label: "Over Budget", value: String(overBudget.length), danger: overBudget.length > 0 },
@@ -98,6 +144,13 @@ export default async function AdminOverview() {
             }`}>
               {m.value}
             </div>
+            {m.trend && (
+              <div className={`mt-1.5 text-xs font-medium ${
+                m.trend.delta > 0 ? "text-emerald-600" : m.trend.delta < 0 ? "text-red-500" : "text-slate-400"
+              }`}>
+                {m.trend.delta > 0 ? "↑" : m.trend.delta < 0 ? "↓" : "→"} {m.trend.label}
+              </div>
+            )}
           </div>
         ))}
       </section>

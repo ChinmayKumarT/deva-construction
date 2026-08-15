@@ -25,7 +25,7 @@ import java.time.format.DateTimeFormatter
 // used for exactly one headline metric per screen (its "Total cost" stat);
 // everything else stays the plain ElevatedCard look.
 @Composable
-fun StatCard(label: String, value: String, modifier: Modifier = Modifier, accent: Boolean = false) {
+fun StatCard(label: String, value: String, modifier: Modifier = Modifier, accent: Boolean = false, trend: com.construction.manager.data.Repo.TrendData? = null) {
     if (accent) {
         Card(
             modifier = modifier.fillMaxWidth(),
@@ -49,12 +49,18 @@ fun StatCard(label: String, value: String, modifier: Modifier = Modifier, accent
                         fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold,
                     ),
                 )
+                if (trend != null) {
+                    val arrow = if (trend.delta > 0) "↑" else if (trend.delta < 0) "↓" else "→"
+                    Text(
+                        "$arrow ${trend.label}",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = androidx.compose.ui.graphics.Color.White.copy(alpha = 0.7f),
+                    )
+                }
             }
         }
         return
     }
-    // Matches the mockup's statCardStyle/statValueStyle: bordered card
-    // (not a default Material elevation shadow) with a Fraunces-serif value.
     val colors = com.construction.manager.ui.theme.mockupColors()
     Box(
         modifier
@@ -73,6 +79,17 @@ fun StatCard(label: String, value: String, modifier: Modifier = Modifier, accent
                     fontSize = 19.sp,
                 ),
             )
+            if (trend != null) {
+                val arrow = if (trend.delta > 0) "↑" else if (trend.delta < 0) "↓" else "→"
+                val trendColor = if (trend.delta > 0) androidx.compose.ui.graphics.Color(0xFF059669)
+                    else if (trend.delta < 0) androidx.compose.ui.graphics.Color(0xFFEF4444)
+                    else colors.muted
+                Text(
+                    "$arrow ${trend.label}",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = trendColor,
+                )
+            }
         }
     }
 }
