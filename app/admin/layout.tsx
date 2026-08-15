@@ -28,6 +28,7 @@ function buildGroups(isOwner: boolean): NavGroup[] {
       items: [
         { href: "/admin/reports", label: "Reports", icon: "reports" },
         { href: "/admin/cashflow", label: "Cash flow", icon: "reports" },
+        { href: "/admin/profitloss", label: "Profit & Loss", icon: "costs" },
         ...(isOwner
           ? [
               { href: "/admin/team", label: "Team access", icon: "team" as const },

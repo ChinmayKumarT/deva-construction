@@ -3345,10 +3345,12 @@ fun AdminReportsAndCashFlow() {
         ChipRow(Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
             SelectableChip("Reports", tab == "reports", onClick = { tab = "reports" })
             SelectableChip("Cash flow", tab == "cashflow", onClick = { tab = "cashflow" })
+            SelectableChip("P&L", tab == "pnl", onClick = { tab = "pnl" })
         }
         when (tab) {
             "reports" -> AdminReports()
             "cashflow" -> AdminCashFlow()
+            "pnl" -> AdminProfitLoss()
         }
     }
 }
@@ -4000,5 +4002,106 @@ private fun SiteReportDetail(
         style = MaterialTheme.typography.bodyMedium,
         modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
     )
+}
+
+@Composable
+private fun AdminProfitLoss() {
+    var projects by remember { mutableStateOf<List<ProjectRow>>(emptyList()) }
+    var materials by remember { mutableStateOf<List<MaterialRow>>(emptyList()) }
+    var payments by remember { mutableStateOf<List<PaymentRow>>(emptyList()) }
+    var attendance by remember { mutableStateOf<List<AttendanceRow>>(emptyList()) }
+    var labourers by remember { mutableStateOf<List<LabourerRow>>(emptyList()) }
+    var clientPayments by remember { mutableStateOf<List<ClientPaymentRow>>(emptyList()) }
+    var error by remember { mutableStateOf<String?>(null) }
+    LaunchedEffect(Unit) {
+        try {
+            projects = Repo.listProjects()
+            materials = Repo.listMaterials()
+            payments = Repo.listPayments()
+            attendance = Repo.listAllAttendance()
+            labourers = Repo.listLabourers()
+            clientPayments = Repo.listClientPayments()
+        } catch (e: Exception) { error = e.message }
+    }
+    val labourerWage = remember(labourers) { labourers.associate { it.id to it.dailyWage } }
+
+    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+        if (projects.isEmpty() && error == null) {
+            CircularProgressIndicator()
+            return@Column
+        }
+
+        val receivedByProject = remember(clientPayments) {
+            clientPayments.groupBy { it.projectId }.mapValues { (_, cps) -> cps.sumOf { it.amount } }
+        }
+        data class ProjectPnl(val name: String, val budget: Double, val received: Double, val spent: Double)
+        val pnlData = remember(projects, materials, payments, attendance, labourerWage, receivedByProject) {
+            projects.map { p ->
+                val matCost = materials.filter { it.projectId == p.id && it.status != "returned" }
+                    .sumOf { lineTotal(it.quantity, it.unitCost) }
+                val labPaid = payments.filter { it.projectId == p.id && it.payeeType == "labour" && it.status in listOf("paid", "approved") }
+                    .sumOf { it.amount }
+                val wages = attendance.filter { it.projectId == p.id }
+                    .sumOf { roundMoney((ReportWageFactor[it.status] ?: 0.0) * (labourerWage[it.labourerId] ?: 0.0)) }
+                ProjectPnl(p.name, p.totalCost, receivedByProject[p.id] ?: 0.0, matCost + labPaid + wages)
+            }
+        }
+
+        val totalReceived = pnlData.sumOf { it.received }
+        val totalSpent = pnlData.sumOf { it.spent }
+        val totalProfit = totalReceived - totalSpent
+
+        MiniStatCard("Received from clients", money(totalReceived))
+        MiniStatCard("Total spent", money(totalSpent))
+        val profitColor = if (totalProfit >= 0) androidx.compose.ui.graphics.Color(0xFF047857) else MaterialTheme.colorScheme.error
+        MockupCard(Modifier.fillMaxWidth()) {
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Text("NET PROFIT / LOSS", fontSize = 10.sp, fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(
+                    if (totalProfit >= 0) money(totalProfit) else "-${money(-totalProfit)}",
+                    fontSize = 20.sp, fontWeight = FontWeight.Bold, color = profitColor,
+                    modifier = Modifier.padding(top = 4.dp),
+                )
+            }
+        }
+
+        Text("Per project", style = MaterialTheme.typography.titleSmall,
+            modifier = Modifier.padding(top = 8.dp))
+        pnlData.forEach { row ->
+            val profit = row.received - row.spent
+            MockupCard(Modifier.fillMaxWidth()) {
+                Text(row.name, style = MaterialTheme.typography.titleSmall)
+                Row(Modifier.fillMaxWidth().padding(top = 6.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween) {
+                    Column {
+                        Text("Budget", fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text(money(row.budget), fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                    }
+                    Column(horizontalAlignment = Alignment.End) {
+                        Text("Received", fontSize = 10.sp, color = androidx.compose.ui.graphics.Color(0xFF047857))
+                        Text(money(row.received), fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                    }
+                }
+                Row(Modifier.fillMaxWidth().padding(top = 4.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween) {
+                    Column {
+                        Text("Spent", fontSize = 10.sp, color = MaterialTheme.colorScheme.error)
+                        Text(money(row.spent), fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                    }
+                    Column(horizontalAlignment = Alignment.End) {
+                        Text("P/L", fontSize = 10.sp, color = if (profit >= 0) androidx.compose.ui.graphics.Color(0xFF047857) else MaterialTheme.colorScheme.error)
+                        Text(
+                            if (profit >= 0) money(profit) else "-${money(-profit)}",
+                            fontSize = 13.sp, fontWeight = FontWeight.Bold,
+                            color = if (profit >= 0) androidx.compose.ui.graphics.Color(0xFF047857) else MaterialTheme.colorScheme.error,
+                        )
+                    }
+                }
+            }
+        }
+    }
 }
 
