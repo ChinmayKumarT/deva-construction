@@ -2,6 +2,7 @@ import "./globals.css";
 import type { Metadata, Viewport } from "next";
 import { Fraunces } from "next/font/google";
 import { ServiceWorkerRegister } from "@/components/ServiceWorkerRegister";
+import { IOSInstallBanner } from "@/components/IOSInstallBanner";
 import { NavProgress } from "@/components/NavProgress";
 
 const fraunces = Fraunces({
@@ -14,23 +15,25 @@ const fraunces = Fraunces({
 export const metadata: Metadata = {
   title: "Deva Construction",
   description: "Construction site management dashboards by Deva Construction.",
+  manifest: "/manifest.webmanifest",
   appleWebApp: {
     capable: true,
-    statusBarStyle: "default",
-    title: "Deva Construction",
+    statusBarStyle: "black-translucent",
+    title: "Deva",
   },
-  // Plain static links, not the app/icon.png file convention -- that
-  // convention runs the image through Next's resize pipeline (needs the
-  // `sharp` package, not installed here) since our source isn't a standard
-  // square favicon size. This just serves the public/ file as-is.
   icons: {
     icon: "/icon.png",
-    apple: "/apple-touch-icon.png",
+    apple: [
+      { url: "/icons/apple-touch-icon-152.png", sizes: "152x152" },
+      { url: "/icons/apple-touch-icon-167.png", sizes: "167x167" },
+      { url: "/icons/apple-touch-icon-180.png", sizes: "180x180" },
+    ],
   },
 };
 
 export const viewport: Viewport = {
   themeColor: "#635bff",
+  viewportFit: "cover",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
@@ -40,6 +43,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <NavProgress />
         {children}
         <ServiceWorkerRegister />
+        <IOSInstallBanner />
       </body>
     </html>
   );
