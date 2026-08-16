@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSessionAndRole } from "@/lib/supabase/server";
+import { createSupabaseAdmin } from "@/lib/supabase/admin";
 import { generateFullBackup, type BackupResult } from "@/lib/backup";
 import * as XLSX from "xlsx";
 
@@ -238,6 +239,7 @@ function buildReadableSheets(backup: BackupResult) {
 }
 
 export async function GET(req: NextRequest) {
+  let userId: string | null = null;
   const bearer = req.headers.get("authorization")?.replace("Bearer ", "");
   if (bearer) {
     if (!process.env.BACKUP_API_SECRET || bearer !== process.env.BACKUP_API_SECRET) {
@@ -248,10 +250,22 @@ export async function GET(req: NextRequest) {
     if (!user || role !== "admin" || !isOwner) {
       return unauthorized("Owner access required");
     }
+    userId = user.id;
   }
 
   const backup = await generateFullBackup();
   const format = req.nextUrl.searchParams.get("format");
+
+  const isManual = !bearer;
+  if (isManual) {
+    const admin = createSupabaseAdmin();
+    admin.from("backup_logs").insert({
+      type: "manual",
+      format: format === "json" ? "json" : "xlsx",
+      user_id: userId,
+      table_counts: backup.metadata.tables,
+    }).then(() => {});
+  }
 
   if (format === "json") {
     return NextResponse.json(backup);
