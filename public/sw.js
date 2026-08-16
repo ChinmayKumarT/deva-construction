@@ -3,7 +3,7 @@
 // dashboard/API routes (never cache sensitive project/payment data).
 // Falls back to /offline.html when the network is unavailable.
 
-const CACHE_VERSION = "deva-v2";
+const CACHE_VERSION = "deva-v3";
 const SHELL_CACHE = `${CACHE_VERSION}-shell`;
 const STATIC_CACHE = `${CACHE_VERSION}-static`;
 
@@ -83,11 +83,13 @@ self.addEventListener("fetch", (event) => {
   // All other navigation requests — network-first with offline fallback
   if (request.mode === "navigate") {
     event.respondWith(
-      fetch(request).catch(() => caches.match("/offline.html"))
+      fetch(request).catch(() =>
+        caches.match("/offline.html").then((cached) => cached || new Response("Offline", { status: 503 }))
+      )
     );
     return;
   }
 
   // Everything else — network only (don't cache page-specific HTML/JSON)
-  event.respondWith(fetch(request));
+  event.respondWith(fetch(request).catch(() => new Response("Offline", { status: 503 })));
 });

@@ -16,6 +16,9 @@ export const metadata: Metadata = {
   title: "Deva Construction",
   description: "Construction site management dashboards by Deva Construction.",
   manifest: "/manifest.webmanifest",
+  other: {
+    "mobile-web-app-capable": "yes",
+  },
   appleWebApp: {
     capable: true,
     statusBarStyle: "black-translucent",
