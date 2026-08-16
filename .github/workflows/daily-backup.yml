@@ -27,9 +27,11 @@ jobs:
       - name: Prune backups older than 30 days
         run: |
           CUTOFF=$(date -u -d "30 days ago" +%Y-%m-%d)
+          shopt -s nullglob
           for dir in 20??-??-??; do
             [ -d "$dir" ] && [ "$dir" \< "$CUTOFF" ] && rm -rf "$dir" && echo "Pruned $dir"
           done
+          echo "Prune complete (cutoff: $CUTOFF)"
 
       - name: Commit and push
         run: |
