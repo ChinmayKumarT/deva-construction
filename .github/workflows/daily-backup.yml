@@ -20,7 +20,7 @@ jobs:
           mkdir -p "$DATE"
           curl -fsSL \
             -H "Authorization: Bearer ${{ secrets.BACKUP_API_SECRET }}" \
-            "${{ vars.APP_URL }}/api/backup?format=json" \
+            "${{ secrets.APP_URL }}/api/backup?format=json" \
             -o "$DATE/backup.json"
           echo "Backup saved: $(wc -c < "$DATE/backup.json") bytes"
 
