@@ -5,6 +5,6 @@
     <color name="brand_primary_dark">#5C89C4</color>
     <color name="brand_surface">#242424</color>
     <color name="brand_on_primary">#FFFFFF</color>
-    <color name="splash_background">#7DA3D6</color>
-    <color name="ic_launcher_background">#7DA3D6</color>
+    <color name="splash_background">#FFFFFF</color>
+    <color name="ic_launcher_background">#FFFFFF</color>
 </resources>
