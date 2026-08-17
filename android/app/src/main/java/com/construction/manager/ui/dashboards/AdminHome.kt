@@ -239,15 +239,22 @@ fun AdminHome(vm: AuthViewModel, isAdmin: Boolean = true, isOwner: Boolean = fal
 fun AdminOverview() {
     var m by remember { mutableStateOf<Repo.AdminMetrics?>(null) }
     var err by remember { mutableStateOf<String?>(null) }
-    LaunchedEffect(Unit) {
+    var reloadKey by remember { mutableStateOf(0) }
+    LaunchedEffect(reloadKey) {
+        err = null
         try { m = Repo.adminMetrics() } catch (e: Exception) { err = e.message }
     }
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)) {
         val friendly = com.construction.manager.util.friendlyError(err)
+        val isNet = com.construction.manager.util.isNetworkError(err)
         when {
+            err != null && isNet -> {
+                com.construction.manager.ui.components.OfflineBanner(visible = true)
+                Spacer(Modifier.height(8.dp))
+                TextButton(onClick = { reloadKey++ }) { Text("Retry") }
+            }
             friendly != null -> Text("Error: $friendly")
-            err != null && m == null -> CircularProgressIndicator()
             m == null -> CircularProgressIndicator()
             else -> {
                 StatCard("Total Cost", money(m!!.totalCost), accent = true)

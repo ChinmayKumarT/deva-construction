@@ -14,11 +14,15 @@ private val NETWORK_ERROR_PATTERNS = listOf(
     "connection timed out",
     "network is unreachable",
     "unreachable",
+    "socket timeout",
     "sockettimeoutexception",
+    "socket_timeout",
+    "timeout has expired",
     "unknownhostexception",
     "no internet",
     "trust anchor",
     "ssl handshake",
+    "http request to",
 )
 
 fun isNetworkError(message: String?): Boolean {
