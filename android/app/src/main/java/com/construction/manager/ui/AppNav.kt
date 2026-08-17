@@ -8,36 +8,49 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.construction.manager.data.Role
+import com.construction.manager.ui.components.OfflineBanner
 import com.construction.manager.ui.dashboards.AdminHome
 import com.construction.manager.ui.dashboards.ClientDashboard
 import com.construction.manager.ui.dashboards.LabourDashboard
 import com.construction.manager.ui.dashboards.SupplierDashboard
+import com.construction.manager.util.rememberIsOnline
 
 @Composable
 fun AppNav(vm: AuthViewModel = viewModel()) {
     val state by vm.state.collectAsState()
+    val isOnline by rememberIsOnline()
 
-    when (val s = state) {
-        AuthState.Loading -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-            CircularProgressIndicator()
+    Box(Modifier.fillMaxSize()) {
+        when (val s = state) {
+            AuthState.Loading -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                CircularProgressIndicator()
+            }
+            AuthState.SignedOut -> AuthScreen(vm)
+            is AuthState.NeedsLink -> Column(Modifier.fillMaxSize().padding(24.dp)) {
+                Text("Welcome", style = MaterialTheme.typography.headlineMedium)
+                Spacer(Modifier.height(8.dp))
+                Text(s.message)
+                Spacer(Modifier.height(16.dp))
+                Button(onClick = { vm.signOut() }) { Text("Sign out") }
+            }
+            AuthState.NeedsPasswordReset -> ResetPasswordScreen(vm)
+            AuthState.NeedsRoleSelection -> ChooseRoleScreen(vm)
+            is AuthState.SignedIn -> when (s.role) {
+                Role.admin, Role.manager ->
+                    AdminHome(vm, isAdmin = s.role == Role.admin, isOwner = s.isOwner)
+                Role.client -> ClientDashboard(vm)
+                Role.supplier -> SupplierDashboard(vm)
+                Role.labour -> LabourDashboard(vm)
+            }
         }
-        AuthState.SignedOut -> AuthScreen(vm)
-        is AuthState.NeedsLink -> Column(Modifier.fillMaxSize().padding(24.dp)) {
-            Text("Welcome", style = MaterialTheme.typography.headlineMedium)
-            Spacer(Modifier.height(8.dp))
-            Text(s.message)
-            Spacer(Modifier.height(16.dp))
-            Button(onClick = { vm.signOut() }) { Text("Sign out") }
-        }
-        AuthState.NeedsPasswordReset -> ResetPasswordScreen(vm)
-        AuthState.NeedsRoleSelection -> ChooseRoleScreen(vm)
-        is AuthState.SignedIn -> when (s.role) {
-            Role.admin, Role.manager ->
-                AdminHome(vm, isAdmin = s.role == Role.admin, isOwner = s.isOwner)
-            Role.client -> ClientDashboard(vm)
-            Role.supplier -> SupplierDashboard(vm)
-            Role.labour -> LabourDashboard(vm)
-        }
+
+        // Floats above every screen (including auth) so connectivity loss
+        // is always visible without blocking taps.
+        OfflineBanner(
+            visible = !isOnline,
+            modifier = Modifier
+                .align(Alignment.TopCenter)
+                .statusBarsPadding(),
+        )
     }
 }
-
