@@ -13,7 +13,7 @@ const REMAINING_COLOR = "#E2E8F0";
 
 export default async function ClientDashboard() {
   const { user } = await requireRole("client");
-  const supabase = createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient();
 
   const { data: client } = await supabase
     .from("clients")

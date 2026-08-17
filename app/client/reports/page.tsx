@@ -6,7 +6,7 @@ import { lineTotal } from "@/lib/money";
 
 export default async function ClientReportsPage() {
   const { user } = await requireRole("client");
-  const supabase = createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient();
 
   const { data: client } = await supabase
     .from("clients")

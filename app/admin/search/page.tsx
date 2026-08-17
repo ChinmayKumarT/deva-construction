@@ -17,7 +17,7 @@ export default async function SearchPage(
   let results: Result[] = [];
 
   if (q.length >= 2) {
-    const supabase = createSupabaseServerClient();
+    const supabase = await createSupabaseServerClient();
     const like = `%${q}%`;
 
     const [

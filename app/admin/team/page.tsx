@@ -8,7 +8,7 @@ export default async function TeamAccessPage() {
   const { isOwner } = await requireRole(["admin", "manager"]);
   if (!isOwner) redirect("/admin");
 
-  const supabase = createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient();
   const { data: profiles } = await supabase
     .from("profiles")
     .select("id, full_name, role, is_owner")

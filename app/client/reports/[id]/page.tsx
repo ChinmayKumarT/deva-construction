@@ -7,7 +7,7 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 export default async function ClientSiteReportPage(props: { params: Promise<{ id: string }> }) {
   const params = await props.params;
   const { user } = await requireRole("client");
-  const supabase = createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient();
 
   const { data: client } = await supabase
     .from("clients")

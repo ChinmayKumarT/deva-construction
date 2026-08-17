@@ -1,7 +1,7 @@
 "use server";
 
 import { redirect } from "next/navigation";
-import { headers, type UnsafeUnwrappedHeaders } from "next/headers";
+import { headers } from "next/headers";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 type Role = "admin" | "manager" | "client" | "supplier" | "labour";
@@ -9,8 +9,8 @@ type Role = "admin" | "manager" | "client" | "supplier" | "labour";
 // No hardcoded site-URL env var -- derive it from the incoming request so
 // this works the same on localhost and whatever domain Vercel deploys to,
 // without needing a new env var kept in sync per environment.
-function siteOrigin(): string {
-  const h = (headers() as unknown as UnsafeUnwrappedHeaders);
+async function siteOrigin(): Promise<string> {
+  const h = await headers();
   const host = h.get("x-forwarded-host") ?? h.get("host")!;
   const proto = h.get("x-forwarded-proto") ?? (host.startsWith("localhost") ? "http" : "https");
   return `${proto}://${host}`;
@@ -19,7 +19,7 @@ function siteOrigin(): string {
 export async function signIn(formData: FormData) {
   const email = String(formData.get("email") ?? "");
   const password = String(formData.get("password") ?? "");
-  const supabase = createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient();
 
   const { error } = await supabase.auth.signInWithPassword({ email, password });
   if (error) redirect(`/?error=${encodeURIComponent(error.message)}`);
@@ -48,7 +48,7 @@ export async function chooseRole(formData: FormData) {
   if (role !== "client" && role !== "supplier") {
     redirect(`/choose-role?error=${encodeURIComponent("Pick a role to continue.")}`);
   }
-  const supabase = createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient();
   const { error } = await supabase.rpc("choose_role", { new_role: role });
   if (error) redirect(`/choose-role?error=${encodeURIComponent(error.message)}`);
   redirect(`/${role}`);
@@ -56,10 +56,10 @@ export async function chooseRole(formData: FormData) {
 
 export async function signInWithMagicLink(formData: FormData) {
   const email = String(formData.get("email") ?? "");
-  const supabase = createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient();
   const { error } = await supabase.auth.signInWithOtp({
     email,
-    options: { emailRedirectTo: `${siteOrigin()}/auth/callback` },
+    options: { emailRedirectTo: `${await siteOrigin()}/auth/callback` },
   });
   if (error) redirect(`/?mode=magic-link&error=${encodeURIComponent(error.message)}`);
   redirect(
@@ -68,10 +68,10 @@ export async function signInWithMagicLink(formData: FormData) {
 }
 
 export async function signInWithGoogle() {
-  const supabase = createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient();
   const { data, error } = await supabase.auth.signInWithOAuth({
     provider: "google",
-    options: { redirectTo: `${siteOrigin()}/auth/callback` },
+    options: { redirectTo: `${await siteOrigin()}/auth/callback` },
   });
   if (error || !data.url) {
     redirect(`/?error=${encodeURIComponent(error?.message ?? "Google sign-in failed")}`);
@@ -81,9 +81,9 @@ export async function signInWithGoogle() {
 
 export async function requestPasswordReset(formData: FormData) {
   const email = String(formData.get("email") ?? "");
-  const supabase = createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient();
   await supabase.auth.resetPasswordForEmail(email, {
-    redirectTo: `${siteOrigin()}/auth/callback?next=/reset-password`,
+    redirectTo: `${await siteOrigin()}/auth/callback?next=/reset-password`,
   });
   // Same message whether or not the email has an account -- resetPasswordForEmail
   // doesn't report that either, so this doesn't let someone probe for registered emails.
@@ -102,7 +102,7 @@ export async function updatePassword(formData: FormData) {
     redirect(`/reset-password?error=${encodeURIComponent("Passwords don't match.")}`);
   }
 
-  const supabase = createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient();
   const { error } = await supabase.auth.updateUser({ password });
   if (error) redirect(`/reset-password?error=${encodeURIComponent(error.message)}`);
 
@@ -118,7 +118,7 @@ export async function signUp(formData: FormData) {
   const password = String(formData.get("password") ?? "");
   const fullName = String(formData.get("full_name") ?? "");
   const role = String(formData.get("role") ?? "client") as Role;
-  const supabase = createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient();
 
   const { error } = await supabase.auth.signUp({
     email,
@@ -130,13 +130,13 @@ export async function signUp(formData: FormData) {
 }
 
 export async function signOut() {
-  const supabase = createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient();
   await supabase.auth.signOut();
   redirect("/");
 }
 
 export async function deleteAccount() {
-  const supabase = createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient();
   const { error } = await supabase.rpc("delete_my_account");
   if (error) redirect(`/?error=${encodeURIComponent(error.message)}`);
   await supabase.auth.signOut();

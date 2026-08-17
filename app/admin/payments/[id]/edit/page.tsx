@@ -8,7 +8,7 @@ import { updatePayment } from "../../../actions";
 
 export default async function EditPaymentPage(props: { params: Promise<{ id: string }> }) {
   const params = await props.params;
-  const supabase = createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient();
   const [
     { data: payment }, { data: projects }, { data: suppliers }, { data: labourers },
     { data: materials }, { data: assignments }, { data: allLabourPayments }, { data: attendance },

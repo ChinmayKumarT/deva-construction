@@ -167,7 +167,7 @@ export function toCumulative(daily: DailyCashFlowPoint[]): DailyCashFlowPoint[] 
 // section on app/admin/reports/[id]. Fetches the rows, then delegates the math
 // to reduceCashFlow above.
 export async function computeCashFlow(
-  supabase: ReturnType<typeof createSupabaseServerClient>,
+  supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>,
   from: string,
   to: string,
   projectId?: string,

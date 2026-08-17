@@ -13,7 +13,7 @@ const STATUS_STYLE: Record<string, string> = {
 
 export default async function SupplierDashboard() {
   const { user } = await requireRole("supplier");
-  const supabase = createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient();
 
   const { data: supplier } = await supabase
     .from("suppliers")

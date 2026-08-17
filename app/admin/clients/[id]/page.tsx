@@ -10,7 +10,7 @@ export const fetchCache = "force-no-store";
 
 export default async function ManageClientPage(props: { params: Promise<{ id: string }> }) {
   const params = await props.params;
-  const supabase = createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient();
   const { isOwner } = await getSessionAndRole();
 
   const { data: client } = await supabase

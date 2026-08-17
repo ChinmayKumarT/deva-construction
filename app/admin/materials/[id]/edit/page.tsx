@@ -7,7 +7,7 @@ import { updateMaterial } from "../../../actions";
 
 export default async function EditMaterialPage(props: { params: Promise<{ id: string }> }) {
   const params = await props.params;
-  const supabase = createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient();
   const [{ data: material }, { data: projects }, { data: suppliers }] = await Promise.all([
     supabase
       .from("materials")

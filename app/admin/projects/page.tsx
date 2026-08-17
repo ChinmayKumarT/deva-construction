@@ -11,7 +11,7 @@ export default async function ProjectsPage(
 ) {
   const searchParams = await props.searchParams;
   const showArchived = searchParams.archived === "1";
-  const supabase = createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient();
   const { isOwner } = await getSessionAndRole();
 
   const projectQuery = supabase

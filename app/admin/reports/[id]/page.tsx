@@ -31,7 +31,7 @@ export default async function SiteReportPage(
 ) {
   const searchParams = await props.searchParams;
   const params = await props.params;
-  const supabase = createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient();
   const { fromStr, toStr } = defaultCashFlowRange();
   const from = searchParams.from || fromStr;
   const to = searchParams.to || toStr;

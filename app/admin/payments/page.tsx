@@ -23,7 +23,7 @@ export default async function PaymentsIndexPage(
 ) {
   const searchParams = await props.searchParams;
   const showArchived = searchParams.archived === "1";
-  const supabase = createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient();
 
   const [
     { data: projects }, { data: payments }, { count: archivedCount },

@@ -16,7 +16,7 @@ export default async function CashFlowPage(
   }
 ) {
   const searchParams = await props.searchParams;
-  const supabase = createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient();
   const { fromStr, toStr } = defaultCashFlowRange();
   const from = searchParams.from || fromStr;
   const to = searchParams.to || toStr;

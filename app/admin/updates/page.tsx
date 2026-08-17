@@ -12,7 +12,7 @@ export default async function UpdatesPage(
 ) {
   const searchParams = await props.searchParams;
   const showArchived = searchParams.archived === "1";
-  const supabase = createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient();
   const { isOwner } = await getSessionAndRole();
 
   const base = supabase

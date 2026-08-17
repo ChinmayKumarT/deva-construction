@@ -42,7 +42,7 @@ function requiredStr(fd: FormData, k: string, label: string) {
 // instead -- resolve that into a real supplier row so supplier_id can stay a
 // required FK everywhere else in the app (reports, the Suppliers list, etc).
 async function resolveSupplierId(
-  supabase: ReturnType<typeof createSupabaseServerClient>,
+  supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>,
   fd: FormData,
 ): Promise<string | null> {
   const supplierId = uuidOrNull(fd, "supplier_id");
@@ -60,7 +60,7 @@ async function resolveSupplierId(
 }
 
 export async function createProject(fd: FormData) {
-  const supabase = createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient();
   const { error } = await supabase.from("projects").insert({
     name: str(fd, "name"),
     client_id: uuidOrNull(fd, "client_id"),
@@ -78,7 +78,7 @@ export async function createProject(fd: FormData) {
 }
 
 export async function updateProject(fd: FormData) {
-  const supabase = createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient();
   const id = str(fd, "id");
   if (!id) throw new Error("project id required");
   const { error } = await supabase
@@ -103,7 +103,7 @@ export async function updateProject(fd: FormData) {
 // "Delete" is a reversible archive -- a real DELETE would cascade and destroy
 // this project's materials and progress updates/photos. See supabase/10_archive.sql.
 export async function archiveProject(fd: FormData) {
-  const supabase = createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient();
   const id = str(fd, "id");
   if (!id) throw new Error("project id required");
   const { error } = await supabase
@@ -115,7 +115,7 @@ export async function archiveProject(fd: FormData) {
 }
 
 export async function unarchiveProject(fd: FormData) {
-  const supabase = createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient();
   const id = str(fd, "id");
   if (!id) throw new Error("project id required");
   const { error } = await supabase
@@ -160,7 +160,7 @@ function revalidateAll() {
  */
 async function ownerDeleteRow(table: string, id: string | null) {
   if (!id) throw new Error("id required");
-  const supabase = createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient();
   const { error } = await supabase.rpc("owner_delete_row", { target_table: table, target_id: id });
   if (error) throw new Error(error.message);
   revalidateAll();
@@ -182,7 +182,7 @@ export async function deleteProjectUpdate(fd: FormData) { await ownerDeleteRow("
  */
 async function setArchived(table: string, id: string | null, archived: boolean) {
   if (!id) throw new Error("id required");
-  const supabase = createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient();
   const { error } = await supabase
     .from(table)
     .update({ archived_at: archived ? new Date().toISOString() : null })
@@ -193,7 +193,7 @@ async function setArchived(table: string, id: string | null, archived: boolean) 
 
 async function updateRow(table: string, id: string | null, patch: Record<string, unknown>) {
   if (!id) throw new Error("id required");
-  const supabase = createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient();
   const { error } = await supabase.from(table).update(patch).eq("id", id);
   if (error) throw new Error(error.message);
   revalidateAll();
@@ -265,7 +265,7 @@ export async function unarchiveMaterial(fd: FormData) { await setArchived("mater
 
 // ---------- Payments ----------
 export async function updatePayment(fd: FormData) {
-  const supabase = createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient();
   const payee_type = (str(fd, "payee_type") ?? "supplier") as "supplier" | "labour";
   await updateRow("payments", str(fd, "id"), {
     project_id: uuidOrNull(fd, "project_id"),
@@ -295,7 +295,7 @@ export async function archiveProjectUpdate(fd: FormData) { await setArchived("pr
 export async function unarchiveProjectUpdate(fd: FormData) { await setArchived("project_updates", str(fd, "id"), false); }
 
 export async function createClient(fd: FormData) {
-  const supabase = createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient();
   const { error } = await supabase.from("clients").insert({
     name: str(fd, "name"),
     email: str(fd, "email"),
@@ -308,7 +308,7 @@ export async function createClient(fd: FormData) {
 }
 
 export async function createSupplier(fd: FormData) {
-  const supabase = createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient();
   const { error } = await supabase.from("suppliers").insert({
     name: str(fd, "name"),
     email: str(fd, "email"),
@@ -321,7 +321,7 @@ export async function createSupplier(fd: FormData) {
 }
 
 export async function createMaterial(fd: FormData) {
-  const supabase = createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient();
   const status = (str(fd, "status") ?? "ordered") as "ordered" | "delivered" | "returned";
   const { error } = await supabase.from("materials").insert({
     project_id: uuidOrNull(fd, "project_id"),
@@ -341,7 +341,7 @@ export async function createMaterial(fd: FormData) {
 }
 
 export async function markMaterialDelivered(fd: FormData) {
-  const supabase = createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient();
   const id = str(fd, "id");
   if (!id) return;
   const { error } = await supabase
@@ -367,7 +367,7 @@ export async function markAttendance(
   _prevState: MarkAttendanceState,
   fd: FormData,
 ): Promise<MarkAttendanceState> {
-  const supabase = createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient();
   const date = str(fd, "date") ?? new Date().toISOString().slice(0, 10);
   const labourer_id = str(fd, "labourer_id");
   const project_id = uuidOrNull(fd, "project_id");
@@ -409,7 +409,7 @@ export async function markAttendance(
 }
 
 export async function assignLabourer(fd: FormData) {
-  const supabase = createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient();
   const labourer_id = str(fd, "labourer_id");
   const project_id = uuidOrNull(fd, "project_id");
   if (!labourer_id || !project_id) throw new Error("labourer + project required");
@@ -446,7 +446,7 @@ export async function createPayment(
   _prevState: CreatePaymentState,
   fd: FormData,
 ): Promise<CreatePaymentState> {
-  const supabase = createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient();
   const payee_type = (str(fd, "payee_type") ?? "supplier") as "supplier" | "labour";
   try {
     // Payments created here are always admin-entered (this form isn't
@@ -509,7 +509,7 @@ export async function createPayment(
 }
 
 export async function approvePayment(fd: FormData) {
-  const supabase = createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient();
   const id = str(fd, "id");
   if (!id) return;
   const {
@@ -525,7 +525,7 @@ export async function approvePayment(fd: FormData) {
 }
 
 export async function markPaymentPaid(fd: FormData) {
-  const supabase = createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient();
   const id = str(fd, "id");
   if (!id) return;
   const { error } = await supabase
@@ -539,7 +539,7 @@ export async function markPaymentPaid(fd: FormData) {
 }
 
 export async function rejectPayment(fd: FormData) {
-  const supabase = createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient();
   const id = str(fd, "id");
   if (!id) return;
   const { error } = await supabase.from("payments").update({ status: "rejected" }).eq("id", id);
@@ -548,7 +548,7 @@ export async function rejectPayment(fd: FormData) {
 }
 
 export async function postProjectUpdate(fd: FormData) {
-  const supabase = createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
@@ -595,7 +595,7 @@ export async function postProjectUpdate(fd: FormData) {
 // (09_project_date_extension.sql) -- this only ever sends end_date/extension_reason,
 // same discipline as the Android Repo.extendProjectEndDate.
 export async function extendProjectEndDate(fd: FormData) {
-  const supabase = createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient();
   const id = str(fd, "id");
   const end_date = str(fd, "end_date");
   if (!id || !end_date) throw new Error("project and new date required");
@@ -609,7 +609,7 @@ export async function extendProjectEndDate(fd: FormData) {
 }
 
 export async function setNextPaymentDate(fd: FormData) {
-  const supabase = createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient();
   const id = str(fd, "id");
   if (!id) throw new Error("project required");
   const date = str(fd, "next_payment_date") || null;
@@ -631,7 +631,7 @@ export async function setNextPaymentDate(fd: FormData) {
 // end_date directly above -- Budget/Spent/Remaining on the project page
 // stays correct with no separate manual edit step.
 export async function createChangeOrder(fd: FormData) {
-  const supabase = createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient();
   const project_id = str(fd, "project_id");
   if (!project_id) throw new Error("project_id required");
   const description = requiredStr(fd, "description", "Description");
@@ -670,7 +670,7 @@ export async function createChangeOrder(fd: FormData) {
 // undoing a mistaken entry would leave the budget permanently inflated.
 async function adjustChangeOrderArchive(id: string | null, archived: boolean) {
   if (!id) throw new Error("id required");
-  const supabase = createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient();
   const { data: changeOrder } = await supabase
     .from("project_change_orders")
     .select("project_id, extra_cost")
@@ -717,7 +717,7 @@ export async function deleteChangeOrder(fd: FormData) {
 // Same upload pattern as postProjectUpdate above -- image goes to the
 // existing project-images bucket, only the public URL is stored on the row.
 export async function uploadProjectAgreement(fd: FormData) {
-  const supabase = createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient();
   const project_id = str(fd, "project_id");
   if (!project_id) throw new Error("project required");
 
@@ -743,7 +743,7 @@ export async function uploadProjectAgreement(fd: FormData) {
 }
 
 export async function removeProjectAgreement(fd: FormData) {
-  const supabase = createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient();
   const project_id = str(fd, "project_id");
   if (!project_id) throw new Error("project required");
   const { error } = await supabase
@@ -759,7 +759,7 @@ export async function removeProjectAgreement(fd: FormData) {
 // so this is a thin wrapper, not the actual security boundary -- a non-owner
 // calling it still gets rejected by the database.
 export async function setUserRole(fd: FormData) {
-  const supabase = createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient();
   const target_id = str(fd, "target_id");
   const new_role = str(fd, "new_role");
   if (!target_id || !new_role) throw new Error("target and role required");
@@ -773,7 +773,7 @@ export async function setUserRole(fd: FormData) {
 // wrapper, not the actual security boundary. Deletes the login only;
 // business records (projects, materials, payments) are preserved.
 export async function deleteUser(fd: FormData) {
-  const supabase = createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient();
   const target_id = str(fd, "id");
   if (!target_id) throw new Error("target required");
   const { error } = await supabase.rpc("admin_delete_user", { target_id });
@@ -782,7 +782,7 @@ export async function deleteUser(fd: FormData) {
 }
 
 export async function createLabourer(fd: FormData) {
-  const supabase = createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient();
   const { error } = await supabase.from("labourers").insert({
     name: str(fd, "name"),
     phone: str(fd, "phone"),
@@ -801,7 +801,7 @@ export async function createLabourer(fd: FormData) {
 // supabase/21_personal_transactions.sql for the RLS boundary: no
 // client/supplier/labour policy exists on this table at all).
 export async function createPersonalTransaction(fd: FormData) {
-  const supabase = createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient();
   const type = str(fd, "type") === "expense" ? "expense" : "income";
   const { error } = await supabase.from("personal_transactions").insert({
     type,
@@ -826,7 +826,7 @@ export async function deletePersonalTransaction(fd: FormData) {
 }
 
 export async function createClientPayment(fd: FormData) {
-  const supabase = createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient();
   const projectId = str(fd, "project_id");
   if (!projectId) throw new Error("Project is required");
   const amount = nonNegNum(fd, "amount", "Amount") ?? 0;

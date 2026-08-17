@@ -7,7 +7,7 @@ import { updateLabourer } from "../../../actions";
 
 export default async function EditLabourerPage(props: { params: Promise<{ id: string }> }) {
   const params = await props.params;
-  const supabase = createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient();
   const { data: labourer } = await supabase
     .from("labourers")
     .select("id, name, phone, daily_wage, active, category")

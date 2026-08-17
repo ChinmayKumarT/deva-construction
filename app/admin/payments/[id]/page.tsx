@@ -34,7 +34,7 @@ export default async function ProjectPaymentsPage(
   const params = await props.params;
   const showArchived = searchParams.archived === "1";
   const isUnassigned = params.id === "unassigned";
-  const supabase = createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient();
   const { isOwner } = await getSessionAndRole();
 
   let base = supabase

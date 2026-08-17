@@ -7,7 +7,7 @@ import { updateProjectUpdate } from "../../../actions";
 
 export default async function EditUpdatePage(props: { params: Promise<{ id: string }> }) {
   const params = await props.params;
-  const supabase = createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient();
   const { data: update } = await supabase
     .from("project_updates")
     .select("id, stage, note, image_url, created_at, projects(name)")

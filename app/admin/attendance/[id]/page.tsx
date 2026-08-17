@@ -12,7 +12,7 @@ export default async function ProjectAttendancePage(
 ) {
   const searchParams = await props.searchParams;
   const params = await props.params;
-  const supabase = createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient();
   const date = searchParams.date ?? new Date().toISOString().slice(0, 10);
 
   const [

@@ -8,7 +8,7 @@ export const dynamic = "force-dynamic";
 export const fetchCache = "force-no-store";
 
 export default async function CostsPage() {
-  const supabase = createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient();
 
   const [{ data: projects }, { data: materials }, { data: payments }, { data: attendance }, { data: labourers }] =
     await Promise.all([

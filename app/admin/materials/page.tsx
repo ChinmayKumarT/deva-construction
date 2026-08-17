@@ -18,7 +18,7 @@ export default async function MaterialsIndexPage(
 ) {
   const searchParams = await props.searchParams;
   const showArchived = searchParams.archived === "1";
-  const supabase = createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient();
 
   const [{ data: projects }, { data: materials }, { data: suppliers }, { count: archivedCount }] = await Promise.all([
     supabase.from("projects").select("id, name, status").is("archived_at", null).order("name"),

@@ -11,7 +11,7 @@ export default async function AttendanceIndexPage(
   }
 ) {
   const searchParams = await props.searchParams;
-  const supabase = createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient();
   const todayStr = new Date().toISOString().slice(0, 10);
   const { fromStr, toStr } = defaultAttendanceRange();
   const from = searchParams.from || fromStr;

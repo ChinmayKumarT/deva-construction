@@ -20,7 +20,7 @@ export default async function ProjectMaterialsPage(
   const params = await props.params;
   const showArchived = searchParams.archived === "1";
   const isUnassigned = params.id === "unassigned";
-  const supabase = createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient();
 
   let base = supabase
     .from("materials")

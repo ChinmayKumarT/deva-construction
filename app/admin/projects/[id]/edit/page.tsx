@@ -6,7 +6,7 @@ import { updateProject } from "../../../actions";
 
 export default async function EditProjectPage(props: { params: Promise<{ id: string }> }) {
   const params = await props.params;
-  const supabase = createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient();
   const [{ data: project }, { data: clients }] = await Promise.all([
     supabase
       .from("projects")

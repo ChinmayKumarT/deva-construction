@@ -31,7 +31,7 @@ export default async function ManageMaterialPage(
   }
 ) {
   const params = await props.params;
-  const supabase = createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient();
   const { isOwner } = await getSessionAndRole();
 
   const { data: material } = await supabase

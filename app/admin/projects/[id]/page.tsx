@@ -35,7 +35,7 @@ export default async function ManageProjectPage(
 ) {
   const searchParams = await props.searchParams;
   const params = await props.params;
-  const supabase = createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient();
   const { isOwner } = await getSessionAndRole();
   const showArchivedChangeOrders = searchParams.archived === "1";
 

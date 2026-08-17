@@ -15,7 +15,7 @@ function monthRange(offset: number) {
 }
 
 export default async function AdminOverview() {
-  const supabase = createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient();
   const thisMonth = monthRange(0);
   const lastMonth = monthRange(-1);
 

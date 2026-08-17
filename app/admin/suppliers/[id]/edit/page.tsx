@@ -6,7 +6,7 @@ import { updateSupplier } from "../../../actions";
 
 export default async function EditSupplierPage(props: { params: Promise<{ id: string }> }) {
   const params = await props.params;
-  const supabase = createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient();
   const [{ data: supplier }, { data: profiles }, { data: suppliers }] = await Promise.all([
     supabase.from("suppliers").select("id, name, email, phone, address, profile_id").eq("id", params.id).single(),
     supabase.from("profiles").select("id, full_name").eq("role", "supplier"),

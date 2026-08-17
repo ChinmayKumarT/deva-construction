@@ -16,7 +16,7 @@ export default async function PersonalTransactionsPage(
 ) {
   const searchParams = await props.searchParams;
   const showArchived = searchParams.archived === "1";
-  const supabase = createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient();
 
   const base = supabase
     .from("personal_transactions")
