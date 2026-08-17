@@ -235,11 +235,17 @@ function PaymentFormFields({
                 value={supplierId}
                 onChange={(e) => setSupplierId(e.target.value)}
               >
-                <option value="none">— none —</option>
+                <option value="none">— select a supplier —</option>
                 {suppliers.map((s) => (<option key={s.id} value={s.id}>{s.name}</option>))}
                 <option value={OTHER_SUPPLIER}>Other…</option>
               </select>
             </label>
+            {suppliers.length === 0 && supplierId === "none" && (
+              <p className="mt-1 text-xs text-slate-500">
+                No suppliers yet — pick <span className="font-medium">Other…</span> to type a new supplier name, or{" "}
+                <Link href="/admin/suppliers" className="font-medium text-brand-700 hover:underline">add one first</Link>.
+              </p>
+            )}
             {supplierId === OTHER_SUPPLIER && (
               <input
                 name="new_supplier_name"

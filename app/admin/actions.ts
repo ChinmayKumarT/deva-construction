@@ -471,10 +471,17 @@ export async function createPayment(
       approved_by: user?.id ?? null,
     };
     if (payee_type === "supplier") {
+      if (!resolvedSupplierId) {
+        return { error: "Pick a supplier for this bill (or use \"Other…\" to type a new supplier name).", success: false };
+      }
       row.supplier_id = resolvedSupplierId;
       row.labourer_id = null;
     } else {
-      row.labourer_id = uuidOrNull(fd, "labourer_id");
+      const labourerId = uuidOrNull(fd, "labourer_id");
+      if (!labourerId) {
+        return { error: "Pick a labourer for these wages.", success: false };
+      }
+      row.labourer_id = labourerId;
       row.supplier_id = null;
     }
     const { error } = await supabase.from("payments").insert(row);
