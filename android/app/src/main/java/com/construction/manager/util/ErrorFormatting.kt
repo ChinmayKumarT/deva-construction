@@ -28,7 +28,33 @@ fun isNetworkError(message: String?): Boolean {
 }
 
 // Returns null for network-related errors so callers can hide the raw
-// stack-trace-ish text (the offline banner already covers this case) and
-// returns the original message otherwise.
-fun friendlyError(message: String?): String? =
-    if (isNetworkError(message)) null else message
+// stack-trace-ish text (the offline banner already covers this case), and
+// translates a handful of common cryptic errors into plain English. Any
+// other message is returned unchanged so real backend errors still surface.
+fun friendlyError(message: String?): String? {
+    if (isNetworkError(message)) return null
+    if (message.isNullOrBlank()) return message
+
+    val lower = message.lowercase()
+    return when {
+        // Google One Tap / Credential Manager errors
+        lower.contains("cannot find a matching credential") ||
+            lower.contains("no credentials available") ->
+            "No Google account is signed in on this phone. Add one in Settings, or use email sign-in instead."
+        lower.contains("cancelled") && lower.contains("credential") ->
+            "Google sign-in was cancelled."
+        lower.contains("developer_error") ||
+            lower.contains("10: developer console") ->
+            "Google sign-in isn't set up for this build. Use email sign-in instead."
+        lower.contains("api exception") && lower.contains("16:") ->
+            "No matching Google account on this phone. Use email sign-in instead."
+        // Supabase auth errors
+        lower.contains("invalid login credentials") ->
+            "Wrong email or password."
+        lower.contains("email not confirmed") ->
+            "Please confirm your email before signing in — check your inbox."
+        lower.contains("user already registered") ->
+            "An account with this email already exists. Try signing in instead."
+        else -> message
+    }
+}
