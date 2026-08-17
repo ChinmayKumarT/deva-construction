@@ -44,13 +44,17 @@ fun AppNav(vm: AuthViewModel = viewModel()) {
             }
         }
 
-        // Floats above every screen (including auth) so connectivity loss
-        // is always visible without blocking taps.
+        // Floats above every screen so connectivity loss is always visible
+        // without blocking taps. On dashboards it sits just below the top
+        // app bar (64dp offset) so it doesn't cover the menu/title/avatar;
+        // on auth-style screens it hugs the status bar at the very top.
+        val isDashboard = state is AuthState.SignedIn
         OfflineBanner(
             visible = !isOnline,
             modifier = Modifier
                 .align(Alignment.TopCenter)
-                .statusBarsPadding(),
+                .statusBarsPadding()
+                .padding(top = if (isDashboard) 64.dp else 0.dp),
         )
     }
 }
