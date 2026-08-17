@@ -211,3 +211,15 @@ data class LabourOnProjectRow(
     @SerialName("labourer_name") val labourerName: String,
     val category: String? = null,
 )
+
+// Mirrors the backup_logs table -- each row is one manual download from
+// the /admin/backup page (web) or the Android Backup section.
+@Serializable
+data class BackupLogRow(
+    val id: String,
+    val type: String = "manual",
+    val format: String = "json",
+    @SerialName("user_id") val userId: String? = null,
+    @SerialName("created_at") val createdAt: String,
+    @SerialName("table_counts") val tableCounts: kotlinx.serialization.json.JsonObject? = null,
+)

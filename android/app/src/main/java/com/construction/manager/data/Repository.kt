@@ -819,4 +819,59 @@ object Repo {
     suspend fun listActiveAssignments() = supabase.from("project_labourers")
         .select { filter { filter("unassigned_at", FilterOperator.IS, "null") } }
         .decodeList<ProjectLabourerRow>()
+
+    // ---------- Backup ----------
+    // Tables in FK-safe order so an eventual restore can insert rows without
+    // hitting foreign-key violations. Mirrors lib/backup.ts on the web.
+    private val backupTables = listOf(
+        "profiles", "clients", "suppliers", "labourers",
+        "projects", "project_labourers",
+        "materials", "payments", "attendance",
+        "project_updates", "personal_transactions",
+        "project_change_orders", "client_payments",
+    )
+
+    // Full JSON dump of every table plus a small metadata header. Returned as
+    // a string so the Backup screen can hand it to BackupExporter and let the
+    // user save/share it -- same shape as the web /api/backup?format=json.
+    suspend fun generateBackupJson(): Pair<String, Map<String, Int>> {
+        val json = kotlinx.serialization.json.Json { prettyPrint = false }
+        val tables = kotlinx.serialization.json.buildJsonObject {
+            for (t in backupTables) {
+                val raw = supabase.from(t).select().data
+                put(t, json.parseToJsonElement(raw))
+            }
+        }
+        val counts = mutableMapOf<String, Int>()
+        for (t in backupTables) {
+            val arr = tables[t] as? kotlinx.serialization.json.JsonArray
+            counts[t] = arr?.size ?: 0
+        }
+        val payload = kotlinx.serialization.json.buildJsonObject {
+            put("metadata", kotlinx.serialization.json.buildJsonObject {
+                put("timestamp", kotlinx.serialization.json.JsonPrimitive(java.time.Instant.now().toString()))
+                put("tables", kotlinx.serialization.json.buildJsonObject {
+                    counts.forEach { (k, v) -> put(k, kotlinx.serialization.json.JsonPrimitive(v)) }
+                })
+            })
+            put("tables", tables)
+        }
+        return json.encodeToString(kotlinx.serialization.json.JsonObject.serializer(), payload) to counts
+    }
+
+    suspend fun logBackupDownload(counts: Map<String, Int>) {
+        val userId = supabase.auth.currentUserOrNull()?.id
+        supabase.from("backup_logs").insert(buildJsonObject {
+            put("type", "manual")
+            put("format", "json")
+            put("user_id", userId)
+            put("table_counts", kotlinx.serialization.json.buildJsonObject {
+                counts.forEach { (k, v) -> put(k, kotlinx.serialization.json.JsonPrimitive(v)) }
+            })
+        })
+    }
+
+    suspend fun fetchBackupLogs(): List<BackupLogRow> = supabase.from("backup_logs")
+        .select { order("created_at", Order.DESCENDING); limit(20) }
+        .decodeList<BackupLogRow>()
 }

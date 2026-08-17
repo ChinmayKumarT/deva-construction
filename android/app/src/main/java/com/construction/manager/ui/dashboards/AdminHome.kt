@@ -2,6 +2,7 @@ package com.construction.manager.ui.dashboards
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -42,6 +43,7 @@ enum class AdminSection(val label: String) {
     Reports("Reports & cash flow"),
     TeamAccess("Team access"),
     Personal("Personal"),
+    Backup("Backup"),
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -60,7 +62,10 @@ fun AdminHome(vm: AuthViewModel, isAdmin: Boolean = true, isOwner: Boolean = fal
     var paymentsProjectFilter by remember { mutableStateOf<ProjectRow?>(null) }
     var showDeleteDialog by remember { mutableStateOf(false) }
     val visibleSections = remember(isOwner) {
-        AdminSection.entries.filter { it != AdminSection.TeamAccess || isOwner }
+        AdminSection.entries.filter {
+            (it != AdminSection.TeamAccess || isOwner) &&
+            (it != AdminSection.Backup || isOwner)
+        }
     }
 
     BackHandler(enabled = drawerState.isOpen || sectionStack.size > 1) {
@@ -159,55 +164,49 @@ fun AdminHome(vm: AuthViewModel, isAdmin: Boolean = true, isOwner: Boolean = fal
         }
         Scaffold(
             topBar = {
-                TopAppBar(
-                    title = {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text(
-                                section.label,
-                                maxLines = 1,
-                                overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
-                                modifier = Modifier.weight(1f, fill = false),
-                                style = MaterialTheme.typography.titleLarge.copy(
-                                    fontFamily = com.construction.manager.ui.theme.Fraunces,
-                                    fontWeight = FontWeight.SemiBold,
-                                ),
-                            )
-                            Spacer(Modifier.width(10.dp))
-                            Box(
-                                Modifier
-                                    .background(
-                                        MaterialTheme.colorScheme.primaryContainer,
-                                        RoundedCornerShape(6.dp),
-                                    )
-                                    .padding(horizontal = 8.dp, vertical = 3.dp),
-                            ) {
+                val colors = com.construction.manager.ui.theme.mockupColors()
+                Column {
+                    TopAppBar(
+                        title = {
+                            Column {
                                 Text(
-                                    if (isAdmin) "Admin" else "Manager",
+                                    section.label,
+                                    maxLines = 1,
+                                    overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                                    style = MaterialTheme.typography.titleLarge.copy(
+                                        fontFamily = com.construction.manager.ui.theme.Fraunces,
+                                        fontWeight = FontWeight.SemiBold,
+                                        fontSize = 20.sp,
+                                    ),
+                                )
+                                Text(
+                                    "Deva Construction",
                                     fontSize = 11.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = MaterialTheme.colorScheme.onPrimaryContainer,
-                                    letterSpacing = 0.5.sp,
+                                    fontWeight = FontWeight.Medium,
+                                    color = colors.muted,
+                                    letterSpacing = 0.4.sp,
                                 )
                             }
-                        }
-                    },
-                    navigationIcon = {
-                        IconButton(onClick = { scope.launch { drawerState.open() } }) {
-                            Icon(Icons.Default.Menu, contentDescription = "Menu")
-                        }
-                    },
-                    actions = {
-                        AccountMenuButton(
-                            initial = if (isAdmin) "D" else "S",
-                            onSignOut = { vm.signOut() },
-                            onDeleteAccount = { showDeleteDialog = true },
-                            modifier = Modifier.padding(end = 8.dp),
-                        )
-                    },
-                    colors = androidx.compose.material3.TopAppBarDefaults.topAppBarColors(
-                        containerColor = MaterialTheme.colorScheme.surface,
-                    ),
-                )
+                        },
+                        navigationIcon = {
+                            IconButton(onClick = { scope.launch { drawerState.open() } }) {
+                                Icon(Icons.Default.Menu, contentDescription = "Menu")
+                            }
+                        },
+                        actions = {
+                            AccountMenuButton(
+                                initial = if (isAdmin) "D" else "S",
+                                onSignOut = { vm.signOut() },
+                                onDeleteAccount = { showDeleteDialog = true },
+                                modifier = Modifier.padding(end = 12.dp),
+                            )
+                        },
+                        colors = androidx.compose.material3.TopAppBarDefaults.topAppBarColors(
+                            containerColor = MaterialTheme.colorScheme.surface,
+                        ),
+                    )
+                    Divider(color = colors.divider, thickness = 1.dp)
+                }
             },
         ) { padding ->
             Box(Modifier.padding(padding)) {
@@ -229,6 +228,7 @@ fun AdminHome(vm: AuthViewModel, isAdmin: Boolean = true, isOwner: Boolean = fal
                     AdminSection.Reports -> AdminReportsAndCashFlow()
                     AdminSection.TeamAccess -> AdminTeamAccess()
                     AdminSection.Personal -> AdminPersonal(isOwner)
+                    AdminSection.Backup -> AdminBackup()
                 }
             }
         }
@@ -379,3 +379,195 @@ private fun SearchResultCard(type: String, title: String, subtitle: String) {
         }
     }
 }
+
+// Backup screen — mirrors the web /admin/backup page. Shows an
+// informational panel with what's included, a "Download backup" button
+// that dumps every table to JSON and hands it to the share sheet, and
+// a log of recent backup activity (manual downloads + nightly runs on
+// GitHub Actions).
+@Composable
+fun AdminBackup() {
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val scope = rememberCoroutineScope()
+    val colors = com.construction.manager.ui.theme.mockupColors()
+
+    var busy by remember { mutableStateOf(false) }
+    var error by remember { mutableStateOf<String?>(null) }
+    var logs by remember { mutableStateOf<List<com.construction.manager.data.BackupLogRow>>(emptyList()) }
+    var logsLoaded by remember { mutableStateOf(false) }
+    var reloadKey by remember { mutableStateOf(0) }
+
+    LaunchedEffect(reloadKey) {
+        try {
+            logs = Repo.fetchBackupLogs()
+        } catch (_: Exception) {
+        } finally {
+            logsLoaded = true
+        }
+    }
+
+    Column(
+        Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(14.dp),
+    ) {
+        // What's included panel
+        Column(
+            Modifier
+                .fillMaxWidth()
+                .background(MaterialTheme.colorScheme.surface, RoundedCornerShape(12.dp))
+                .border(1.dp, colors.border, RoundedCornerShape(12.dp))
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            Text(
+                "What's included",
+                style = MaterialTheme.typography.titleSmall.copy(
+                    fontFamily = com.construction.manager.ui.theme.Fraunces,
+                    fontWeight = FontWeight.SemiBold,
+                ),
+            )
+            listOf(
+                "Projects, clients, suppliers, and labourers",
+                "All payments, materials, and change orders",
+                "Attendance records and project updates",
+                "Personal transactions",
+                "Every row from all 13 tables as JSON",
+            ).forEach {
+                Row(verticalAlignment = Alignment.Top) {
+                    Text("•  ", color = colors.muted, fontSize = 13.sp)
+                    Text(it, style = MaterialTheme.typography.bodySmall, color = colors.muted)
+                }
+            }
+        }
+
+        // Download button
+        Button(
+            onClick = {
+                if (busy) return@Button
+                busy = true
+                error = null
+                scope.launch {
+                    try {
+                        val (json, counts) = Repo.generateBackupJson()
+                        val uri = com.construction.manager.util.BackupExporter.write(context, json)
+                        runCatching { Repo.logBackupDownload(counts) }
+                        com.construction.manager.util.BackupExporter.share(context, uri)
+                        reloadKey++
+                    } catch (e: Exception) {
+                        error = e.message ?: "Backup failed"
+                    } finally {
+                        busy = false
+                    }
+                }
+            },
+            enabled = !busy,
+            modifier = Modifier.fillMaxWidth(),
+            colors = ButtonDefaults.buttonColors(
+                containerColor = com.construction.manager.ui.theme.Forest,
+                contentColor = androidx.compose.ui.graphics.Color.White,
+            ),
+        ) {
+            if (busy) {
+                CircularProgressIndicator(
+                    modifier = Modifier.size(16.dp),
+                    strokeWidth = 2.dp,
+                    color = androidx.compose.ui.graphics.Color.White,
+                )
+                Spacer(Modifier.width(10.dp))
+                Text("Preparing backup…", fontWeight = FontWeight.SemiBold)
+            } else {
+                Text("Download backup", fontWeight = FontWeight.SemiBold)
+            }
+        }
+        if (error != null) {
+            Text(error!!, color = colors.danger, style = MaterialTheme.typography.bodySmall)
+        }
+        Text(
+            "Automated backups also run every night at midnight IST and are saved to GitHub.",
+            style = MaterialTheme.typography.bodySmall,
+            color = colors.muted,
+        )
+
+        // Backup log
+        Column(
+            Modifier
+                .fillMaxWidth()
+                .background(MaterialTheme.colorScheme.surface, RoundedCornerShape(12.dp))
+                .border(1.dp, colors.border, RoundedCornerShape(12.dp))
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
+            Text(
+                "Backup log",
+                style = MaterialTheme.typography.titleSmall.copy(
+                    fontFamily = com.construction.manager.ui.theme.Fraunces,
+                    fontWeight = FontWeight.SemiBold,
+                ),
+            )
+            when {
+                !logsLoaded -> CircularProgressIndicator(modifier = Modifier.size(20.dp))
+                logs.isEmpty() -> Text(
+                    "No backups yet. Tap Download backup to create your first one.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = colors.muted,
+                )
+                else -> logs.forEach { log ->
+                    BackupLogRow(log, colors)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun BackupLogRow(
+    log: com.construction.manager.data.BackupLogRow,
+    colors: com.construction.manager.ui.theme.MockupColors,
+) {
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .border(1.dp, colors.border, RoundedCornerShape(10.dp))
+            .padding(horizontal = 12.dp, vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Box(
+            Modifier.size(28.dp).background(colors.primaryTint, CircleShape),
+            contentAlignment = Alignment.Center,
+        ) {
+            Text("↓", color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+        }
+        Spacer(Modifier.width(10.dp))
+        Column(Modifier.weight(1f)) {
+            Text(formatBackupDate(log.createdAt), style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)
+            val rows = log.tableCounts?.values?.sumOf {
+                (it as? kotlinx.serialization.json.JsonPrimitive)?.content?.toIntOrNull() ?: 0
+            } ?: 0
+            Text(
+                "Downloaded ${log.format.uppercase()}${if (rows > 0) " · $rows rows" else ""}",
+                style = MaterialTheme.typography.bodySmall,
+                color = colors.muted,
+            )
+        }
+        Box(
+            Modifier
+                .background(colors.primaryTint, RoundedCornerShape(6.dp))
+                .padding(horizontal = 8.dp, vertical = 3.dp),
+        ) {
+            Text(
+                "Download",
+                fontSize = 10.sp,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.primary,
+                letterSpacing = 0.4.sp,
+            )
+        }
+    }
+}
+
+private fun formatBackupDate(iso: String): String = try {
+    val instant = java.time.Instant.parse(iso)
+    val zoned = instant.atZone(java.time.ZoneId.of("Asia/Kolkata"))
+    val fmt = java.time.format.DateTimeFormatter.ofPattern("d MMM yyyy, h:mm a")
+    zoned.format(fmt)
+} catch (_: Exception) { iso }
