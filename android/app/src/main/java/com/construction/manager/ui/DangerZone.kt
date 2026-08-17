@@ -41,7 +41,7 @@ fun DeleteAccountButton(
                         singleLine = true, enabled = !busy,
                         modifier = Modifier.fillMaxWidth(),
                     )
-                    error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+                    com.construction.manager.util.friendlyError(error)?.let { Text(it, color = MaterialTheme.colorScheme.error) }
                 }
             },
             confirmButton = {

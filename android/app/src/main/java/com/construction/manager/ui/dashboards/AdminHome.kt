@@ -244,8 +244,10 @@ fun AdminOverview() {
     }
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        val friendly = com.construction.manager.util.friendlyError(err)
         when {
-            err != null -> Text("Error: $err")
+            friendly != null -> Text("Error: $friendly")
+            err != null && m == null -> CircularProgressIndicator()
             m == null -> CircularProgressIndicator()
             else -> {
                 StatCard("Total Cost", money(m!!.totalCost), accent = true)

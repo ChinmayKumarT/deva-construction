@@ -190,7 +190,7 @@ private fun EditDialog(
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 content()
-                error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+                com.construction.manager.util.friendlyError(error)?.let { Text(it, color = MaterialTheme.colorScheme.error) }
             }
         },
         confirmButton = {
@@ -271,7 +271,7 @@ fun AdminProjects(isOwner: Boolean = false) {
                 { it }, { status = it })
             LabeledChipPicker("Client", clients, client, { it.name }, { client = it })
             DateField(endDate, { endDate = it }, "Planned finish date")
-            error?.let { Text(it, color = MaterialTheme.colorScheme.error,
+            com.construction.manager.util.friendlyError(error)?.let { Text(it, color = MaterialTheme.colorScheme.error,
                 modifier = Modifier.padding(16.dp)) }
             Button(
                 onClick = {
@@ -337,7 +337,7 @@ fun AdminProjects(isOwner: Boolean = false) {
                 color = MaterialTheme.colorScheme.primary,
                 modifier = Modifier.padding(horizontal = 16.dp),
             )
-            error?.let { Text(it, color = MaterialTheme.colorScheme.error,
+            com.construction.manager.util.friendlyError(error)?.let { Text(it, color = MaterialTheme.colorScheme.error,
                 modifier = Modifier.padding(16.dp)) }
             // Same "spent" definition as the web Costs/Reports pages:
             // materials + labour payments + attendance wages. Supplier
@@ -490,7 +490,7 @@ fun AdminProjects(isOwner: Boolean = false) {
             return@FormColumn
         }
 
-        error?.let { Text(it, color = MaterialTheme.colorScheme.error,
+        com.construction.manager.util.friendlyError(error)?.let { Text(it, color = MaterialTheme.colorScheme.error,
             modifier = Modifier.padding(16.dp)) }
         SectionTitle("Archived projects (${rows.size})")
         if (rows.isEmpty()) {
@@ -897,7 +897,7 @@ private fun EditProjectDialog(
                     style = MaterialTheme.typography.labelSmall,
                     modifier = Modifier.padding(horizontal = 16.dp),
                 )
-                error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+                com.construction.manager.util.friendlyError(error)?.let { Text(it, color = MaterialTheme.colorScheme.error) }
             }
         },
         confirmButton = {
@@ -945,7 +945,7 @@ private fun ExtendFinishDateDialog(project: ProjectRow, onDismiss: () -> Unit, o
                 )
                 DateField(newDate, { newDate = it }, "New finish date")
                 TextField(reason, { reason = it }, "Reason (optional)")
-                error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+                com.construction.manager.util.friendlyError(error)?.let { Text(it, color = MaterialTheme.colorScheme.error) }
             }
         },
         confirmButton = {
@@ -992,7 +992,7 @@ private fun NextPaymentDateDialog(project: ProjectRow, onDismiss: () -> Unit, on
                         "Left blank, any payment clears it.",
                     style = MaterialTheme.typography.bodySmall,
                 )
-                error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+                com.construction.manager.util.friendlyError(error)?.let { Text(it, color = MaterialTheme.colorScheme.error) }
             }
         },
         confirmButton = {
@@ -1070,7 +1070,7 @@ fun AdminClients(isOwner: Boolean = false) {
     Box(Modifier.fillMaxSize()) {
     FormColumn {
         ArchivedSwitch(showArchived) { showArchived = !showArchived }
-        error?.let { Text(it, color = MaterialTheme.colorScheme.error,
+        com.construction.manager.util.friendlyError(error)?.let { Text(it, color = MaterialTheme.colorScheme.error,
             modifier = Modifier.padding(16.dp)) }
         Divider()
         SectionTitle(
@@ -1231,7 +1231,7 @@ fun AdminSuppliers(isOwner: Boolean = false) {
     Box(Modifier.fillMaxSize()) {
     FormColumn {
         ArchivedSwitch(showArchived) { showArchived = !showArchived }
-        error?.let { Text(it, color = MaterialTheme.colorScheme.error,
+        com.construction.manager.util.friendlyError(error)?.let { Text(it, color = MaterialTheme.colorScheme.error,
             modifier = Modifier.padding(16.dp)) }
         Divider()
         SectionTitle(
@@ -1444,7 +1444,7 @@ fun AdminLabourers(isOwner: Boolean = false) {
     Box(Modifier.fillMaxSize()) {
     FormColumn {
         ArchivedSwitch(showArchived) { showArchived = !showArchived }
-        error?.let { Text(it, color = MaterialTheme.colorScheme.error,
+        com.construction.manager.util.friendlyError(error)?.let { Text(it, color = MaterialTheme.colorScheme.error,
             modifier = Modifier.padding(16.dp)) }
         Divider()
         SectionTitle(
@@ -1674,7 +1674,7 @@ fun AdminMaterials(isOwner: Boolean = false, initialProjectFilter: ProjectRow? =
             }
         }
         ArchivedSwitch(showArchived) { showArchived = !showArchived }
-        error?.let { Text(it, color = MaterialTheme.colorScheme.error,
+        com.construction.manager.util.friendlyError(error)?.let { Text(it, color = MaterialTheme.colorScheme.error,
             modifier = Modifier.padding(16.dp)) }
         Divider()
         SectionTitle(
@@ -1797,7 +1797,7 @@ private fun MaterialsProjectPicker(
             NumberField(unitCost, { unitCost = it }, "Unit cost")
             LabeledChipPicker("Status", listOf("ordered","delivered","returned"), status, { it }, { status = it })
             CategoryDropdown("Work category", workCategory, { workCategory = it })
-            error?.let { Text(it, color = MaterialTheme.colorScheme.error,
+            com.construction.manager.util.friendlyError(error)?.let { Text(it, color = MaterialTheme.colorScheme.error,
                 modifier = Modifier.padding(16.dp)) }
             Button(onClick = {
                 val p = project ?: return@Button
@@ -2010,7 +2010,7 @@ fun AdminPayments(isOwner: Boolean = false, initialProjectFilter: ProjectRow? = 
                 )
             }
         }
-        error?.let { Text(it, color = MaterialTheme.colorScheme.error,
+        com.construction.manager.util.friendlyError(error)?.let { Text(it, color = MaterialTheme.colorScheme.error,
             modifier = Modifier.padding(16.dp)) }
         Divider()
         SectionTitle(
@@ -2383,7 +2383,7 @@ private fun CreatePaymentSection(
         }
         CategoryDropdown("Work category", workCategory, { workCategory = it })
         NumberField(amount, { amount = it }, "Amount")
-        error?.let { Text(it, color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(16.dp)) }
+        com.construction.manager.util.friendlyError(error)?.let { Text(it, color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(16.dp)) }
         Button(
             onClick = {
                 val pid = project?.id ?: return@Button
@@ -2722,7 +2722,7 @@ fun AdminAttendance() {
                 style = MaterialTheme.typography.bodySmall,
                 modifier = Modifier.padding(horizontal = 16.dp),
             )
-            error?.let { Text(it, color = MaterialTheme.colorScheme.error,
+            com.construction.manager.util.friendlyError(error)?.let { Text(it, color = MaterialTheme.colorScheme.error,
                 modifier = Modifier.padding(16.dp)) }
             if (projects.isEmpty()) {
                 Text("No projects yet.", Modifier.padding(16.dp))
@@ -2766,7 +2766,7 @@ fun AdminAttendance() {
                 TextButton(onClick = { date = todayStr }) { Text("Today") }
             }
         }
-        error?.let { Text(it, color = MaterialTheme.colorScheme.error,
+        com.construction.manager.util.friendlyError(error)?.let { Text(it, color = MaterialTheme.colorScheme.error,
             modifier = Modifier.padding(16.dp)) }
         if (labourers.isEmpty()) {
             Text("No active labourers. Add one in Labourers.", Modifier.padding(16.dp))
@@ -2882,7 +2882,7 @@ fun AdminUpdates(isOwner: Boolean = false) {
     FormColumn {
         ArchivedSwitch(showArchived) { showArchived = !showArchived }
 
-        error?.let { Text(it, color = MaterialTheme.colorScheme.error,
+        com.construction.manager.util.friendlyError(error)?.let { Text(it, color = MaterialTheme.colorScheme.error,
             modifier = Modifier.padding(16.dp)) }
 
         Divider()
@@ -3064,7 +3064,7 @@ fun AdminCosts(
 
     FormColumn {
         when {
-            error != null -> Text("Error: $error", color = MaterialTheme.colorScheme.error,
+            com.construction.manager.util.friendlyError(error) != null -> Text("Error: ${com.construction.manager.util.friendlyError(error)}", color = MaterialTheme.colorScheme.error,
                 modifier = Modifier.padding(16.dp))
             loading -> Box(Modifier.fillMaxWidth().padding(32.dp),
                 contentAlignment = Alignment.Center) { CircularProgressIndicator() }
@@ -3173,7 +3173,7 @@ fun AdminTeamAccess() {
             singleLine = true,
             modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
         )
-        error?.let { Text(it, color = MaterialTheme.colorScheme.error,
+        com.construction.manager.util.friendlyError(error)?.let { Text(it, color = MaterialTheme.colorScheme.error,
             modifier = Modifier.padding(16.dp)) }
         if (filtered.isEmpty()) {
             Text("No matches.", Modifier.padding(16.dp))
@@ -3301,7 +3301,7 @@ fun AdminPersonal(isOwner: Boolean = false) {
                 }
             }, modifier = Modifier.padding(16.dp)) { Text("Add transaction") }
         }
-        error?.let { Text(it, color = MaterialTheme.colorScheme.error,
+        com.construction.manager.util.friendlyError(error)?.let { Text(it, color = MaterialTheme.colorScheme.error,
             modifier = Modifier.padding(16.dp)) }
         Divider()
         SectionTitle(
@@ -3422,7 +3422,7 @@ private fun AdminReports() {
     val context = LocalContext.current
 
     FormColumn {
-        error?.let { Text(it, color = MaterialTheme.colorScheme.error,
+        com.construction.manager.util.friendlyError(error)?.let { Text(it, color = MaterialTheme.colorScheme.error,
             modifier = Modifier.padding(16.dp)) }
 
         val sel = selectedProject
@@ -3700,7 +3700,7 @@ private fun AdminCashFlow() {
         ).distinct()
 
     FormColumn {
-        error?.let { Text(it, color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(16.dp)) }
+        com.construction.manager.util.friendlyError(error)?.let { Text(it, color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(16.dp)) }
         Row(Modifier.padding(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             DateField(from, { from = it }, "From", Modifier.weight(1f))
             DateField(to, { to = it }, "To", Modifier.weight(1f))
@@ -4050,7 +4050,7 @@ private fun AdminProfitLoss() {
 
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+        com.construction.manager.util.friendlyError(error)?.let { Text(it, color = MaterialTheme.colorScheme.error) }
         if (projects.isEmpty() && error == null) {
             CircularProgressIndicator()
             return@Column

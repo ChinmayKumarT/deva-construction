@@ -173,7 +173,7 @@ fun SupplierDashboard(vm: AuthViewModel) = RoleScaffold("Supplier", vm) { paddin
             )
             com.construction.manager.ui.NumberField(amount, { amount = it }, "Amount")
             com.construction.manager.ui.TextField(desc, { desc = it }, "Description")
-            error?.let { Text(it, color = MaterialTheme.colorScheme.error,
+            com.construction.manager.util.friendlyError(error)?.let { Text(it, color = MaterialTheme.colorScheme.error,
                 modifier = Modifier.padding(16.dp)) }
             Button(onClick = {
                 val p = billProject ?: return@Button
@@ -293,7 +293,7 @@ fun ClientDashboard(vm: AuthViewModel) = RoleScaffold("Client", vm) { padding ->
         if (client == null) {
             Text("Account not linked to a client record yet.", Modifier.padding(16.dp))
         } else {
-            error?.let { Text(it, color = MaterialTheme.colorScheme.error,
+            com.construction.manager.util.friendlyError(error)?.let { Text(it, color = MaterialTheme.colorScheme.error,
                 modifier = Modifier.padding(16.dp)) }
             SectionTitle("Your projects")
             projects.forEach { p ->
