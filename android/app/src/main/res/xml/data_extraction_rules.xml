@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Android 12+ backup opt-out.
+  Excludes all app data from cloud (Google Drive) and device-to-device
+  transfer backups. Deva Construction stores auth tokens, cached
+  project data, and Supabase session state locally; none of it should
+  be extractable via adb backup or restored to another device without
+  a fresh sign-in.
+  Pairs with allowBackup=false + fullBackupContent=false in the
+  manifest to cover API 23-30 (old backup) and 31+ (split D2D/cloud).
+-->
+<data-extraction-rules>
+    <cloud-backup>
+        <exclude domain="root" />
+        <exclude domain="database" />
+        <exclude domain="sharedpref" />
+        <exclude domain="external" />
+        <exclude domain="file" />
+    </cloud-backup>
+    <device-transfer>
+        <exclude domain="root" />
+        <exclude domain="database" />
+        <exclude domain="sharedpref" />
+        <exclude domain="external" />
+        <exclude domain="file" />
+    </device-transfer>
+</data-extraction-rules>
