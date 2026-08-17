@@ -44,8 +44,9 @@ fun friendlyError(message: String?): String? {
         lower.contains("cancelled") && lower.contains("credential") ->
             "Google sign-in was cancelled."
         lower.contains("developer_error") ||
-            lower.contains("10: developer console") ->
-            "Google sign-in isn't set up for this build. Use email sign-in instead."
+            lower.contains("developer console is not set up") ||
+            lower.contains("10:") ->
+            "Google sign-in isn't set up for this build yet. Use email sign-in instead."
         lower.contains("api exception") && lower.contains("16:") ->
             "No matching Google account on this phone. Use email sign-in instead."
         // Supabase auth errors
