@@ -161,7 +161,7 @@ private fun AuthForm(
             }
         }
 
-        error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+        com.construction.manager.util.friendlyError(error)?.let { Text(it, color = MaterialTheme.colorScheme.error) }
 
         Button(
             onClick = {
@@ -224,7 +224,7 @@ private fun GoogleSignInButton(vm: AuthViewModel) {
             },
             modifier = Modifier.fillMaxWidth(),
         ) { Text("Continue with Google") }
-        googleError?.let {
+        com.construction.manager.util.friendlyError(googleError)?.let {
             Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
         }
     }
@@ -253,7 +253,7 @@ private fun ForgotPasswordScreen(vm: AuthViewModel, onBack: () -> Unit) {
         } else {
             OutlinedTextField(email, { email = it }, label = { Text("Email") },
                 modifier = Modifier.fillMaxWidth())
-            error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+            com.construction.manager.util.friendlyError(error)?.let { Text(it, color = MaterialTheme.colorScheme.error) }
             Button(
                 onClick = { vm.requestPasswordReset(email.trim()) { ok -> if (ok) sent = true } },
                 modifier = Modifier.fillMaxWidth(),
@@ -284,7 +284,7 @@ private fun MagicLinkScreen(vm: AuthViewModel, onBack: () -> Unit) {
         } else {
             OutlinedTextField(email, { email = it }, label = { Text("Email") },
                 modifier = Modifier.fillMaxWidth())
-            error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+            com.construction.manager.util.friendlyError(error)?.let { Text(it, color = MaterialTheme.colorScheme.error) }
             Button(
                 onClick = { vm.requestMagicLink(email.trim()) { ok -> if (ok) sent = true } },
                 modifier = Modifier.fillMaxWidth(),
@@ -308,7 +308,7 @@ fun ChooseRoleScreen(vm: AuthViewModel) {
         Text("Pick the role that matches you on site before continuing.",
             style = MaterialTheme.typography.bodyMedium)
 
-        error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+        com.construction.manager.util.friendlyError(error)?.let { Text(it, color = MaterialTheme.colorScheme.error) }
 
         RoleOption(
             title = "Client",
@@ -373,7 +373,7 @@ fun ResetPasswordScreen(vm: AuthViewModel) {
             modifier = Modifier.fillMaxWidth(),
         )
 
-        (localError ?: vmError)?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+        com.construction.manager.util.friendlyError(localError ?: vmError)?.let { Text(it, color = MaterialTheme.colorScheme.error) }
 
         Button(
             onClick = {
