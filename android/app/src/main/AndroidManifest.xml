@@ -11,10 +11,11 @@
         android:theme="@style/Theme.App"
         android:allowBackup="true"
         android:usesCleartextTraffic="false">
-        <!-- nosemgrep: java.android.security.exported_activity.exported_activity
-             Required: MainActivity is the LAUNCHER activity. Android needs
-             exported=true so the launcher can start it; it has no privileged
-             control-plane surface (Supabase auth callback is scheme-scoped). -->
+        <!-- Required: MainActivity is the LAUNCHER activity. Android needs
+             exported=true so the home-screen launcher can start it; it has
+             no privileged control-plane surface (Supabase auth callback is
+             scheme-scoped). -->
+        <!-- nosemgrep -->
         <activity
             android:name=".MainActivity"
             android:exported="true"
