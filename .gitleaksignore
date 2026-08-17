@@ -1,0 +1,27 @@
+# Gitleaks whitelist for known-safe findings.
+#
+# All entries below are the Supabase NEXT_PUBLIC_SUPABASE_ANON_KEY, which
+# is public-safe by design -- it ships in every browser bundle and APK,
+# and access control is enforced by RLS at the database, not the key.
+# See https://supabase.com/docs/guides/api/api-keys#anon-key for context.
+#
+# The catastrophic key -- SUPABASE_SERVICE_ROLE_KEY -- has never been
+# committed and any real leak of it would need to bypass this file.
+# Entries use the "fingerprint" format: <commit>:<file>:<rule>:<line>.
+
+# .env.local.example historically shipped the real anon key instead of a
+# placeholder; fixed in a later commit but the history rows remain.
+f3c7bcce345519a4da69e6356acc4688fda6d559:.env.local.example:jwt:2
+3024c4cf7a35c7e72c81dd7b9e12582ff6ddea71:.env.local.example:jwt:2
+387084d6b8ca55f4b058ce9ab71f376d8356ecf7:.env.local.example:jwt:2
+b5441ee14e42533a677fd6c57c9638bc9194e7dc:.env.local.example:jwt:2
+14f3cc902e14a14ad7d4901485cb02244bc146de:.env.local.example:jwt:2
+
+# android/**/build/ is a generated build folder that was accidentally
+# committed early on; BuildConfig.java embeds the anon key from
+# local.properties. The folder is now gitignored, but historical
+# commits still contain it.
+3024c4cf7a35c7e72c81dd7b9e12582ff6ddea71:android/app/build/generated/source/buildConfig/debug/com/construction/manager/BuildConfig.java:jwt:13
+387084d6b8ca55f4b058ce9ab71f376d8356ecf7:android/app/build/generated/source/buildConfig/debug/com/construction/manager/BuildConfig.java:jwt:13
+b5441ee14e42533a677fd6c57c9638bc9194e7dc:android/app/build/generated/source/buildConfig/debug/com/construction/manager/BuildConfig.java:jwt:13
+14f3cc902e14a14ad7d4901485cb02244bc146de:android/app/build/generated/source/buildConfig/debug/com/construction/manager/BuildConfig.java:jwt:13

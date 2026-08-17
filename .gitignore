@@ -17,5 +17,13 @@ node_modules
 tsconfig.tsbuildinfo
 *.tmp
 
+# Android build outputs. app/build/ contains generated BuildConfig.java
+# which embeds anon-key values from local.properties -- keep it out of
+# the repo. The APK we actually ship is copied to public/downloads/
+# by our build step.
+android/**/build/
+android/.gradle/
+android/local.properties
+
 .vercel
 .env*
