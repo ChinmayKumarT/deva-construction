@@ -6,6 +6,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.zIndex
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.construction.manager.data.Role
 import com.construction.manager.ui.components.OfflineBanner
@@ -48,11 +49,14 @@ fun AppNav(vm: AuthViewModel = viewModel()) {
         // without blocking taps. On dashboards it sits just below the top
         // app bar (64dp offset) so it doesn't cover the menu/title/avatar;
         // on auth-style screens it hugs the status bar at the very top.
+        // zIndex forces it above the Scaffold's TopAppBar surface elevation
+        // and the ModalNavigationDrawer scrim on the admin dashboard.
         val isDashboard = state is AuthState.SignedIn
         OfflineBanner(
             visible = !isOnline,
             modifier = Modifier
                 .align(Alignment.TopCenter)
+                .zIndex(100f)
                 .statusBarsPadding()
                 .padding(top = if (isDashboard) 64.dp else 0.dp),
         )
