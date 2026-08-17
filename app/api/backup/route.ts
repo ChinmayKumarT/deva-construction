@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getSessionAndRole } from "@/lib/supabase/server";
 import { createSupabaseAdmin } from "@/lib/supabase/admin";
 import { generateFullBackup, type BackupResult } from "@/lib/backup";
-import * as XLSX from "xlsx";
+import ExcelJS from "exceljs";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -271,28 +271,31 @@ export async function GET(req: NextRequest) {
     return NextResponse.json(backup);
   }
 
-  const wb = XLSX.utils.book_new();
+  const wb = new ExcelJS.Workbook();
   const sheets = buildReadableSheets(backup);
 
   for (const sheet of sheets) {
-    const ws = XLSX.utils.json_to_sheet(sheet.data);
-    const cols = sheet.data[0] ? Object.keys(sheet.data[0]).map(k => ({
-      wch: Math.max(k.length, 12),
-    })) : [];
-    ws["!cols"] = cols;
-    XLSX.utils.book_append_sheet(wb, ws, sheet.name.slice(0, 31));
+    // Excel sheet names cap at 31 chars; keep the trim.
+    const ws = wb.addWorksheet(sheet.name.slice(0, 31));
+    if (sheet.data.length === 0) continue;
+    const headers = Object.keys(sheet.data[0]);
+    ws.columns = headers.map(h => ({
+      header: h,
+      key: h,
+      width: Math.max(h.length, 12),
+    }));
+    ws.addRows(sheet.data);
   }
 
-  const summaryRows = sheets.map(s => ({
-    "Sheet": s.name,
-    "Rows": s.data.length,
-  }));
-  summaryRows.push({ Sheet: "Backup Date", Rows: 0 });
-  const summaryWs = XLSX.utils.json_to_sheet(summaryRows);
-  summaryWs["!cols"] = [{ wch: 22 }, { wch: 8 }];
-  XLSX.utils.book_append_sheet(wb, summaryWs, "Summary");
+  const summarySheet = wb.addWorksheet("Summary");
+  summarySheet.columns = [
+    { header: "Sheet", key: "sheet", width: 22 },
+    { header: "Rows", key: "rows", width: 8 },
+  ];
+  summarySheet.addRows(sheets.map(s => ({ sheet: s.name, rows: s.data.length })));
+  summarySheet.addRow({ sheet: "Backup Date", rows: 0 });
 
-  const buf = XLSX.write(wb, { type: "buffer", bookType: "xlsx" });
+  const buf = await wb.xlsx.writeBuffer();
   const date = new Date().toISOString().slice(0, 10);
 
   return new Response(buf, {
