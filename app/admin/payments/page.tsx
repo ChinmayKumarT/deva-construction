@@ -16,11 +16,12 @@ export const fetchCache = "force-no-store";
 const SUPPLIER_COLOR = "#F59E0B";
 const LABOUR_COLOR = "#0EA5E9";
 
-export default async function PaymentsIndexPage({
-  searchParams,
-}: {
-  searchParams: { archived?: string };
-}) {
+export default async function PaymentsIndexPage(
+  props: {
+    searchParams: Promise<{ archived?: string }>;
+  }
+) {
+  const searchParams = await props.searchParams;
   const showArchived = searchParams.archived === "1";
   const supabase = createSupabaseServerClient();
 

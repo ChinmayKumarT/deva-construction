@@ -5,11 +5,12 @@ import { AssignLabourerForm } from "@/components/admin/AssignLabourerForm";
 import { CategoryField } from "@/components/admin/CategoryField";
 import { assignLabourer, createLabourer, archiveLabourer, unarchiveLabourer, deleteLabourer } from "../actions";
 
-export default async function LabourersPage({
-  searchParams,
-}: {
-  searchParams: { archived?: string };
-}) {
+export default async function LabourersPage(
+  props: {
+    searchParams: Promise<{ archived?: string }>;
+  }
+) {
+  const searchParams = await props.searchParams;
   const showArchived = searchParams.archived === "1";
   const supabase = createSupabaseServerClient();
   const { isOwner } = await getSessionAndRole();

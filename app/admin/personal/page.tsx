@@ -9,11 +9,12 @@ import {
 } from "../actions";
 import { roundMoney } from "@/lib/money";
 
-export default async function PersonalTransactionsPage({
-  searchParams,
-}: {
-  searchParams: { archived?: string };
-}) {
+export default async function PersonalTransactionsPage(
+  props: {
+    searchParams: Promise<{ archived?: string }>;
+  }
+) {
+  const searchParams = await props.searchParams;
   const showArchived = searchParams.archived === "1";
   const supabase = createSupabaseServerClient();
 

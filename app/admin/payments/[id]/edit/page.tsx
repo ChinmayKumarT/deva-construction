@@ -6,7 +6,8 @@ import { EditPaymentForm } from "@/components/admin/PaymentForm";
 import { computeWagesDue } from "@/lib/wages";
 import { updatePayment } from "../../../actions";
 
-export default async function EditPaymentPage({ params }: { params: { id: string } }) {
+export default async function EditPaymentPage(props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const supabase = createSupabaseServerClient();
   const [
     { data: payment }, { data: projects }, { data: suppliers }, { data: labourers },

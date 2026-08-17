@@ -4,7 +4,8 @@ import { notFound } from "next/navigation";
 import { requireRole } from "@/lib/guard";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
-export default async function ClientSiteReportPage({ params }: { params: { id: string } }) {
+export default async function ClientSiteReportPage(props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const { user } = await requireRole("client");
   const supabase = createSupabaseServerClient();
 

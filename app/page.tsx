@@ -6,11 +6,12 @@ import { PasswordField } from "@/components/PasswordField";
 import { OrganicBlob } from "@/components/ui/OrganicBlob";
 import { DottedPattern } from "@/components/ui/DottedPattern";
 
-export default async function LoginPage({
-  searchParams,
-}: {
-  searchParams: { error?: string; notice?: string; mode?: string };
-}) {
+export default async function LoginPage(
+  props: {
+    searchParams: Promise<{ error?: string; notice?: string; mode?: string }>;
+  }
+) {
+  const searchParams = await props.searchParams;
   const { user, role } = await getSessionAndRole();
   if (user && role) redirect(role === "manager" ? "/admin" : `/${role}`);
 

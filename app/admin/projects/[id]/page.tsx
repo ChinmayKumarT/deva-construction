@@ -27,13 +27,14 @@ import {
 export const dynamic = "force-dynamic";
 export const fetchCache = "force-no-store";
 
-export default async function ManageProjectPage({
-  params,
-  searchParams,
-}: {
-  params: { id: string };
-  searchParams: { archived?: string };
-}) {
+export default async function ManageProjectPage(
+  props: {
+    params: Promise<{ id: string }>;
+    searchParams: Promise<{ archived?: string }>;
+  }
+) {
+  const searchParams = await props.searchParams;
+  const params = await props.params;
   const supabase = createSupabaseServerClient();
   const { isOwner } = await getSessionAndRole();
   const showArchivedChangeOrders = searchParams.archived === "1";

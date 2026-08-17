@@ -10,13 +10,14 @@ import { lineTotal } from "@/lib/money";
 export const dynamic = "force-dynamic";
 export const fetchCache = "force-no-store";
 
-export default async function ProjectMaterialsPage({
-  params,
-  searchParams,
-}: {
-  params: { id: string };
-  searchParams: { archived?: string };
-}) {
+export default async function ProjectMaterialsPage(
+  props: {
+    params: Promise<{ id: string }>;
+    searchParams: Promise<{ archived?: string }>;
+  }
+) {
+  const searchParams = await props.searchParams;
+  const params = await props.params;
   const showArchived = searchParams.archived === "1";
   const isUnassigned = params.id === "unassigned";
   const supabase = createSupabaseServerClient();

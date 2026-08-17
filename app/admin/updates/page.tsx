@@ -5,11 +5,12 @@ import { AdminPage, AdminPageHeader, Field, Select, SubmitButton } from "@/compo
 import { ArchivedToggle, DeleteForeverButton, RestoreAction } from "@/components/admin/RowActions";
 import { postProjectUpdate, archiveProjectUpdate, unarchiveProjectUpdate, deleteProjectUpdate } from "../actions";
 
-export default async function UpdatesPage({
-  searchParams,
-}: {
-  searchParams: { archived?: string };
-}) {
+export default async function UpdatesPage(
+  props: {
+    searchParams: Promise<{ archived?: string }>;
+  }
+) {
+  const searchParams = await props.searchParams;
   const showArchived = searchParams.archived === "1";
   const supabase = createSupabaseServerClient();
   const { isOwner } = await getSessionAndRole();

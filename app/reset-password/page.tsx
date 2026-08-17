@@ -3,11 +3,12 @@ import { getSessionAndRole } from "@/lib/supabase/server";
 import { updatePassword } from "../actions/auth";
 import { PasswordField } from "@/components/PasswordField";
 
-export default async function ResetPasswordPage({
-  searchParams,
-}: {
-  searchParams: { error?: string };
-}) {
+export default async function ResetPasswordPage(
+  props: {
+    searchParams: Promise<{ error?: string }>;
+  }
+) {
+  const searchParams = await props.searchParams;
   // Only reachable with the recovery session the /auth/callback exchange
   // just set up -- anyone landing here cold (no session) came the wrong way.
   const { user } = await getSessionAndRole();

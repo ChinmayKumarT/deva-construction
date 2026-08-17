@@ -24,13 +24,14 @@ const STATUS_STYLE: Record<string, string> = {
   rejected: "bg-red-50 text-red-700 border-red-200",
 };
 
-export default async function ProjectPaymentsPage({
-  params,
-  searchParams,
-}: {
-  params: { id: string };
-  searchParams: { archived?: string };
-}) {
+export default async function ProjectPaymentsPage(
+  props: {
+    params: Promise<{ id: string }>;
+    searchParams: Promise<{ archived?: string }>;
+  }
+) {
+  const searchParams = await props.searchParams;
+  const params = await props.params;
   const showArchived = searchParams.archived === "1";
   const isUnassigned = params.id === "unassigned";
   const supabase = createSupabaseServerClient();

@@ -10,11 +10,12 @@ const MATERIALS_COLOR = "#635bff";
 const LABOUR_COLOR = "#0EA5E9";
 const WAGES_COLOR = "#A855F7";
 
-export default async function CashFlowPage({
-  searchParams,
-}: {
-  searchParams: { from?: string; to?: string };
-}) {
+export default async function CashFlowPage(
+  props: {
+    searchParams: Promise<{ from?: string; to?: string }>;
+  }
+) {
+  const searchParams = await props.searchParams;
   const supabase = createSupabaseServerClient();
   const { fromStr, toStr } = defaultCashFlowRange();
   const from = searchParams.from || fromStr;

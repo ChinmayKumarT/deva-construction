@@ -2,11 +2,12 @@ import { redirect } from "next/navigation";
 import { getSessionAndRole } from "@/lib/supabase/server";
 import { chooseRole } from "../actions/auth";
 
-export default async function ChooseRolePage({
-  searchParams,
-}: {
-  searchParams: { error?: string };
-}) {
+export default async function ChooseRolePage(
+  props: {
+    searchParams: Promise<{ error?: string }>;
+  }
+) {
+  const searchParams = await props.searchParams;
   // Only reachable with a session -- Google sign-in has no other route that
   // lands here (see /auth/callback), so a cold visit came the wrong way.
   const { user } = await getSessionAndRole();

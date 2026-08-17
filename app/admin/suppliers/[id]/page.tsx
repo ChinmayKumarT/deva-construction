@@ -32,7 +32,8 @@ function StatBox({ label, value, className }: { label: string; value: string; cl
   );
 }
 
-export default async function ManageSupplierPage({ params }: { params: { id: string } }) {
+export default async function ManageSupplierPage(props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const supabase = createSupabaseServerClient();
   const { isOwner } = await getSessionAndRole();
 

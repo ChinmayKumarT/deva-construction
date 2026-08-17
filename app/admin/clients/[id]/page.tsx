@@ -8,7 +8,8 @@ import { archiveClient, deleteClient, unarchiveClient } from "../../actions";
 export const dynamic = "force-dynamic";
 export const fetchCache = "force-no-store";
 
-export default async function ManageClientPage({ params }: { params: { id: string } }) {
+export default async function ManageClientPage(props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const supabase = createSupabaseServerClient();
   const { isOwner } = await getSessionAndRole();
 

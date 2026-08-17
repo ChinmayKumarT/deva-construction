@@ -7,11 +7,12 @@ export const fetchCache = "force-no-store";
 
 type Result = { type: string; id: string; title: string; subtitle: string; href: string };
 
-export default async function SearchPage({
-  searchParams,
-}: {
-  searchParams: { q?: string };
-}) {
+export default async function SearchPage(
+  props: {
+    searchParams: Promise<{ q?: string }>;
+  }
+) {
+  const searchParams = await props.searchParams;
   const q = (searchParams.q ?? "").trim();
   let results: Result[] = [];
 

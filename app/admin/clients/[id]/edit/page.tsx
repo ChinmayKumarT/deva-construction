@@ -4,7 +4,8 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { AdminPage, AdminPageHeader, Field, Select, SubmitButton } from "@/components/admin/Page";
 import { updateClient } from "../../../actions";
 
-export default async function EditClientPage({ params }: { params: { id: string } }) {
+export default async function EditClientPage(props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const supabase = createSupabaseServerClient();
   const [{ data: client }, { data: profiles }, { data: clients }] = await Promise.all([
     supabase.from("clients").select("id, name, email, phone, address, profile_id").eq("id", params.id).single(),

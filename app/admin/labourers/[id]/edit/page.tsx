@@ -5,7 +5,8 @@ import { AdminPage, AdminPageHeader, Field, SubmitButton } from "@/components/ad
 import { CategoryField } from "@/components/admin/CategoryField";
 import { updateLabourer } from "../../../actions";
 
-export default async function EditLabourerPage({ params }: { params: { id: string } }) {
+export default async function EditLabourerPage(props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const supabase = createSupabaseServerClient();
   const { data: labourer } = await supabase
     .from("labourers")

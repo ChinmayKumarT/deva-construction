@@ -25,11 +25,12 @@ function InfoBox({ label, value, className }: { label: string; value: string; cl
   );
 }
 
-export default async function ManageMaterialPage({
-  params,
-}: {
-  params: { id: string; materialId: string };
-}) {
+export default async function ManageMaterialPage(
+  props: {
+    params: Promise<{ id: string; materialId: string }>;
+  }
+) {
+  const params = await props.params;
   const supabase = createSupabaseServerClient();
   const { isOwner } = await getSessionAndRole();
 

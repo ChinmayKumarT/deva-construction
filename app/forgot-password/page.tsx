@@ -1,10 +1,11 @@
 import { requestPasswordReset } from "../actions/auth";
 
-export default function ForgotPasswordPage({
-  searchParams,
-}: {
-  searchParams: { error?: string; notice?: string };
-}) {
+export default async function ForgotPasswordPage(
+  props: {
+    searchParams: Promise<{ error?: string; notice?: string }>;
+  }
+) {
+  const searchParams = await props.searchParams;
   return (
     <main className="min-h-screen flex items-center justify-center bg-[var(--bg)] px-6 py-12">
       <div className="w-full max-w-md">

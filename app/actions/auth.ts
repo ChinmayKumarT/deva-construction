@@ -1,7 +1,7 @@
 "use server";
 
 import { redirect } from "next/navigation";
-import { headers } from "next/headers";
+import { headers, type UnsafeUnwrappedHeaders } from "next/headers";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 type Role = "admin" | "manager" | "client" | "supplier" | "labour";
@@ -10,7 +10,7 @@ type Role = "admin" | "manager" | "client" | "supplier" | "labour";
 // this works the same on localhost and whatever domain Vercel deploys to,
 // without needing a new env var kept in sync per environment.
 function siteOrigin(): string {
-  const h = headers();
+  const h = (headers() as unknown as UnsafeUnwrappedHeaders);
   const host = h.get("x-forwarded-host") ?? h.get("host")!;
   const proto = h.get("x-forwarded-proto") ?? (host.startsWith("localhost") ? "http" : "https");
   return `${proto}://${host}`;

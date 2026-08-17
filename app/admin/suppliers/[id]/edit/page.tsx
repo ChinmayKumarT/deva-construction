@@ -4,7 +4,8 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { AdminPage, AdminPageHeader, Field, Select, SubmitButton } from "@/components/admin/Page";
 import { updateSupplier } from "../../../actions";
 
-export default async function EditSupplierPage({ params }: { params: { id: string } }) {
+export default async function EditSupplierPage(props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const supabase = createSupabaseServerClient();
   const [{ data: supplier }, { data: profiles }, { data: suppliers }] = await Promise.all([
     supabase.from("suppliers").select("id, name, email, phone, address, profile_id").eq("id", params.id).single(),

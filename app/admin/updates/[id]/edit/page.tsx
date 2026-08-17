@@ -5,7 +5,8 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { AdminPage, AdminPageHeader, Field, SubmitButton } from "@/components/admin/Page";
 import { updateProjectUpdate } from "../../../actions";
 
-export default async function EditUpdatePage({ params }: { params: { id: string } }) {
+export default async function EditUpdatePage(props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const supabase = createSupabaseServerClient();
   const { data: update } = await supabase
     .from("project_updates")

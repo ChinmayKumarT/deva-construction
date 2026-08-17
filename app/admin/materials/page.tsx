@@ -11,11 +11,12 @@ import { lineTotal } from "@/lib/money";
 export const dynamic = "force-dynamic";
 export const fetchCache = "force-no-store";
 
-export default async function MaterialsIndexPage({
-  searchParams,
-}: {
-  searchParams: { archived?: string };
-}) {
+export default async function MaterialsIndexPage(
+  props: {
+    searchParams: Promise<{ archived?: string }>;
+  }
+) {
+  const searchParams = await props.searchParams;
   const showArchived = searchParams.archived === "1";
   const supabase = createSupabaseServerClient();
 

@@ -5,7 +5,8 @@ import { AdminPage, AdminPageHeader, Field, Select, SubmitButton } from "@/compo
 import { CategoryField } from "@/components/admin/CategoryField";
 import { updateMaterial } from "../../../actions";
 
-export default async function EditMaterialPage({ params }: { params: { id: string } }) {
+export default async function EditMaterialPage(props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const supabase = createSupabaseServerClient();
   const [{ data: material }, { data: projects }, { data: suppliers }] = await Promise.all([
     supabase

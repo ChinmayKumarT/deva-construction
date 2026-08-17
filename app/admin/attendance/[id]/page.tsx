@@ -4,13 +4,14 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { AdminPage, AdminPageHeader } from "@/components/admin/Page";
 import { AttendanceMarkForm } from "@/components/admin/AttendanceMarkForm";
 
-export default async function ProjectAttendancePage({
-  params,
-  searchParams,
-}: {
-  params: { id: string };
-  searchParams: { date?: string };
-}) {
+export default async function ProjectAttendancePage(
+  props: {
+    params: Promise<{ id: string }>;
+    searchParams: Promise<{ date?: string }>;
+  }
+) {
+  const searchParams = await props.searchParams;
+  const params = await props.params;
   const supabase = createSupabaseServerClient();
   const date = searchParams.date ?? new Date().toISOString().slice(0, 10);
 

@@ -1,0 +1,42 @@
+                   
+                   
+┌─────────────────┐
+│ 3 Code Findings │
+└─────────────────┘
+                                     
+  [36m[22m[24m  .env.local.example[0m
+   ❯❯❱ [1mgeneric.secrets.security.detected-jwt-token.detected-jwt-token[0m
+          [31m[1m[24m❰❰ Blocking ❱❱[0m
+          JWT token detected          
+          Details: https://sg.run/05N5
+                                      
+            2┆ NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIs
+               InJlZiI6ImlheXBmZ21vdmJmbXJqdW1nYnB1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODIzMTcwNzQsImV4cCI6MjA
+               5Nzg5MzA3NH0.hXQUuKSnOTeR9kxU2Uk89VdI-qnFeGF6HyVMI_MqzKI                                   
+                                                     
+  [36m[22m[24m  .github/workflows/daily-backup.yml[0m
+    ❯❱ [1myaml.github-actions.security.github-actions-mutable-action-tag.github-actions-mutable-action-tag[0m
+          [31m[1m[24m❰❰ Blocking ❱❱[0m
+          GitHub Actions step uses a mutable tag or branch reference. Tags and branch names can be silently   
+          repointed by the action owner, enabling supply-chain attacks — as seen in the trivy-action and kics-
+          github-action compromises. Pin the reference to a full 40-character commit SHA instead, e.g. `uses: 
+          actions/checkout@8ade135a41bc03ea155e62e844d188df1ea18608`.                                         
+          Details: https://sg.run/2LgAL                                                                       
+                                                                                                              
+           15┆ - uses: actions/checkout@v4
+                                                           
+  [36m[22m[24m  android/app/src/main/AndroidManifest.xml[0m
+    ❯❱ [1mjava.android.security.exported_activity.exported_activity[0m
+          [31m[1m[24m❰❰ Blocking ❱❱[0m
+          The application exports an activity. Any application on the device can launch the exported activity
+          which may compromise the integrity of your application or its data.  Ensure that any exported      
+          activities do not have privileged access to your application's control plane.                      
+          Details: https://sg.run/eNGZ                                                                       
+                                                                                                             
+           14┆ <activity
+           15┆     android:name=".MainActivity"
+           16┆     android:exported="true"
+           17┆     android:launchMode="singleTask"
+           18┆     android:theme="@style/Theme.App.Starting">
+           19┆     <intent-filter>
+           20┆         <action android:name="android.intent.action.MAIN" />

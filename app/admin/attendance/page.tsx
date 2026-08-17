@@ -5,11 +5,12 @@ import { DownloadAttendancePdfButton } from "@/components/admin/ReportPdf";
 import { DownloadAttendanceCsvButton } from "@/components/admin/ReportCsv";
 import { reduceAttendance, defaultAttendanceRange } from "@/lib/attendance";
 
-export default async function AttendanceIndexPage({
-  searchParams,
-}: {
-  searchParams: { from?: string; to?: string };
-}) {
+export default async function AttendanceIndexPage(
+  props: {
+    searchParams: Promise<{ from?: string; to?: string }>;
+  }
+) {
+  const searchParams = await props.searchParams;
   const supabase = createSupabaseServerClient();
   const todayStr = new Date().toISOString().slice(0, 10);
   const { fromStr, toStr } = defaultAttendanceRange();

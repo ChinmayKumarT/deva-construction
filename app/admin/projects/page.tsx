@@ -4,11 +4,12 @@ import { AdminPage, AdminPageHeader, CostBox, Field, Select, SubmitButton } from
 import { DeleteForeverButton } from "@/components/admin/RowActions";
 import { createProject, unarchiveProject, deleteProject } from "../actions";
 
-export default async function ProjectsPage({
-  searchParams,
-}: {
-  searchParams: { archived?: string };
-}) {
+export default async function ProjectsPage(
+  props: {
+    searchParams: Promise<{ archived?: string }>;
+  }
+) {
+  const searchParams = await props.searchParams;
   const showArchived = searchParams.archived === "1";
   const supabase = createSupabaseServerClient();
   const { isOwner } = await getSessionAndRole();
