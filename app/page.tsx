@@ -59,6 +59,11 @@ export default async function LoginPage({
                 ? "We'll email you a link to sign in — no password needed."
                 : "Welcome back."}
             </p>
+            {!isSignUp && !isMagicLink && (
+              <p className="mt-3" style={{ fontSize: 16, lineHeight: "24px", color: "#5B6475" }}>
+                Sign in to the official Deva Construction dashboard — your projects, payments, and team, all in one secure place.
+              </p>
+            )}
           </header>
 
           {searchParams.error && (
@@ -132,23 +137,47 @@ export default async function LoginPage({
 
               <button
                 type="submit"
-                className="w-full rounded-lg bg-brand px-4 py-2.5 font-medium text-white hover:bg-brand-700 active:bg-brand-800 transition"
+                className="w-full rounded-lg px-4 py-2.5 font-medium text-white transition hover:opacity-90 active:opacity-80"
+                style={{ backgroundColor: "#6257F6" }}
               >
                 {isSignUp ? "Create account" : "Sign in"}
               </button>
+
+              {!isSignUp && (
+                <div className="mt-4 flex flex-col gap-3">
+                  <div className="flex items-center gap-2" style={{ fontSize: 14, color: "#3F4654" }}>
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#5F57F5" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                      <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+                      <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+                    </svg>
+                    <span>Encrypted with 256-bit TLS — your data never leaves our secure servers</span>
+                  </div>
+                  <div className="flex items-center gap-2" style={{ fontSize: 14, color: "#3F4654" }}>
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#5F57F5" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                      <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+                    </svg>
+                    <span>Trusted daily by the Deva Construction owner, managers, clients and suppliers</span>
+                  </div>
+                </div>
+              )}
             </form>
           )}
 
-          <div className="my-5 flex items-center gap-3 text-xs text-slate-400">
+          <div style={{ marginTop: 40 }} className="flex items-center gap-3 text-xs text-slate-400">
             <span className="h-px flex-1 bg-[var(--line)]" />
             or
             <span className="h-px flex-1 bg-[var(--line)]" />
           </div>
 
+          <p className="mt-4 mb-3 text-center" style={{ fontSize: 14, color: "#7A8396" }}>
+            Prefer a different way in? Both options are secondary — most owners use email + password above.
+          </p>
+
           <form action={signInWithGoogle}>
             <button
               type="submit"
-              className="flex w-full items-center justify-center gap-2 rounded-lg border border-[var(--line)] bg-white px-4 py-2.5 font-medium text-slate-700 hover:bg-slate-50 transition"
+              className="flex w-full items-center justify-center gap-2 rounded-lg bg-white px-4 py-2.5 font-medium transition hover:bg-slate-50"
+              style={{ border: "1px solid #D9DFEA", color: "#3F4654" }}
             >
               <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true">
                 <path fill="#4285F4" d="M17.64 9.2c0-.64-.06-1.25-.16-1.84H9v3.48h4.84a4.14 4.14 0 0 1-1.8 2.72v2.26h2.9c1.7-1.57 2.7-3.87 2.7-6.62Z" />
@@ -162,7 +191,8 @@ export default async function LoginPage({
 
           <a
             href="/download"
-            className="mt-3 flex w-full items-center justify-center gap-2 rounded-lg border border-[var(--line)] bg-white px-4 py-2.5 font-medium text-slate-700 hover:bg-slate-50 transition"
+            className="mt-3 flex w-full items-center justify-center gap-2 rounded-lg bg-white px-4 py-2.5 font-medium transition hover:bg-slate-50"
+            style={{ border: "1px solid #D9DFEA", color: "#3F4654" }}
           >
             Download app
           </a>
