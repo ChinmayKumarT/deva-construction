@@ -25,5 +25,14 @@ android/**/build/
 android/.gradle/
 android/local.properties
 
+# Signing keystores -- MUST NEVER be committed. Losing a Play Store
+# keystore = losing the ability to publish updates to that app id
+# forever. Back up your keystore + password to a password manager
+# and encrypted cloud storage yourself.
+*.jks
+*.keystore
+android/**/*.jks
+android/**/*.keystore
+
 .vercel
 .env*
