@@ -50,7 +50,7 @@ export default function DownloadPage() {
         </div>
 
         <p className="mt-6 text-xs text-slate-400">
-          This is a debug build for testing, not yet a signed Play Store release.
+          Signed release build, not yet on the Play Store — you install it via the sideload flow above.
         </p>
       </div>
     </main>
