@@ -3,6 +3,11 @@ import { getSessionAndRole } from "@/lib/supabase/server";
 import { updatePassword } from "../actions/auth";
 import { PasswordField } from "@/components/PasswordField";
 
+export const metadata = {
+  title: "Set a new password — Deva Construction",
+  description: "Choose a new password for your Deva Construction account.",
+};
+
 export default async function ResetPasswordPage(
   props: {
     searchParams: Promise<{ error?: string }>;

@@ -25,7 +25,11 @@ export default async function LoginPage(
         <OrganicBlob className="absolute -left-24 -bottom-28 h-96 w-96 text-brand/25" />
         <OrganicBlob className="absolute -right-16 -top-20 h-72 w-72 text-brand/15" />
 
-        <div className="relative flex items-center gap-2">
+        <a
+          href="/"
+          aria-label="Deva Construction — home"
+          className="relative flex items-center gap-2 rounded-md focus:outline-none focus-visible:ring-2 focus-visible:ring-white/70"
+        >
           <Image
             src="/icon.png" alt="" width={36} height={36}
             className="rounded-md" style={{ objectFit: "contain" }}
@@ -33,7 +37,7 @@ export default async function LoginPage(
           <span className="text-xl font-semibold tracking-tight">
             Deva <span className="font-normal text-white/85">Construction</span>
           </span>
-        </div>
+        </a>
         <div className="relative max-w-md">
           <h2 className="font-serif text-4xl font-semibold leading-tight">
             Run every site from one screen.
@@ -43,7 +47,7 @@ export default async function LoginPage(
           </p>
         </div>
         <div className="relative text-xs text-forest-100/60">
-          © Deva Construction
+          © {new Date().getFullYear()} Deva Construction
         </div>
       </aside>
 

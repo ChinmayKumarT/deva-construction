@@ -1,5 +1,10 @@
 import { requestPasswordReset } from "../actions/auth";
 
+export const metadata = {
+  title: "Reset your password — Deva Construction",
+  description: "Enter your account email and we'll send a link to reset your password.",
+};
+
 export default async function ForgotPasswordPage(
   props: {
     searchParams: Promise<{ error?: string; notice?: string }>;
