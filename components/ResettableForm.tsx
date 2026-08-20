@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useEffect, useState, type ReactNode } from "react";
+import { createContext, useActionState, useContext, useEffect, useState, type ReactNode } from "react";
 
 // Clears a form's fields after a successful submit -- without this, a
 // plain <form action={...}> keeps whatever the user typed sitting in its
@@ -8,6 +8,23 @@ import { useActionState, useEffect, useState, type ReactNode } from "react";
 // button again resubmits the exact same data as a brand-new row. Remounting
 // via `key` is the standard way to reset a form full of uncontrolled inputs
 // without hand-wiring useState + onChange for every field.
+//
+// `children` must be a plain ReactNode (not a render-prop function) because
+// this form is authored from Server Component pages -- Server Components
+// can only pass serializable JSX across to Client Components, not functions.
+// Descendants that need the action's result (e.g. an error message) read it
+// via `useResettableFormState()` instead of a callback argument.
+
+const FormStateContext = createContext<unknown>(undefined);
+
+export function useResettableFormState<S>(): S {
+  const state = useContext(FormStateContext);
+  if (state === undefined) {
+    throw new Error("useResettableFormState must be used within a ResettableForm");
+  }
+  return state as S;
+}
+
 export function ResettableForm<S extends { success: boolean }>({
   action,
   initialState,
@@ -17,7 +34,7 @@ export function ResettableForm<S extends { success: boolean }>({
 }: {
   action: (prevState: S, fd: FormData) => Promise<S>;
   initialState: S;
-  children: (state: S) => ReactNode;
+  children: ReactNode;
   className?: string;
   encType?: string;
 }) {
@@ -36,8 +53,16 @@ export function ResettableForm<S extends { success: boolean }>({
   }, [state]);
 
   return (
-    <form key={formKey} action={formAction} className={className} encType={encType}>
-      {children(state)}
-    </form>
+    <FormStateContext.Provider value={state}>
+      <form key={formKey} action={formAction} className={className} encType={encType}>
+        {children}
+      </form>
+    </FormStateContext.Provider>
   );
+}
+
+export function FormError({ className }: { className?: string }) {
+  const state = useResettableFormState<{ error: string | null }>();
+  if (!state.error) return null;
+  return <p className={className ?? "mb-2 text-sm text-red-600"}>{state.error}</p>;
 }
