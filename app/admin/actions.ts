@@ -450,25 +450,31 @@ export async function createPayment(
   const payee_type = (str(fd, "payee_type") ?? "supplier") as "supplier" | "labour";
   try {
     // Payments created here are always admin-entered (this form isn't
-    // exposed to any other role), so there's no one else left to approve it
-    // -- go straight to "approved" instead of making the admin click
-    // Approve on their own entry a moment later. Only "Mark paid" remains
-    // as a next step.
+    // exposed to any other role), so there's no one else left to approve it.
+    // Supplier bills specifically: the admin typing one in here means the
+    // money already changed hands, so it goes straight to "paid" -- no
+    // separate "Mark paid" click needed. "Mark paid" as a distinct step is
+    // for the OTHER path into this table: a supplier self-recording a bill
+    // via generateBill() (app/supplier/actions.ts), which the admin hasn't
+    // paid yet at record time. Labour wages keep the "approved" pause since
+    // payday timing there is intentionally separate from entry time.
     // getUser() and resolveSupplierId() don't depend on each other -- run
     // them together instead of paying for both round-trips back to back.
     const [{ data: { user } }, resolvedSupplierId] = await Promise.all([
       supabase.auth.getUser(),
       payee_type === "supplier" ? resolveSupplierId(supabase, fd) : Promise.resolve(null),
     ]);
+    const now = new Date().toISOString();
     const row: Record<string, unknown> = {
       project_id: uuidOrNull(fd, "project_id"),
       payee_type,
       amount: nonNegNum(fd, "amount", "Amount") ?? 0,
       description: str(fd, "description"),
       work_category: requiredStr(fd, "work_category", "Work category"),
-      status: "approved",
-      approved_at: new Date().toISOString(),
+      status: payee_type === "supplier" ? "paid" : "approved",
+      approved_at: now,
       approved_by: user?.id ?? null,
+      paid_at: payee_type === "supplier" ? now : null,
     };
     if (payee_type === "supplier") {
       if (!resolvedSupplierId) {
