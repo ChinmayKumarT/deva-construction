@@ -30,6 +30,10 @@ Run these in the Supabase SQL editor **in order**:
     returns per-project attendance-wage **totals** scoped to the calling client's own projects
     (no per-labourer detail), so a client's "Spent" matches the admin's without exposing the
     attendance table.
+18. `35_supplier_created_only_delete.sql` — adds `created_by_supplier` to `materials`/`payments`
+    and tightens the supplier update policy so a supplier can only delete (archive) deliveries
+    and bills they entered themselves, not admin-entered/approved ones for the same supplier.
+    Run AFTER `32_supplier_archive.sql`.
 
 ## Entity map (matches the diagram)
 

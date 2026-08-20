@@ -79,6 +79,7 @@ export async function recordDelivery(
         status,
         delivered_at: status === "delivered" ? new Date().toISOString() : null,
         image_url,
+        created_by_supplier: true,
       });
       if (error) throw new Error(error.message);
     }
@@ -140,6 +141,7 @@ export async function generateBill(
         // "Mark paid" stays a separate admin-only action for the actual
         // payment event (see 26_supplier_bills_auto_approved.sql).
         status: "approved",
+        created_by_supplier: true,
       });
       if (error) throw new Error(error.message);
     }
@@ -170,12 +172,19 @@ export async function archiveDelivery(fd: FormData) {
   const id = String(fd.get("id") ?? "");
   if (!id) throw new Error("missing id");
 
-  const { error } = await supabase
+  // Only rows the supplier themselves recorded -- not admin-entered
+  // deliveries -- can be deleted from here (RLS enforces this too, see
+  // 35_supplier_created_only_delete.sql, but checking here gives a real
+  // error instead of a silent 0-row update).
+  const { data, error } = await supabase
     .from("materials")
     .update({ archived_at: new Date().toISOString() })
     .eq("id", id)
-    .eq("supplier_id", supplier.id);
+    .eq("supplier_id", supplier.id)
+    .eq("created_by_supplier", true)
+    .select("id");
   if (error) throw new Error(error.message);
+  if (!data || data.length === 0) throw new Error("You can only delete deliveries you recorded yourself.");
   revalidatePath("/supplier");
   revalidatePath("/admin/materials");
 }
@@ -195,12 +204,19 @@ export async function archiveSupplierPayment(fd: FormData) {
   const id = String(fd.get("id") ?? "");
   if (!id) throw new Error("missing id");
 
-  const { error } = await supabase
+  // Only bills the supplier themselves generated -- not admin-created/approved
+  // payments -- can be deleted from here (RLS enforces this too, see
+  // 35_supplier_created_only_delete.sql, but checking here gives a real
+  // error instead of a silent 0-row update).
+  const { data, error } = await supabase
     .from("payments")
     .update({ archived_at: new Date().toISOString() })
     .eq("id", id)
-    .eq("supplier_id", supplier.id);
+    .eq("supplier_id", supplier.id)
+    .eq("created_by_supplier", true)
+    .select("id");
   if (error) throw new Error(error.message);
+  if (!data || data.length === 0) throw new Error("You can only delete bills you generated yourself.");
   revalidatePath("/supplier");
   revalidatePath("/admin/payments");
 }

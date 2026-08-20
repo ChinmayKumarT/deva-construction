@@ -40,13 +40,13 @@ export default async function SupplierDashboard() {
   const [{ data: materials }, { data: payments }, { data: allProjects }] = await Promise.all([
     supabase
       .from("materials")
-      .select("id, name, quantity, unit, unit_cost, status, ordered_at, delivered_at, projects(id, name)")
+      .select("id, name, quantity, unit, unit_cost, status, ordered_at, delivered_at, created_by_supplier, projects(id, name)")
       .eq("supplier_id", supplier.id)
       .is("archived_at", null)
       .order("ordered_at", { ascending: false }),
     supabase
       .from("payments")
-      .select("id, amount, status, description, created_at, projects(name)")
+      .select("id, amount, status, description, created_at, created_by_supplier, projects(name)")
       .eq("supplier_id", supplier.id)
       .is("archived_at", null)
       .order("created_at", { ascending: false }),
@@ -223,15 +223,21 @@ export default async function SupplierDashboard() {
                   <td className="px-4 py-2 text-slate-700">{m.status}</td>
                   <td className="px-4 py-2 text-slate-700">{formatDateTime(m.ordered_at)}</td>
                   <td className="px-4 py-2">
-                    <form action={archiveDelivery}>
-                      <input type="hidden" name="id" value={m.id} />
-                      <FormSubmitButton
-                        pendingLabel="…"
-                        className="rounded-md border border-red-200 bg-white px-2 py-0.5 text-xs text-red-600 hover:bg-red-50 transition"
-                      >
-                        Delete
-                      </FormSubmitButton>
-                    </form>
+                    {m.created_by_supplier ? (
+                      <form action={archiveDelivery}>
+                        <input type="hidden" name="id" value={m.id} />
+                        <FormSubmitButton
+                          pendingLabel="…"
+                          className="rounded-md border border-red-200 bg-white px-2 py-0.5 text-xs text-red-600 hover:bg-red-50 transition"
+                        >
+                          Delete
+                        </FormSubmitButton>
+                      </form>
+                    ) : (
+                      <span className="text-xs text-slate-400" title="Entered by the admin -- ask them to remove it">
+                        Admin-entered
+                      </span>
+                    )}
                   </td>
                 </tr>
               ))}
@@ -271,15 +277,21 @@ export default async function SupplierDashboard() {
                   </td>
                   <td className="px-4 py-2 text-slate-600">{p.description ?? "—"}</td>
                   <td className="px-4 py-2">
-                    <form action={archiveSupplierPayment}>
-                      <input type="hidden" name="id" value={p.id} />
-                      <FormSubmitButton
-                        pendingLabel="…"
-                        className="rounded-md border border-red-200 bg-white px-2 py-0.5 text-xs text-red-600 hover:bg-red-50 transition"
-                      >
-                        Delete
-                      </FormSubmitButton>
-                    </form>
+                    {p.created_by_supplier ? (
+                      <form action={archiveSupplierPayment}>
+                        <input type="hidden" name="id" value={p.id} />
+                        <FormSubmitButton
+                          pendingLabel="…"
+                          className="rounded-md border border-red-200 bg-white px-2 py-0.5 text-xs text-red-600 hover:bg-red-50 transition"
+                        >
+                          Delete
+                        </FormSubmitButton>
+                      </form>
+                    ) : (
+                      <span className="text-xs text-slate-400" title="Created and approved by the admin -- ask them to remove it">
+                        Admin-approved
+                      </span>
+                    )}
                   </td>
                 </tr>
               ))}
