@@ -3,6 +3,7 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { lineTotal } from "@/lib/money";
 import { formatDateTime } from "@/lib/dateFormat";
 import { generateBill, recordDelivery, archiveDelivery, archiveSupplierPayment } from "./actions";
+import { FormSubmitButton } from "@/components/FormSubmitButton";
 
 const STATUS_STYLE: Record<string, string> = {
   pending: "bg-amber-50 text-amber-700 border-amber-200",
@@ -126,9 +127,9 @@ export default async function SupplierDashboard() {
               />
             </label>
             <div className="sm:col-span-2 lg:col-span-4">
-              <button className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800">
+              <FormSubmitButton className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800">
                 Record delivery
-              </button>
+              </FormSubmitButton>
             </div>
           </form>
         )}
@@ -168,9 +169,9 @@ export default async function SupplierDashboard() {
               />
             </label>
             <div className="sm:col-span-2 lg:col-span-4">
-              <button className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800">
+              <FormSubmitButton className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800">
                 Submit bill
-              </button>
+              </FormSubmitButton>
             </div>
           </form>
         )}
@@ -209,13 +210,12 @@ export default async function SupplierDashboard() {
                   <td className="px-4 py-2">
                     <form action={archiveDelivery}>
                       <input type="hidden" name="id" value={m.id} />
-                      <button
-                        type="submit"
-                        title={`Delete ${m.name}`}
+                      <FormSubmitButton
+                        pendingLabel="…"
                         className="rounded-md border border-red-200 bg-white px-2 py-0.5 text-xs text-red-600 hover:bg-red-50 transition"
                       >
                         Delete
-                      </button>
+                      </FormSubmitButton>
                     </form>
                   </td>
                 </tr>
@@ -258,13 +258,12 @@ export default async function SupplierDashboard() {
                   <td className="px-4 py-2">
                     <form action={archiveSupplierPayment}>
                       <input type="hidden" name="id" value={p.id} />
-                      <button
-                        type="submit"
-                        title={`Delete payment of ₹${Number(p.amount).toLocaleString()}`}
+                      <FormSubmitButton
+                        pendingLabel="…"
                         className="rounded-md border border-red-200 bg-white px-2 py-0.5 text-xs text-red-600 hover:bg-red-50 transition"
                       >
                         Delete
-                      </button>
+                      </FormSubmitButton>
                     </form>
                   </td>
                 </tr>

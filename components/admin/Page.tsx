@@ -75,16 +75,7 @@ export function Select({
   );
 }
 
-export function SubmitButton({ children }: { children: React.ReactNode }) {
-  return (
-    <button
-      type="submit"
-      className="rounded-md bg-brand px-4 py-2 text-sm font-medium text-white hover:bg-brand-700 active:bg-brand-800 transition"
-    >
-      {children}
-    </button>
-  );
-}
+export { SubmitButton } from "./SubmitButton";
 
 // `accent` calls out the headline figure (e.g. "Total cost" among a row of
 // otherwise-equal stats) with a colored number, not a solid fill -- a full-

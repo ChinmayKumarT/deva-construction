@@ -10,6 +10,7 @@ import { wageForStatus } from "@/lib/wages";
 import { lineTotal } from "@/lib/money";
 import { formatDateOnly } from "@/lib/dateFormat";
 import { DownloadInvoiceButton, type InvoiceData } from "@/components/admin/InvoicePdf";
+import { FormSubmitButton } from "@/components/FormSubmitButton";
 import {
   archiveChangeOrder,
   archiveProject,
@@ -200,12 +201,9 @@ export default async function ManageProjectPage(
               />
             </label>
             <div className="flex items-end">
-              <button
-                type="submit"
-                className="rounded-lg bg-brand px-3 py-1.5 text-sm font-medium text-white hover:bg-brand-700"
-              >
+              <FormSubmitButton className="rounded-lg bg-brand px-3 py-1.5 text-sm font-medium text-white hover:bg-brand-700">
                 Add change order
-              </button>
+              </FormSubmitButton>
             </div>
             <p className="text-xs text-slate-500 sm:col-span-2">
               Any extra cost is added to this project&apos;s budget right away.
@@ -298,12 +296,9 @@ export default async function ManageProjectPage(
               type="file" accept="image/*" name="image_file" required
               className="text-sm text-slate-600 file:mr-2 file:rounded-lg file:border file:border-slate-300 file:bg-white file:px-3 file:py-1.5 file:text-sm file:text-slate-700 hover:file:bg-slate-100"
             />
-            <button
-              type="submit"
-              className="rounded-lg bg-brand px-3 py-1.5 text-sm font-medium text-white hover:bg-brand-700"
-            >
+            <FormSubmitButton className="rounded-lg bg-brand px-3 py-1.5 text-sm font-medium text-white hover:bg-brand-700">
               Upload
-            </button>
+            </FormSubmitButton>
           </form>
         )}
       </div>
