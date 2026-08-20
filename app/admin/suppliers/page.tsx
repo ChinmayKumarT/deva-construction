@@ -29,7 +29,7 @@ export default async function SuppliersPage(
   ]);
 
   const linked = new Set((suppliers ?? []).map((s) => s.profile_id).filter(Boolean));
-  const unlinkedProfiles = ((profiles ?? []) as { id: string; full_name: string | null; email: string | null }[])
+  const unlinkedProfiles = ((profiles ?? []) as { id: string; full_name: string | null; email: string | null; phone: string | null }[])
     .filter((p) => !linked.has(p.id));
 
   const deliveriesBySupplier = new Map<string, number>();

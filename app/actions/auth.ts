@@ -117,13 +117,14 @@ export async function signUp(formData: FormData) {
   const email = String(formData.get("email") ?? "");
   const password = String(formData.get("password") ?? "");
   const fullName = String(formData.get("full_name") ?? "");
+  const phone = String(formData.get("phone") ?? "");
   const role = String(formData.get("role") ?? "client") as Role;
   const supabase = await createSupabaseServerClient();
 
   const { error } = await supabase.auth.signUp({
     email,
     password,
-    options: { data: { full_name: fullName, role } },
+    options: { data: { full_name: fullName, phone, role } },
   });
   if (error) redirect(`/?error=${encodeURIComponent(error.message)}`);
   redirect(`/?notice=${encodeURIComponent("Check your email to confirm, then sign in.")}`);

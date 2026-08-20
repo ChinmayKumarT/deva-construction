@@ -108,6 +108,9 @@ export default async function LoginPage(
               {isSignUp && (
                 <Field label="Full name" name="full_name" type="text" required />
               )}
+              {isSignUp && (
+                <Field label="Phone" name="phone" type="tel" />
+              )}
               <Field label="Email" name="email" type="email" required />
               <PasswordField />
               {!isSignUp && (

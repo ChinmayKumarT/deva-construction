@@ -1,9 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import { SubmitButton } from "@/components/admin/Page";
+import { Field, SubmitButton } from "@/components/admin/Page";
 
-export function CreateSupplierForm({
+export function CreateClientForm({
   action,
   unlinkedProfiles,
 }: {
@@ -47,6 +47,7 @@ export function CreateSupplierForm({
           className="w-full rounded-md border border-[var(--line)] bg-white px-3 py-2 outline-none focus:border-brand focus:ring-2 focus:ring-brand/20"
         />
       </label>
+      <Field label="Address" name="address" />
       <label className="block text-sm">
         <span className="mb-1 block font-medium text-slate-700">Link to login (optional)</span>
         <select
@@ -69,7 +70,7 @@ export function CreateSupplierForm({
         </select>
       </label>
       <div className="sm:col-span-2 lg:col-span-3">
-        <SubmitButton>Add supplier</SubmitButton>
+        <SubmitButton>Add client</SubmitButton>
       </div>
     </form>
   );

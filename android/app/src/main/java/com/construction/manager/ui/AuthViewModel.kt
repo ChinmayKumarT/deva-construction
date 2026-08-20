@@ -75,11 +75,11 @@ class AuthViewModel : ViewModel() {
         }
     }
 
-    fun signUp(email: String, password: String, fullName: String, role: Role) {
+    fun signUp(email: String, password: String, fullName: String, phone: String, role: Role) {
         viewModelScope.launch {
             _error.value = null
             try {
-                Repo.signUp(email, password, fullName, role)
+                Repo.signUp(email, password, fullName, phone, role)
                 refresh()
             } catch (e: Exception) { _error.value = e.message }
         }

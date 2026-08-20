@@ -145,10 +145,10 @@ object Repo {
     suspend fun verifyEmailOtp(tokenHash: String, type: OtpType.Email) {
         supabase.auth.verifyEmailOtp(type = type, tokenHash = tokenHash)
     }
-    suspend fun signUp(email: String, password: String, fullName: String, role: Role) {
+    suspend fun signUp(email: String, password: String, fullName: String, phone: String, role: Role) {
         supabase.auth.signUpWith(Email) {
             this.email = email; this.password = password
-            this.data = buildJsonObject { put("full_name", fullName); put("role", role.name) }
+            this.data = buildJsonObject { put("full_name", fullName); put("phone", phone); put("role", role.name) }
         }
     }
     suspend fun signOut() = supabase.auth.signOut()

@@ -39,6 +39,7 @@ fun AuthScreen(vm: AuthViewModel) {
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     var fullName by remember { mutableStateOf("") }
+    var phone by remember { mutableStateOf("") }
     var role by remember { mutableStateOf(Role.client) }
     val error by vm.error.collectAsState()
 
@@ -53,6 +54,7 @@ fun AuthScreen(vm: AuthViewModel) {
             email = email, onEmailChange = { email = it },
             password = password, onPasswordChange = { password = it },
             fullName = fullName, onFullNameChange = { fullName = it },
+            phone = phone, onPhoneChange = { phone = it },
             role = role, onRoleChange = { role = it },
             error = error,
             onOpenLegal = { legal = it },
@@ -69,6 +71,7 @@ private fun AuthForm(
     email: String, onEmailChange: (String) -> Unit,
     password: String, onPasswordChange: (String) -> Unit,
     fullName: String, onFullNameChange: (String) -> Unit,
+    phone: String, onPhoneChange: (String) -> Unit,
     role: Role, onRoleChange: (Role) -> Unit,
     error: String?,
     onOpenLegal: (LegalPage) -> Unit,
@@ -115,6 +118,8 @@ private fun AuthForm(
 
         if (mode == "signup") {
             OutlinedTextField(fullName, onFullNameChange, label = { Text("Full name") },
+                modifier = Modifier.fillMaxWidth())
+            OutlinedTextField(phone, onPhoneChange, label = { Text("Phone") },
                 modifier = Modifier.fillMaxWidth())
         }
         OutlinedTextField(email, onEmailChange, label = { Text("Email") },
@@ -166,7 +171,7 @@ private fun AuthForm(
         Button(
             onClick = {
                 if (mode == "signin") vm.signIn(email.trim(), password)
-                else vm.signUp(email.trim(), password, fullName.trim(), role)
+                else vm.signUp(email.trim(), password, fullName.trim(), phone.trim(), role)
             },
             modifier = Modifier.fillMaxWidth(),
         ) { Text(if (mode == "signin") "Sign in" else "Create account") }
