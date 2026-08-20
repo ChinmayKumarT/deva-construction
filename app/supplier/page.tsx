@@ -2,8 +2,12 @@ import { requireRole } from "@/lib/guard";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { lineTotal } from "@/lib/money";
 import { formatDateTime } from "@/lib/dateFormat";
-import { generateBill, recordDelivery, archiveDelivery, archiveSupplierPayment } from "./actions";
+import {
+  generateBill, recordDelivery, archiveDelivery, archiveSupplierPayment,
+  type RecordDeliveryState, type GenerateBillState,
+} from "./actions";
 import { FormSubmitButton } from "@/components/FormSubmitButton";
+import { ResettableForm } from "@/components/ResettableForm";
 
 const STATUS_STYLE: Record<string, string> = {
   pending: "bg-amber-50 text-amber-700 border-amber-200",
@@ -87,51 +91,61 @@ export default async function SupplierDashboard() {
         {(!allProjects || allProjects.length === 0) ? (
           <p className="text-sm text-slate-600">No projects exist yet. Wait for the admin to create one.</p>
         ) : (
-          <form action={recordDelivery} encType="multipart/form-data" className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            <label className="block text-sm sm:col-span-2">
-              <span className="mb-1 block font-medium text-slate-700">Project (site)</span>
-              <select name="project_id" required className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2">
-                {allProjects.map((p) => (<option key={p.id} value={p.id}>{p.name}</option>))}
-              </select>
-            </label>
-            <label className="block text-sm">
-              <span className="mb-1 block font-medium text-slate-700">Material</span>
-              <input name="name" required placeholder="e.g. Cement" className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2" />
-            </label>
-            <label className="block text-sm">
-              <span className="mb-1 block font-medium text-slate-700">Unit</span>
-              <input name="unit" defaultValue="bag" className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2" />
-            </label>
-            <label className="block text-sm">
-              <span className="mb-1 block font-medium text-slate-700">Quantity</span>
-              <input name="quantity" type="number" step="0.01" min="0" required className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2" />
-            </label>
-            <label className="block text-sm">
-              <span className="mb-1 block font-medium text-slate-700">Unit cost (₹)</span>
-              <input name="unit_cost" type="number" step="0.01" min="0" required className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2" />
-            </label>
-            <label className="block text-sm">
-              <span className="mb-1 block font-medium text-slate-700">Status</span>
-              <select name="status" defaultValue="delivered" className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2">
-                <option value="ordered">Ordered</option>
-                <option value="delivered">Delivered</option>
-              </select>
-            </label>
-            <label className="block text-sm">
-              <span className="mb-1 block font-medium text-slate-700">Photo (optional)</span>
-              <input
-                type="file"
-                name="image_file"
-                accept="image/*"
-                className="w-full rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm file:mr-3 file:rounded-md file:border-0 file:bg-slate-100 file:px-3 file:py-1.5"
-              />
-            </label>
-            <div className="sm:col-span-2 lg:col-span-4">
-              <FormSubmitButton className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800">
-                Record delivery
-              </FormSubmitButton>
-            </div>
-          </form>
+          <ResettableForm<RecordDeliveryState>
+            action={recordDelivery}
+            initialState={{ error: null, success: false }}
+            encType="multipart/form-data"
+            className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4"
+          >
+            {(state) => (
+              <>
+                <label className="block text-sm sm:col-span-2">
+                  <span className="mb-1 block font-medium text-slate-700">Project (site)</span>
+                  <select name="project_id" required className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2">
+                    {allProjects.map((p) => (<option key={p.id} value={p.id}>{p.name}</option>))}
+                  </select>
+                </label>
+                <label className="block text-sm">
+                  <span className="mb-1 block font-medium text-slate-700">Material</span>
+                  <input name="name" required placeholder="e.g. Cement" className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2" />
+                </label>
+                <label className="block text-sm">
+                  <span className="mb-1 block font-medium text-slate-700">Unit</span>
+                  <input name="unit" defaultValue="bag" className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2" />
+                </label>
+                <label className="block text-sm">
+                  <span className="mb-1 block font-medium text-slate-700">Quantity</span>
+                  <input name="quantity" type="number" step="0.01" min="0" required className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2" />
+                </label>
+                <label className="block text-sm">
+                  <span className="mb-1 block font-medium text-slate-700">Unit cost (₹)</span>
+                  <input name="unit_cost" type="number" step="0.01" min="0" required className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2" />
+                </label>
+                <label className="block text-sm">
+                  <span className="mb-1 block font-medium text-slate-700">Status</span>
+                  <select name="status" defaultValue="delivered" className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2">
+                    <option value="ordered">Ordered</option>
+                    <option value="delivered">Delivered</option>
+                  </select>
+                </label>
+                <label className="block text-sm">
+                  <span className="mb-1 block font-medium text-slate-700">Photo (optional)</span>
+                  <input
+                    type="file"
+                    name="image_file"
+                    accept="image/*"
+                    className="w-full rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm file:mr-3 file:rounded-md file:border-0 file:bg-slate-100 file:px-3 file:py-1.5"
+                  />
+                </label>
+                <div className="sm:col-span-2 lg:col-span-4">
+                  {state.error && <p className="mb-2 text-sm text-red-600">{state.error}</p>}
+                  <FormSubmitButton className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800">
+                    Record delivery
+                  </FormSubmitButton>
+                </div>
+              </>
+            )}
+          </ResettableForm>
         )}
       </section>
 
@@ -140,40 +154,49 @@ export default async function SupplierDashboard() {
         {billableProjects.length === 0 ? (
           <p className="text-sm text-slate-600">You haven't been assigned to any project yet.</p>
         ) : (
-          <form action={generateBill} className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            <label className="block text-sm">
-              <span className="mb-1 block font-medium text-slate-700">Project</span>
-              <select name="project_id" className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2">
-                {billableProjects.map((p) => (
-                  <option key={p.id} value={p.id}>{p.name}</option>
-                ))}
-              </select>
-            </label>
-            <label className="block text-sm">
-              <span className="mb-1 block font-medium text-slate-700">Amount (₹)</span>
-              <input
-                type="number"
-                step="0.01"
-                min="0"
-                name="amount"
-                required
-                className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2"
-              />
-            </label>
-            <label className="block text-sm sm:col-span-2">
-              <span className="mb-1 block font-medium text-slate-700">Description</span>
-              <input
-                name="description"
-                placeholder="e.g. Invoice #123 – cement delivery"
-                className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2"
-              />
-            </label>
-            <div className="sm:col-span-2 lg:col-span-4">
-              <FormSubmitButton className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800">
-                Submit bill
-              </FormSubmitButton>
-            </div>
-          </form>
+          <ResettableForm<GenerateBillState>
+            action={generateBill}
+            initialState={{ error: null, success: false }}
+            className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4"
+          >
+            {(state) => (
+              <>
+                <label className="block text-sm">
+                  <span className="mb-1 block font-medium text-slate-700">Project</span>
+                  <select name="project_id" className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2">
+                    {billableProjects.map((p) => (
+                      <option key={p.id} value={p.id}>{p.name}</option>
+                    ))}
+                  </select>
+                </label>
+                <label className="block text-sm">
+                  <span className="mb-1 block font-medium text-slate-700">Amount (₹)</span>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    name="amount"
+                    required
+                    className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2"
+                  />
+                </label>
+                <label className="block text-sm sm:col-span-2">
+                  <span className="mb-1 block font-medium text-slate-700">Description</span>
+                  <input
+                    name="description"
+                    placeholder="e.g. Invoice #123 – cement delivery"
+                    className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2"
+                  />
+                </label>
+                <div className="sm:col-span-2 lg:col-span-4">
+                  {state.error && <p className="mb-2 text-sm text-red-600">{state.error}</p>}
+                  <FormSubmitButton className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800">
+                    Submit bill
+                  </FormSubmitButton>
+                </div>
+              </>
+            )}
+          </ResettableForm>
         )}
       </section>
 

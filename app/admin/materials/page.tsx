@@ -2,7 +2,8 @@ import Link from "next/link";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { AdminPage, AdminPageHeader, CostBox, Field, Select, SubmitButton } from "@/components/admin/Page";
 import { CategoryField } from "@/components/admin/CategoryField";
-import { createMaterial } from "../actions";
+import { ResettableForm } from "@/components/ResettableForm";
+import { createMaterial, type CreateMaterialState } from "../actions";
 import { lineTotal } from "@/lib/money";
 
 // Without this, Next.js can cache the underlying Supabase fetch and serve a
@@ -72,29 +73,38 @@ export default async function MaterialsIndexPage(
       ) : null}
 
       {!showArchived && (
-        <form action={createMaterial} className="mb-8 grid gap-4 rounded-xl border border-slate-200 bg-white p-6 sm:grid-cols-2 lg:grid-cols-3">
-          <Field label="Material name" name="name" required />
-          <Select label="Project" name="project_id" defaultValue="none">
-            <option value="none">— none —</option>
-            {(projects ?? []).map((p) => (<option key={p.id} value={p.id}>{p.name}</option>))}
-          </Select>
-          <Select label="Supplier" name="supplier_id" defaultValue="none">
-            <option value="none">— none —</option>
-            {suppliers?.map((s) => (<option key={s.id} value={s.id}>{s.name}</option>))}
-          </Select>
-          <Field label="Quantity" name="quantity" type="number" step="0.01" min="0" required />
-          <Field label="Unit (kg, bag, m³…)" name="unit" defaultValue="unit" />
-          <Field label="Unit cost (₹)" name="unit_cost" type="number" step="0.01" min="0" required />
-          <Select label="Status" name="status" defaultValue="ordered">
-            <option value="ordered">Ordered</option>
-            <option value="delivered">Delivered</option>
-            <option value="returned">Returned</option>
-          </Select>
-          <CategoryField label="Work category" name="work_category" />
-          <div className="sm:col-span-2 lg:col-span-3">
-            <SubmitButton>Add material</SubmitButton>
-          </div>
-        </form>
+        <ResettableForm<CreateMaterialState>
+          action={createMaterial}
+          initialState={{ error: null, success: false }}
+          className="mb-8 grid gap-4 rounded-xl border border-slate-200 bg-white p-6 sm:grid-cols-2 lg:grid-cols-3"
+        >
+          {(state) => (
+            <>
+              <Field label="Material name" name="name" required />
+              <Select label="Project" name="project_id" defaultValue="none">
+                <option value="none">— none —</option>
+                {(projects ?? []).map((p) => (<option key={p.id} value={p.id}>{p.name}</option>))}
+              </Select>
+              <Select label="Supplier" name="supplier_id" defaultValue="none">
+                <option value="none">— none —</option>
+                {suppliers?.map((s) => (<option key={s.id} value={s.id}>{s.name}</option>))}
+              </Select>
+              <Field label="Quantity" name="quantity" type="number" step="0.01" min="0" required />
+              <Field label="Unit (kg, bag, m³…)" name="unit" defaultValue="unit" />
+              <Field label="Unit cost (₹)" name="unit_cost" type="number" step="0.01" min="0" required />
+              <Select label="Status" name="status" defaultValue="ordered">
+                <option value="ordered">Ordered</option>
+                <option value="delivered">Delivered</option>
+                <option value="returned">Returned</option>
+              </Select>
+              <CategoryField label="Work category" name="work_category" />
+              <div className="sm:col-span-2 lg:col-span-3">
+                {state.error && <p className="mb-2 text-sm text-red-600">{state.error}</p>}
+                <SubmitButton>Add material</SubmitButton>
+              </div>
+            </>
+          )}
+        </ResettableForm>
       )}
 
       {!showArchived && (

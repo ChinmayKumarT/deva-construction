@@ -59,6 +59,29 @@ async function resolveSupplierId(
   return data.id;
 }
 
+// Guards against duplicate rows from clicking a Create/Record/Submit button
+// more than once -- a disabled-while-pending button only blocks a second
+// click DURING the request; it does nothing once that request finishes and
+// the (still filled-in) form is re-submitted a few seconds later. Treat a
+// near-identical row inserted moments ago as the same submission and skip
+// re-inserting it, rather than trying to catch every possible client-side
+// double-click/resubmit path. Exported so app/supplier/actions.ts (the other
+// place rows get inserted into these same tables) can share it.
+export async function wasJustCreated(
+  supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>,
+  table: "materials" | "payments",
+  match: Record<string, string | number | null>,
+  windowSeconds = 10,
+): Promise<boolean> {
+  const cutoff = new Date(Date.now() - windowSeconds * 1000).toISOString();
+  let query = supabase.from(table).select("id").gte("created_at", cutoff).limit(1);
+  for (const [key, value] of Object.entries(match)) {
+    query = value === null ? query.is(key, null) : query.eq(key, value);
+  }
+  const { data } = await query;
+  return (data?.length ?? 0) > 0;
+}
+
 export async function createProject(fd: FormData) {
   const supabase = await createSupabaseServerClient();
   const { error } = await supabase.from("projects").insert({
@@ -320,24 +343,47 @@ export async function createSupplier(fd: FormData) {
   revalidatePath("/admin/suppliers");
 }
 
-export async function createMaterial(fd: FormData) {
+export type CreateMaterialState = { error: string | null; success: boolean };
+
+// Returns its result instead of throwing (see markAttendance's comment above
+// for why), and checks wasJustCreated() first so clicking "Add material"
+// more than once on an unreset form can't insert the same delivery twice.
+export async function createMaterial(
+  _prevState: CreateMaterialState,
+  fd: FormData,
+): Promise<CreateMaterialState> {
   const supabase = await createSupabaseServerClient();
-  const status = (str(fd, "status") ?? "ordered") as "ordered" | "delivered" | "returned";
-  const { error } = await supabase.from("materials").insert({
-    project_id: uuidOrNull(fd, "project_id"),
-    supplier_id: uuidOrNull(fd, "supplier_id"),
-    name: str(fd, "name"),
-    unit: str(fd, "unit") ?? "unit",
-    quantity: nonNegNum(fd, "quantity", "Quantity") ?? 0,
-    unit_cost: nonNegNum(fd, "unit_cost", "Unit cost") ?? 0,
-    status,
-    delivered_at: status === "delivered" ? new Date().toISOString() : null,
-    work_category: str(fd, "work_category"),
-  });
-  if (error) throw new Error(error.message);
-  revalidatePath("/admin/materials");
-  revalidatePath("/admin/costs");
-  revalidatePath("/admin");
+  try {
+    const status = (str(fd, "status") ?? "ordered") as "ordered" | "delivered" | "returned";
+    const row = {
+      project_id: uuidOrNull(fd, "project_id"),
+      supplier_id: uuidOrNull(fd, "supplier_id"),
+      name: str(fd, "name"),
+      unit: str(fd, "unit") ?? "unit",
+      quantity: nonNegNum(fd, "quantity", "Quantity") ?? 0,
+      unit_cost: nonNegNum(fd, "unit_cost", "Unit cost") ?? 0,
+      status,
+      delivered_at: status === "delivered" ? new Date().toISOString() : null,
+      work_category: str(fd, "work_category"),
+    };
+    const duplicate = await wasJustCreated(supabase, "materials", {
+      project_id: row.project_id,
+      supplier_id: row.supplier_id,
+      name: row.name,
+      quantity: row.quantity,
+      unit_cost: row.unit_cost,
+    });
+    if (!duplicate) {
+      const { error } = await supabase.from("materials").insert(row);
+      if (error) throw new Error(error.message);
+    }
+    revalidatePath("/admin/materials");
+    revalidatePath("/admin/costs");
+    revalidatePath("/admin");
+    return { error: null, success: true };
+  } catch (e) {
+    return { error: e instanceof Error ? e.message : "Failed to add material", success: false };
+  }
 }
 
 export async function markMaterialDelivered(fd: FormData) {
@@ -490,8 +536,19 @@ export async function createPayment(
       row.labourer_id = labourerId;
       row.supplier_id = null;
     }
-    const { error } = await supabase.from("payments").insert(row);
-    if (error) throw new Error(error.message);
+
+    const duplicate = await wasJustCreated(supabase, "payments", {
+      project_id: row.project_id as string | null,
+      payee_type: row.payee_type as string,
+      supplier_id: (row.supplier_id as string | null) ?? null,
+      labourer_id: (row.labourer_id as string | null) ?? null,
+      amount: row.amount as number,
+      description: row.description as string | null,
+    });
+    if (!duplicate) {
+      const { error } = await supabase.from("payments").insert(row);
+      if (error) throw new Error(error.message);
+    }
 
     // Mark the picked purchase as billed so it drops out of the "Purchase
     // (optional)" dropdown -- otherwise the same material could be paid for

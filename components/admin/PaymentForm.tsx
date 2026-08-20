@@ -344,14 +344,23 @@ export function CreatePaymentForm({
 }) {
   const [state, formAction] = useFormState(action, initialCreatePaymentState);
   const [showConfirm, setShowConfirm] = useState(false);
+  const [formKey, setFormKey] = useState(0);
   useEffect(() => {
-    if (state.success) setShowConfirm(true);
+    if (state.success) {
+      setShowConfirm(true);
+      // Remount PaymentFormFields so its controlled inputs (amount,
+      // description, supplier, ...) clear -- otherwise the same values sit
+      // in the form after a successful submit, ready to be re-submitted as
+      // an accidental duplicate payment by clicking "Create payment" again.
+      setFormKey((k) => k + 1);
+    }
   }, [state]);
 
   return (
     <>
       {state.error && <p className="mb-4 text-sm text-red-600">{state.error}</p>}
       <PaymentFormFields
+        key={formKey}
         action={formAction}
         projects={projects}
         suppliers={suppliers}
