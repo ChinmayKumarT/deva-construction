@@ -29,7 +29,8 @@ export default async function SuppliersPage(
   ]);
 
   const linked = new Set((suppliers ?? []).map((s) => s.profile_id).filter(Boolean));
-  const unlinkedProfiles = (profiles ?? []).filter((p) => !linked.has(p.id));
+  const unlinkedProfiles = ((profiles ?? []) as { id: string; full_name: string | null; email: string | null }[])
+    .filter((p) => !linked.has(p.id));
 
   const deliveriesBySupplier = new Map<string, number>();
   for (const m of materials ?? []) {
