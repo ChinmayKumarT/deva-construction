@@ -63,6 +63,8 @@ export async function recordDelivery(fd: FormData) {
   revalidatePath("/supplier");
   revalidatePath("/admin/materials");
   revalidatePath(`/admin/materials/${project_id}`);
+  revalidatePath(`/admin/payments/${project_id}`);
+  revalidatePath(`/admin/suppliers/${supplier.id}`);
   revalidatePath("/admin");
 }
 
@@ -101,6 +103,9 @@ export async function generateBill(fd: FormData) {
   if (error) throw new Error(error.message);
   revalidatePath("/supplier");
   revalidatePath("/admin/payments");
+  revalidatePath(`/admin/payments/${project_id}`);
+  revalidatePath(`/admin/suppliers/${supplier.id}`);
+  revalidatePath("/admin");
 }
 
 export async function archiveDelivery(fd: FormData) {
