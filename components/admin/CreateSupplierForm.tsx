@@ -1,0 +1,51 @@
+"use client";
+
+import { useState } from "react";
+import { Field, Select, SubmitButton } from "@/components/admin/Page";
+
+export function CreateSupplierForm({
+  action,
+  unlinkedProfiles,
+}: {
+  action: (fd: FormData) => Promise<void>;
+  unlinkedProfiles: { id: string; full_name: string | null }[];
+}) {
+  const [name, setName] = useState("");
+
+  return (
+    <form action={action} className="mb-8 grid gap-4 rounded-xl border border-slate-200 bg-white p-6 sm:grid-cols-2 lg:grid-cols-3">
+      <label className="block text-sm">
+        <span className="mb-1 block font-medium text-slate-700">Name</span>
+        <input
+          name="name"
+          required
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          className="w-full rounded-md border border-[var(--line)] bg-white px-3 py-2 outline-none focus:border-brand focus:ring-2 focus:ring-brand/20"
+        />
+      </label>
+      <Field label="Email" name="email" type="email" />
+      <Field label="Phone" name="phone" type="tel" maxLength={10} />
+      <label className="block text-sm">
+        <span className="mb-1 block font-medium text-slate-700">Link to login (optional)</span>
+        <select
+          name="profile_id"
+          defaultValue="none"
+          onChange={(e) => {
+            const profile = unlinkedProfiles.find((p) => p.id === e.target.value);
+            if (profile) setName(profile.full_name ?? "");
+          }}
+          className="w-full rounded-md border border-[var(--line)] bg-white px-3 py-2 focus:outline-none focus:border-brand focus:ring-2 focus:ring-brand/20"
+        >
+          <option value="none">— none —</option>
+          {unlinkedProfiles.map((p) => (
+            <option key={p.id} value={p.id}>{p.full_name || p.id.slice(0, 8)}</option>
+          ))}
+        </select>
+      </label>
+      <div className="sm:col-span-2 lg:col-span-3">
+        <SubmitButton>Add supplier</SubmitButton>
+      </div>
+    </form>
+  );
+}

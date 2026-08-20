@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { createSupabaseServerClient, getSessionAndRole } from "@/lib/supabase/server";
-import { AdminPage, AdminPageHeader, Field, Select, SubmitButton } from "@/components/admin/Page";
+import { AdminPage, AdminPageHeader } from "@/components/admin/Page";
 import { ArchivedToggle, DeleteForeverButton, ManageCard, ManageSection, RestoreAction } from "@/components/admin/RowActions";
+import { CreateSupplierForm } from "@/components/admin/CreateSupplierForm";
 import { createSupplier, unarchiveSupplier, deleteSupplier } from "../actions";
 
 export default async function SuppliersPage(
@@ -57,21 +58,7 @@ export default async function SuppliersPage(
       </div>
 
       {!showArchived && (
-        <form action={createSupplier} className="mb-8 grid gap-4 rounded-xl border border-slate-200 bg-white p-6 sm:grid-cols-2 lg:grid-cols-3">
-          <Field label="Name" name="name" required />
-          <Field label="Email" name="email" type="email" />
-          <Field label="Phone" name="phone" type="tel" maxLength={10} />
-          <Field label="Address" name="address" />
-          <Select label="Link to login (optional)" name="profile_id" defaultValue="none">
-            <option value="none">— none —</option>
-            {unlinkedProfiles.map((p) => (
-              <option key={p.id} value={p.id}>{p.full_name || p.id.slice(0, 8)}</option>
-            ))}
-          </Select>
-          <div className="sm:col-span-2 lg:col-span-3">
-            <SubmitButton>Add supplier</SubmitButton>
-          </div>
-        </form>
+        <CreateSupplierForm action={createSupplier} unlinkedProfiles={unlinkedProfiles} />
       )}
 
       {!showArchived && (
