@@ -62,6 +62,7 @@ export async function recordDelivery(fd: FormData) {
   if (error) throw new Error(error.message);
   revalidatePath("/supplier");
   revalidatePath("/admin/materials");
+  revalidatePath(`/admin/materials/${project_id}`);
   revalidatePath("/admin");
 }
 
