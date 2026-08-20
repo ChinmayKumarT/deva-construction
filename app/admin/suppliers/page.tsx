@@ -22,7 +22,7 @@ export default async function SuppliersPage(
 
   const [{ data: suppliers }, { data: profiles }, { count: archivedCount }, { data: materials }, { data: payments }] = await Promise.all([
     showArchived ? base.not("archived_at", "is", null) : base.is("archived_at", null),
-    supabase.from("profiles").select("id, full_name").eq("role", "supplier"),
+    supabase.rpc("admin_list_profiles_with_email", { p_role: "supplier" }),
     supabase.from("suppliers").select("id", { count: "exact", head: true }).not("archived_at", "is", null),
     supabase.from("materials").select("supplier_id, status").is("archived_at", null),
     supabase.from("payments").select("supplier_id, amount, status").is("archived_at", null).eq("payee_type", "supplier"),
