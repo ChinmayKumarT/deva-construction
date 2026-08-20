@@ -101,3 +101,53 @@ export async function generateBill(fd: FormData) {
   revalidatePath("/supplier");
   revalidatePath("/admin/payments");
 }
+
+export async function archiveDelivery(fd: FormData) {
+  const supabase = await createSupabaseServerClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error("not signed in");
+
+  const { data: supplier } = await supabase
+    .from("suppliers")
+    .select("id")
+    .eq("profile_id", user.id)
+    .single();
+  if (!supplier) throw new Error("no supplier profile linked");
+
+  const id = String(fd.get("id") ?? "");
+  if (!id) throw new Error("missing id");
+
+  const { error } = await supabase
+    .from("materials")
+    .update({ archived_at: new Date().toISOString() })
+    .eq("id", id)
+    .eq("supplier_id", supplier.id);
+  if (error) throw new Error(error.message);
+  revalidatePath("/supplier");
+  revalidatePath("/admin/materials");
+}
+
+export async function archiveSupplierPayment(fd: FormData) {
+  const supabase = await createSupabaseServerClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error("not signed in");
+
+  const { data: supplier } = await supabase
+    .from("suppliers")
+    .select("id")
+    .eq("profile_id", user.id)
+    .single();
+  if (!supplier) throw new Error("no supplier profile linked");
+
+  const id = String(fd.get("id") ?? "");
+  if (!id) throw new Error("missing id");
+
+  const { error } = await supabase
+    .from("payments")
+    .update({ archived_at: new Date().toISOString() })
+    .eq("id", id)
+    .eq("supplier_id", supplier.id);
+  if (error) throw new Error(error.message);
+  revalidatePath("/supplier");
+  revalidatePath("/admin/payments");
+}
