@@ -12,9 +12,9 @@ import { requireRole } from "@/lib/guard";
  * from public.projects: the marketing site reads them anonymously, and
  * public.projects carries total_cost and client_id. See supabase/36_showcase.sql.
  *
- * Photos reuse the existing project-images bucket (public read) under a
- * showcase/ prefix, following the same upload pattern as postProjectUpdate in
- * app/admin/actions.ts.
+ * Photos live in the existing project-images bucket (public read) under a
+ * showcase/ prefix. They are uploaded straight from the browser rather than
+ * through these actions — see recordShowcasePhotos below for why.
  */
 
 const KINDS = ["Residential", "Commercial", "Renovation"] as const;
@@ -162,56 +162,43 @@ export async function deleteShowcaseProject(fd: FormData) {
   redirect("/admin/website");
 }
 
-const MAX_PHOTO_BYTES = 10 * 1024 * 1024;
-const ALLOWED_TYPES = ["image/jpeg", "image/png", "image/webp", "image/avif"];
-
-export async function uploadShowcasePhotos(fd: FormData) {
+/**
+ * Record photos that the browser has already uploaded to storage.
+ *
+ * The files never pass through here. An earlier version accepted them as
+ * FormData and failed on every real photo with "Body exceeded 1 MB limit"
+ * (413) — Server Actions cap bodies at 1 MB and phone photos are several
+ * times that. Raising the limit would not have been enough either; Vercel
+ * caps request bodies around 4.5 MB. See components/admin/ShowcasePhotoUpload.
+ */
+export async function recordShowcasePhotos(showcaseId: string, urls: string[]) {
   const supabase = await staffClient();
-  const showcase_id = text(fd, "showcase_id");
-  if (!showcase_id) throw new Error("Project required");
+  if (!showcaseId) throw new Error("Project required");
+  if (urls.length === 0) return;
 
-  const files = fd.getAll("photos").filter((f): f is File => f instanceof File && f.size > 0);
-  if (files.length === 0) throw new Error("Choose at least one photo");
+  // Only accept URLs in our own public bucket. Without this the action would
+  // happily store any URL a caller sent, putting arbitrary third-party images
+  // on the public website.
+  const base = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/project-images/`;
+  for (const url of urls) {
+    if (!url.startsWith(base)) throw new Error("Unexpected photo location — upload rejected.");
+  }
 
   // Continue numbering after whatever is already there, so an upload appends
   // rather than fighting the existing order.
   const { data: existing } = await supabase
     .from("showcase_photos")
     .select("sort_order")
-    .eq("showcase_id", showcase_id)
+    .eq("showcase_id", showcaseId)
     .order("sort_order", { ascending: false })
     .limit(1);
-  let next = (existing?.[0]?.sort_order ?? 0) + 10;
+  let next = existing?.[0]?.sort_order ?? 0;
 
-  for (const file of files) {
-    if (!ALLOWED_TYPES.includes(file.type)) {
-      throw new Error(`${file.name} is not a JPG, PNG, WebP or AVIF image.`);
-    }
-    if (file.size > MAX_PHOTO_BYTES) {
-      throw new Error(`${file.name} is larger than 10 MB. Please use a smaller file.`);
-    }
+  const rows = urls.map((url) => ({ showcase_id: showcaseId, url, sort_order: (next += 10) }));
+  const { error } = await supabase.from("showcase_photos").insert(rows);
+  if (error) throw new Error(error.message);
 
-    const ext = file.name.split(".").pop()?.toLowerCase() ?? "jpg";
-    const path = `showcase/${showcase_id}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
-    const buf = new Uint8Array(await file.arrayBuffer());
-
-    const { error: upErr } = await supabase.storage
-      .from("project-images")
-      .upload(path, buf, { contentType: file.type || "image/jpeg", upsert: false });
-    if (upErr) throw new Error(`Upload failed: ${upErr.message}`);
-
-    const { data: pub } = supabase.storage.from("project-images").getPublicUrl(path);
-
-    const { error } = await supabase.from("showcase_photos").insert({
-      showcase_id,
-      url: pub.publicUrl,
-      sort_order: next,
-    });
-    if (error) throw new Error(error.message);
-    next += 10;
-  }
-
-  revalidateShowcase(showcase_id);
+  revalidateShowcase(showcaseId);
 }
 
 export async function deleteShowcasePhoto(fd: FormData) {

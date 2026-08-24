@@ -8,8 +8,8 @@ import {
   moveShowcasePhoto,
   setShowcasePublished,
   updateShowcaseProject,
-  uploadShowcasePhotos,
 } from "../actions";
+import { ShowcasePhotoUpload } from "@/components/admin/ShowcasePhotoUpload";
 
 const SITE = "https://devaconstructions.in";
 
@@ -63,21 +63,10 @@ export default async function EditShowcasePage(props: { params: Promise<{ id: st
         <h2 className="text-base font-semibold text-ink">Photos</h2>
         <p className="mt-1 text-sm text-slate-500">
           The first photo is the cover — it appears on the project&apos;s card and across the top of
-          its page. Use the arrows to reorder. JPG, PNG, WebP or AVIF, up to 10 MB each.
+          its page. Use the arrows to reorder. JPG, PNG, WebP or AVIF.
         </p>
 
-        <form action={uploadShowcasePhotos} className="mt-4 flex flex-wrap items-center gap-3">
-          <input type="hidden" name="showcase_id" value={project.id} />
-          <input
-            type="file"
-            name="photos"
-            multiple
-            accept="image/jpeg,image/png,image/webp,image/avif"
-            required
-            className="text-sm file:mr-3 file:rounded-md file:border-0 file:bg-slate-100 file:px-3 file:py-2 file:text-sm"
-          />
-          <SubmitButton>Upload</SubmitButton>
-        </form>
+        <ShowcasePhotoUpload showcaseId={project.id} />
 
         {photos?.length ? (
           <ul className="mt-6 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
