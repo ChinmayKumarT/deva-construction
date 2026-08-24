@@ -41,6 +41,10 @@ function buildGroups(isOwner: boolean): NavGroup[] {
       ],
     },
     {
+      title: "Website",
+      items: [{ href: "/admin/website", label: "Projects shown online", icon: "photo" }],
+    },
+    {
       title: "Personal",
       items: [{ href: "/admin/personal", label: "Personal", icon: "wallet" }],
     },
