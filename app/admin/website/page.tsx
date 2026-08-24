@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { AdminPage, AdminPageHeader, Field, Select, SubmitButton } from "@/components/admin/Page";
-import { createShowcaseProject, setShowcasePublished } from "./actions";
+import { createShowcaseProject, setShowcasePublished, unarchiveShowcaseProject } from "./actions";
 
 /**
  * Website — the projects shown publicly on devaconstructions.in.
@@ -16,10 +16,16 @@ export const metadata = { title: "Website" };
 
 export default async function WebsitePage() {
   const supabase = await createSupabaseServerClient();
-  const { data: projects } = await supabase
+  const { data: allRows } = await supabase
     .from("showcase_projects")
-    .select("id, slug, name, location, year, kind, area, featured, published, sort_order")
+    .select("id, slug, name, location, year, kind, area, featured, published, sort_order, archived_at")
     .order("sort_order", { ascending: true });
+
+  // Archived projects are kept out of the working list rather than mixed into
+  // it — that is the whole point of archiving — but stay reachable below so
+  // they can be brought back without a trip to the database.
+  const projects = allRows?.filter((p) => !p.archived_at);
+  const archived = allRows?.filter((p) => p.archived_at) ?? [];
 
   const { data: photoRows } = await supabase.from("showcase_photos").select("showcase_id");
   const photoCount = new Map<string, number>();
@@ -115,6 +121,39 @@ export default async function WebsitePage() {
           </tbody>
         </table>
       </div>
+
+      {archived.length > 0 && (
+        <details className="mb-8 rounded-xl border border-[var(--line)] bg-white p-6">
+          <summary className="cursor-pointer text-base font-semibold text-ink">
+            Archived ({archived.length})
+          </summary>
+          <p className="mt-1 text-sm text-slate-500">
+            Not on the website and not in the list above. Nothing has been deleted — restore any of
+            these and it returns with its photos and description intact.
+          </p>
+          <ul className="mt-4 divide-y divide-[var(--line)]">
+            {archived.map((p) => (
+              <li key={p.id} className="flex items-center justify-between gap-4 py-3">
+                <div>
+                  <div className="font-medium text-ink">{p.name}</div>
+                  <div className="text-xs text-slate-500">
+                    {p.location} · {p.year} · archived{" "}
+                    {new Date(p.archived_at as string).toLocaleDateString("en-IN", {
+                      day: "numeric",
+                      month: "short",
+                      year: "numeric",
+                    })}
+                  </div>
+                </div>
+                <form action={unarchiveShowcaseProject}>
+                  <input type="hidden" name="id" value={p.id} />
+                  <SubmitButton>Restore</SubmitButton>
+                </form>
+              </li>
+            ))}
+          </ul>
+        </details>
+      )}
 
       <form
         action={createShowcaseProject}

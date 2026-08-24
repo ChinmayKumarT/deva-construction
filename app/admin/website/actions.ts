@@ -147,11 +147,48 @@ export async function setShowcasePublished(fd: FormData) {
   revalidateShowcase(id);
 }
 
+/**
+ * Archive / restore a showcase project.
+ *
+ * Distinct from unpublishing, and both are useful:
+ *   unpublish — temporarily off the website, still in the working list
+ *   archive   — finished with: out of the list and off the website, but the
+ *               write-up and photographs are kept and can be brought back
+ *
+ * The public site cannot see archived projects regardless of their published
+ * flag; that is enforced by the row-level policy in 38_showcase_archive.sql
+ * rather than by a filter here, so it holds for every reader.
+ */
+async function setShowcaseArchived(id: string, archived: boolean) {
+  const supabase = await staffClient();
+  if (!id) throw new Error("Project required");
+
+  const { error } = await supabase
+    .from("showcase_projects")
+    .update({ archived_at: archived ? new Date().toISOString() : null })
+    .eq("id", id);
+  if (error) throw new Error(error.message);
+
+  revalidateShowcase(id);
+}
+
+export async function archiveShowcaseProject(fd: FormData) {
+  await setShowcaseArchived(text(fd, "id"), true);
+  redirect("/admin/website");
+}
+
+export async function unarchiveShowcaseProject(fd: FormData) {
+  await setShowcaseArchived(text(fd, "id"), false);
+}
+
 export async function deleteShowcaseProject(fd: FormData) {
   const supabase = await staffClient();
   const id = text(fd, "id");
   if (!id) throw new Error("Project required");
 
+  // Permanent. Archiving is the reversible option — this is the one that
+  // actually throws the write-up away.
+  //
   // Photos cascade with the row (see the FK in 36_showcase.sql). The files
   // themselves stay in the bucket: storage is cheap, and an accidental delete
   // that also destroyed the originals would be unrecoverable.

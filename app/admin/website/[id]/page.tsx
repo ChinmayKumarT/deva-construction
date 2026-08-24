@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { AdminPage, AdminPageHeader, Field, Select, SubmitButton } from "@/components/admin/Page";
 import {
+  archiveShowcaseProject,
   deleteShowcasePhoto,
   deleteShowcaseProject,
   moveShowcasePhoto,
@@ -20,7 +21,7 @@ export default async function EditShowcasePage(props: { params: Promise<{ id: st
   const [{ data: project }, { data: photos }] = await Promise.all([
     supabase
       .from("showcase_projects")
-      .select("id, slug, name, location, year, kind, area, summary, featured, published, sort_order")
+      .select("id, slug, name, location, year, kind, area, summary, featured, published, sort_order, archived_at")
       .eq("id", id)
       .single(),
     supabase
@@ -57,6 +58,17 @@ export default async function EditShowcasePage(props: { params: Promise<{ id: st
           )
         }
       />
+
+      {project.archived_at && (
+        <p className="mb-8 rounded-lg bg-slate-100 px-4 py-3 text-sm text-slate-700">
+          This project is archived, so it is not on the website even if it is marked published.
+          Restore it from the Archived list on the{" "}
+          <Link href="/admin/website" className="underline">
+            Website page
+          </Link>
+          .
+        </p>
+      )}
 
       {/* Photos first: this is the thing people come to this page to do. */}
       <section className="mb-8 rounded-xl border border-[var(--line)] bg-white p-6">
@@ -193,12 +205,31 @@ export default async function EditShowcasePage(props: { params: Promise<{ id: st
               ? "Anyone visiting the website can see it. Unpublishing removes it within a minute."
               : "Nobody outside the office can see it. Publishing puts it on the website."}
           </p>
+          <p className="mt-2 text-sm text-slate-500">
+            <strong className="font-medium text-slate-700">Archive</strong> is for work you are
+            finished with: it comes off the website and out of the list, but keeps its photos and
+            description and can be restored any time.{" "}
+            <strong className="font-medium text-slate-700">Delete permanently</strong> cannot be
+            undone.
+          </p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3">
           <form action={setShowcasePublished}>
             <input type="hidden" name="id" value={project.id} />
             <input type="hidden" name="published" value={project.published ? "false" : "true"} />
             <SubmitButton>{project.published ? "Unpublish" : "Publish to website"}</SubmitButton>
+          </form>
+          {/* Archive sits before Delete, and is styled as the ordinary
+              action, because it is almost always the one that was meant.
+              Delete is kept deliberately plain and last. */}
+          <form action={archiveShowcaseProject}>
+            <input type="hidden" name="id" value={project.id} />
+            <button
+              type="submit"
+              className="rounded-md border border-[var(--line)] px-3 py-2 text-sm text-slate-700 hover:bg-slate-50"
+            >
+              Archive
+            </button>
           </form>
           <form action={deleteShowcaseProject}>
             <input type="hidden" name="id" value={project.id} />
@@ -206,7 +237,7 @@ export default async function EditShowcasePage(props: { params: Promise<{ id: st
               type="submit"
               className="rounded-md border border-red-200 px-3 py-2 text-sm text-red-600 hover:bg-red-50"
             >
-              Delete
+              Delete permanently
             </button>
           </form>
         </div>
