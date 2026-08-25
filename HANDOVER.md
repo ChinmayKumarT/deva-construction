@@ -100,10 +100,11 @@ Do not transfer a broken arrangement — these get harder to explain later.
 - [ ] **Remove the typo domains** from every Vercel project. Decide separately
       whether `devaconstrucions.in` is worth renewing as a defensive
       registration or was bought by mistake.
-- [ ] **Replace the placeholder contact details.** `+91 99999 99999` and
-      `Bangalore, Karnataka 560000` appear on the marketing site, marked
-      `TODO(real-details)` in `app/contact/page.tsx`,
-      `components/contact-form.tsx`, `site-header.tsx`, `site-footer.tsx`.
+- [x] ~~Replace the placeholder contact details.~~ Done 25 Aug 2026: the site
+      now carries +91 99801 44405 and 114 BK Layout, Thindlu, Vidyaranyapura,
+      Bengaluru 560097. Two details were normalised from what was supplied and
+      are worth a glance: "Bangalore 97" was expanded to 560097, and the
+      locality is spelled Vidyaranyapura.
 - [ ] **Decide the Android question.** The Play Store build is the **native
       Kotlin app** (`com.construction.manager`) — `capacitor.config.ts` exists
       but no Capacitor project was ever generated, so the wrapper is not what
