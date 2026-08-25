@@ -62,6 +62,25 @@ function revalidateShowcase(id?: string) {
   if (id) revalidatePath(`/admin/website/${id}`);
 }
 
+/**
+ * Postgres reports "0 rows updated" as success, not as an error. Combined
+ * with row-level security — which removes non-permitted rows from the update
+ * set rather than rejecting the statement — a write the caller is not allowed
+ * to make looks exactly like a write that worked.
+ *
+ * That is how archiving appeared to succeed while `archived_at` stayed null.
+ * Every write here now asks for the changed row back and fails loudly if
+ * nothing came.
+ */
+function assertChanged(rows: unknown[] | null, what: string) {
+  if (!rows || rows.length === 0) {
+    throw new Error(
+      `${what} did not change anything. The row may no longer exist, or your ` +
+        `account may not have permission to edit it. Nothing was saved.`,
+    );
+  }
+}
+
 export async function createShowcaseProject(fd: FormData) {
   const supabase = await staffClient();
 
@@ -111,7 +130,7 @@ export async function updateShowcaseProject(fd: FormData) {
   const name = text(fd, "name");
   if (!name) throw new Error("Project name is required");
 
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from("showcase_projects")
     .update({
       name,
@@ -126,9 +145,11 @@ export async function updateShowcaseProject(fd: FormData) {
       // address; changing it breaks every shared link and search result
       // pointing at the project.
     })
-    .eq("id", id);
+    .eq("id", id)
+    .select("id");
 
   if (error) throw new Error(error.message);
+  assertChanged(data, "Saving the details");
   revalidateShowcase(id);
 }
 
@@ -138,12 +159,14 @@ export async function setShowcasePublished(fd: FormData) {
   const published = text(fd, "published") === "true";
   if (!id) throw new Error("Project required");
 
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from("showcase_projects")
     .update({ published })
-    .eq("id", id);
+    .eq("id", id)
+    .select("id");
 
   if (error) throw new Error(error.message);
+  assertChanged(data, published ? "Publishing" : "Unpublishing");
   revalidateShowcase(id);
 }
 
@@ -163,11 +186,13 @@ async function setShowcaseArchived(id: string, archived: boolean) {
   const supabase = await staffClient();
   if (!id) throw new Error("Project required");
 
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from("showcase_projects")
     .update({ archived_at: archived ? new Date().toISOString() : null })
-    .eq("id", id);
+    .eq("id", id)
+    .select("id");
   if (error) throw new Error(error.message);
+  assertChanged(data, archived ? "Archiving" : "Restoring");
 
   revalidateShowcase(id);
 }
