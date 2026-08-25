@@ -1,4 +1,6 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
+import { requireRole } from "@/lib/guard";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { AdminPage, AdminPageHeader, DataTable } from "@/components/admin/Page";
 import { DownloadSummaryPdfButton } from "@/components/admin/ReportPdf";
@@ -10,6 +12,11 @@ export const dynamic = "force-dynamic";
 export const fetchCache = "force-no-store";
 
 export default async function ReportsPage() {
+  // Company financials are admin/owner information. The sidebar hides this
+  // for managers, but hiding a link is not a permission — guard the route.
+  const { role } = await requireRole(["admin", "manager"]);
+  if (role === "manager") redirect("/admin");
+
   const supabase = await createSupabaseServerClient();
 
   const [

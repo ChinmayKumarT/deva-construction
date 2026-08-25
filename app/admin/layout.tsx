@@ -1,7 +1,31 @@
 import { requireRole } from "@/lib/guard";
 import { Sidebar, type NavGroup } from "@/components/Sidebar";
 
-function buildGroups(isOwner: boolean): NavGroup[] {
+function buildGroups(isOwner: boolean, isManager: boolean): NavGroup[] {
+  // Reports, cash flow and P&L are company financials — margin, spend, and
+  // profit across every project. Site managers run the work, not the books,
+  // so they don't get this group.
+  //
+  // Team access and Backup live in the same group but are gated on isOwner
+  // independently, so an owner who happens to hold the manager role keeps
+  // them. If nothing survives both filters the group header is dropped
+  // rather than rendering an empty "Insights" heading.
+  const insightItems: NavGroup["items"] = [
+    ...(isManager
+      ? []
+      : [
+          { href: "/admin/reports", label: "Reports", icon: "reports" as const },
+          { href: "/admin/cashflow", label: "Cash flow", icon: "reports" as const },
+          { href: "/admin/profitloss", label: "Profit & Loss", icon: "costs" as const },
+        ]),
+    ...(isOwner
+      ? [
+          { href: "/admin/team", label: "Team access", icon: "team" as const },
+          { href: "/admin/backup", label: "Backup", icon: "reports" as const },
+        ]
+      : []),
+  ];
+
   return [
     { items: [
       { href: "/admin", label: "Overview", icon: "overview" },
@@ -26,20 +50,7 @@ function buildGroups(isOwner: boolean): NavGroup[] {
         { href: "/admin/updates", label: "Updates", icon: "updates" },
       ],
     },
-    {
-      title: "Insights",
-      items: [
-        { href: "/admin/reports", label: "Reports", icon: "reports" },
-        { href: "/admin/cashflow", label: "Cash flow", icon: "reports" },
-        { href: "/admin/profitloss", label: "Profit & Loss", icon: "costs" },
-        ...(isOwner
-          ? [
-              { href: "/admin/team", label: "Team access", icon: "team" as const },
-              { href: "/admin/backup", label: "Backup", icon: "reports" as const },
-            ]
-          : []),
-      ],
-    },
+    ...(insightItems.length ? [{ title: "Insights", items: insightItems }] : []),
     {
       title: "Website",
       items: [{ href: "/admin/website", label: "Projects shown online", icon: "photo" }],
@@ -55,7 +66,12 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   const { user, role, isOwner } = await requireRole(["admin", "manager"]);
   return (
     <div className="min-h-screen flex bg-[var(--bg)]">
-      <Sidebar role={role ?? "admin"} email={user.email ?? ""} groups={buildGroups(isOwner)} homeHref="/admin" />
+      <Sidebar
+        role={role ?? "admin"}
+        email={user.email ?? ""}
+        groups={buildGroups(isOwner, role === "manager")}
+        homeHref="/admin"
+      />
       <section className="flex-1 min-h-screen">{children}</section>
     </div>
   );

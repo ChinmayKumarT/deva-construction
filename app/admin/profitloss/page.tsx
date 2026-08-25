@@ -1,3 +1,5 @@
+import { redirect } from "next/navigation";
+import { requireRole } from "@/lib/guard";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { AdminPage, AdminPageHeader, DataTable } from "@/components/admin/Page";
 import { wageForStatus } from "@/lib/wages";
@@ -7,6 +9,11 @@ export const dynamic = "force-dynamic";
 export const fetchCache = "force-no-store";
 
 export default async function ProfitLossPage() {
+  // Company financials are admin/owner information. The sidebar hides this
+  // for managers, but hiding a link is not a permission — guard the route.
+  const { role } = await requireRole(["admin", "manager"]);
+  if (role === "manager") redirect("/admin");
+
   const supabase = await createSupabaseServerClient();
 
   const [

@@ -1,3 +1,5 @@
+import { redirect } from "next/navigation";
+import { requireRole } from "@/lib/guard";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { AdminPage, AdminPageHeader, DataTable, Field, SubmitButton } from "@/components/admin/Page";
 import { CashFlowBarChart } from "@/components/admin/CashFlowBarChart";
@@ -16,6 +18,11 @@ export default async function CashFlowPage(
   }
 ) {
   const searchParams = await props.searchParams;
+  // Company financials are admin/owner information. The sidebar hides this
+  // for managers, but hiding a link is not a permission — guard the route.
+  const { role } = await requireRole(["admin", "manager"]);
+  if (role === "manager") redirect("/admin");
+
   const supabase = await createSupabaseServerClient();
   const { fromStr, toStr } = defaultCashFlowRange();
   const from = searchParams.from || fromStr;

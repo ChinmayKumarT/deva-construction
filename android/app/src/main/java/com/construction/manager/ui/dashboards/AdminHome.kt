@@ -61,10 +61,16 @@ fun AdminHome(vm: AuthViewModel, isAdmin: Boolean = true, isOwner: Boolean = fal
     var materialsProjectFilter by remember { mutableStateOf<ProjectRow?>(null) }
     var paymentsProjectFilter by remember { mutableStateOf<ProjectRow?>(null) }
     var showDeleteDialog by remember { mutableStateOf(false) }
-    val visibleSections = remember(isOwner) {
+    // Reports & cash flow is company financials -- margin, spend and profit
+    // across every project. Site managers run the work, not the books, so the
+    // section is hidden for them (matching the web sidebar, which drops the
+    // whole "Insights" group for the manager role). Team access and Backup
+    // stay owner-gated independently.
+    val visibleSections = remember(isOwner, isAdmin) {
         AdminSection.entries.filter {
             (it != AdminSection.TeamAccess || isOwner) &&
-            (it != AdminSection.Backup || isOwner)
+            (it != AdminSection.Backup || isOwner) &&
+            (it != AdminSection.Reports || isAdmin)
         }
     }
 
