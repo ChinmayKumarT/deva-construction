@@ -44,7 +44,11 @@ function buildGroups(isOwner: boolean, isManager: boolean): NavGroup[] {
       title: "Operations",
       items: [
         { href: "/admin/materials", label: "Materials", icon: "materials" },
-        { href: "/admin/costs", label: "Costs", icon: "costs" },
+        // Cost tracking is budget vs spend per project — the same financial
+        // picture as the Insights pages, just filed under Operations.
+        ...(isManager
+          ? []
+          : [{ href: "/admin/costs", label: "Costs", icon: "costs" as const }]),
         { href: "/admin/attendance", label: "Attendance", icon: "attendance" },
         { href: "/admin/payments", label: "Payments", icon: "payments" },
         { href: "/admin/updates", label: "Updates", icon: "updates" },

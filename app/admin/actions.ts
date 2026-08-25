@@ -104,19 +104,27 @@ export async function updateProject(fd: FormData) {
   const supabase = await createSupabaseServerClient();
   const id = str(fd, "id");
   if (!id) throw new Error("project id required");
+  const patch: Record<string, unknown> = {
+    name: str(fd, "name"),
+    client_id: uuidOrNull(fd, "client_id"),
+    address: str(fd, "address"),
+    status: str(fd, "status") ?? "planned",
+    current_stage: str(fd, "current_stage"),
+    start_date: str(fd, "start_date"),
+    end_date: str(fd, "end_date"),
+    completion_pct: pct(fd, "completion_pct", "Completion %") ?? 0,
+  };
+  // The manager edit form has no budget input, and num() cannot tell a
+  // missing field from a cleared one -- both come back null. Writing
+  // `?? 0` unconditionally would therefore wipe the project's budget every
+  // time a manager saved an unrelated edit, and silently: no error, just a
+  // zero. Only touch total_cost when the form actually submitted it.
+  if (fd.has("total_cost")) {
+    patch.total_cost = nonNegNum(fd, "total_cost", "Total cost") ?? 0;
+  }
   const { error } = await supabase
     .from("projects")
-    .update({
-      name: str(fd, "name"),
-      client_id: uuidOrNull(fd, "client_id"),
-      address: str(fd, "address"),
-      status: str(fd, "status") ?? "planned",
-      current_stage: str(fd, "current_stage"),
-      start_date: str(fd, "start_date"),
-      end_date: str(fd, "end_date"),
-      total_cost: nonNegNum(fd, "total_cost", "Total cost") ?? 0,
-      completion_pct: pct(fd, "completion_pct", "Completion %") ?? 0,
-    })
+    .update(patch)
     .eq("id", id);
   if (error) throw new Error(error.message);
   revalidateProjectViews();

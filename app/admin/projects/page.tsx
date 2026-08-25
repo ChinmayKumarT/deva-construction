@@ -12,7 +12,8 @@ export default async function ProjectsPage(
   const searchParams = await props.searchParams;
   const showArchived = searchParams.archived === "1";
   const supabase = await createSupabaseServerClient();
-  const { isOwner } = await getSessionAndRole();
+  const { isOwner, role } = await getSessionAndRole();
+  const isManager = role === "manager";
 
   const projectQuery = supabase
     .from("projects")
@@ -62,12 +63,29 @@ export default async function ProjectsPage(
         )}
       </div>
 
+      {/* This grid doubles as the navigation into each project, so it can't
+          simply be dropped for managers — they'd lose the way in. Instead the
+          cost figure is swapped for completion and stage, which is what a
+          site manager is tracking anyway. */}
       {!showArchived && (projects ?? []).length > 0 && (
         <div className="mb-8 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          <CostBox label="Total cost" value={totalCost} accent />
+          {!isManager && <CostBox label="Total cost" value={totalCost} accent />}
           {(projects ?? []).map((p) => (
             <Link key={p.id} href={`/admin/projects/${p.id}`}>
-              <CostBox label={p.name} value={Number(p.total_cost)} />
+              {isManager ? (
+                <div className="rounded-lg border border-[var(--line)] bg-white p-5 transition hover:border-brand/30 hover:shadow-sm">
+                  <div className="text-[11px] uppercase tracking-[0.12em] text-slate-500">{p.name}</div>
+                  <div className="mt-2 text-2xl font-semibold tabular-nums text-ink">
+                    {Number(p.completion_pct).toFixed(0)}%
+                  </div>
+                  <div className="mt-1 text-xs text-slate-500">
+                    {p.status.replace("_", " ")}
+                    {p.current_stage ? ` · ${p.current_stage}` : ""}
+                  </div>
+                </div>
+              ) : (
+                <CostBox label={p.name} value={Number(p.total_cost)} />
+              )}
             </Link>
           ))}
         </div>
@@ -91,7 +109,13 @@ export default async function ProjectsPage(
             <option value="cancelled">Cancelled</option>
           </Select>
           <Field label="Current stage" name="current_stage" />
-          <Field label="Total cost (₹)" name="total_cost" type="number" step="0.01" min="0" />
+          {/* Omitted for managers. total_cost defaults to 0 in the schema and
+              createProject already coalesces a missing value, so a project a
+              manager creates simply starts with no budget for an admin to
+              fill in. */}
+          {!isManager && (
+            <Field label="Total cost (₹)" name="total_cost" type="number" step="0.01" min="0" />
+          )}
           <Field label="Start date" name="start_date" type="date" />
           <Field label="End date" name="end_date" type="date" />
           <Field label="Completion %" name="completion_pct" type="number" step="0.1" min="0" max="100" />

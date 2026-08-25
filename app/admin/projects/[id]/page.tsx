@@ -37,7 +37,8 @@ export default async function ManageProjectPage(
   const searchParams = await props.searchParams;
   const params = await props.params;
   const supabase = await createSupabaseServerClient();
-  const { isOwner } = await getSessionAndRole();
+  const { isOwner, role } = await getSessionAndRole();
+  const isManager = role === "manager";
   const showArchivedChangeOrders = searchParams.archived === "1";
 
   const [
@@ -123,22 +124,35 @@ export default async function ManageProjectPage(
         <Link href="/admin/projects" className="inline-block text-sm text-slate-600 hover:underline">
           ← Projects
         </Link>
-        <DownloadInvoiceButton data={invoiceData} />
+        {/* The invoice is a priced document — admin only. */}
+        {!isManager && <DownloadInvoiceButton data={invoiceData} />}
       </div>
       <AdminPageHeader
         title={project.name}
         subtitle={
-          // @ts-expect-error relation
-          `${project.clients?.name ?? "No client"} · ${project.status} · ${project.current_stage ?? "no stage"} · ${Number(project.completion_pct).toFixed(1)}% complete · ₹${Number(project.total_cost).toLocaleString()}`
+          [
+            // @ts-expect-error relation
+            project.clients?.name ?? "No client",
+            project.status,
+            project.current_stage ?? "no stage",
+            `${Number(project.completion_pct).toFixed(1)}% complete`,
+            ...(isManager ? [] : [`₹${Number(project.total_cost).toLocaleString()}`]),
+          ].join(" · ")
         }
       />
 
-      <BudgetAlert budget={budget} spent={spent} />
-      <div className="mb-6 grid max-w-xl gap-3 sm:grid-cols-3">
-        <CostBox label="Budget" value={budget} />
-        <CostBox label="Spent" value={spent} warn={budget > 0 && spent / budget >= 0.8 && spent / budget < 1} danger={budget > 0 && spent >= budget} />
-        <CostBox label="Remaining" value={budget - spent} accent={budget - spent >= 0} danger={budget - spent < 0} />
-      </div>
+      {/* Budget / Spent / Remaining and the over-budget alert are the project
+          budget figures. Managers get the work status above instead. */}
+      {!isManager && (
+        <>
+          <BudgetAlert budget={budget} spent={spent} />
+          <div className="mb-6 grid max-w-xl gap-3 sm:grid-cols-3">
+            <CostBox label="Budget" value={budget} />
+            <CostBox label="Spent" value={spent} warn={budget > 0 && spent / budget >= 0.8 && spent / budget < 1} danger={budget > 0 && spent >= budget} />
+            <CostBox label="Remaining" value={budget - spent} accent={budget - spent >= 0} danger={budget - spent < 0} />
+          </div>
+        </>
+      )}
 
       <div className="mb-6 flex max-w-xl items-center justify-between rounded-xl border border-slate-200 bg-white p-4">
         {
@@ -178,7 +192,14 @@ export default async function ManageProjectPage(
           />
         </div>
 
-        {!archived && !showArchivedChangeOrders && (
+        {/* Logging a change order raises the project budget immediately (see
+            the note in the form), and there is no edit action for one — only
+            create, archive and delete. So a manager filing one without the
+            cost field would permanently record a zero-cost change and leave
+            the budget short, with no way to correct it but delete and redo.
+            Creating change orders is therefore admin-only; managers still see
+            the list below for context on what was agreed. */}
+        {!isManager && !archived && !showArchivedChangeOrders && (
           <form action={createChangeOrder} className="mb-4 grid gap-3 border-b border-slate-100 pb-4 sm:grid-cols-2">
             <input type="hidden" name="project_id" value={project.id} />
             <label className="text-sm">
@@ -227,7 +248,9 @@ export default async function ManageProjectPage(
                   <div className="text-xs text-slate-500">
                     {formatDateOnly(co.created_at)}
                     {co.work_category ? ` · ${co.work_category}` : ""}
-                    {Number(co.extra_cost) > 0 ? ` · +₹${Number(co.extra_cost).toLocaleString()}` : ""}
+                    {!isManager && Number(co.extra_cost) > 0
+                      ? ` · +₹${Number(co.extra_cost).toLocaleString()}`
+                      : ""}
                   </div>
                 </div>
                 <div className="flex items-center gap-1">

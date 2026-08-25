@@ -64,6 +64,8 @@ fun AdminHome(vm: AuthViewModel, isAdmin: Boolean = true, isOwner: Boolean = fal
     // Two admin-only sections, matching the web sidebar:
     //   Reports  -- company financials (margin, spend, profit across every
     //               project). Site managers run the work, not the books.
+    //   Costs    -- budget vs spend per project; the same financial picture
+    //               as Reports, filed under operations.
     //   Personal -- the owner's private income/expense ledger, nothing to do
     //               with any project. Its RLS policy is admin-only as of
     //               39_personal_admin_only.sql, so a manager who somehow
@@ -74,6 +76,7 @@ fun AdminHome(vm: AuthViewModel, isAdmin: Boolean = true, isOwner: Boolean = fal
             (it != AdminSection.TeamAccess || isOwner) &&
             (it != AdminSection.Backup || isOwner) &&
             (it != AdminSection.Reports || isAdmin) &&
+            (it != AdminSection.Costs || isAdmin) &&
             (it != AdminSection.Personal || isAdmin)
         }
     }
@@ -223,7 +226,7 @@ fun AdminHome(vm: AuthViewModel, isAdmin: Boolean = true, isOwner: Boolean = fal
                 when (section) {
                     AdminSection.Overview -> AdminOverview(isAdmin = isAdmin)
                     AdminSection.Search -> AdminSearch(onNavigateToProject = { navigateTo(AdminSection.Projects) })
-                    AdminSection.Projects -> AdminProjects(isOwner)
+                    AdminSection.Projects -> AdminProjects(isOwner, isAdmin = isAdmin)
                     AdminSection.Clients -> AdminClients(isOwner)
                     AdminSection.Suppliers -> AdminSuppliers(isOwner)
                     AdminSection.Labourers -> AdminLabourers(isOwner)

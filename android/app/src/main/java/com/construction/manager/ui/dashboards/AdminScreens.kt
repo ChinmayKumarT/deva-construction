@@ -214,8 +214,15 @@ private fun DialogField(value: String, onChange: (String) -> Unit, label: String
 }
 
 // ---------- Projects ----------
+/**
+ * @param isAdmin when false (manager role) every rupee figure tied to a
+ *   project budget is omitted: the Budget/Spent/Remaining cards, the
+ *   over-budget warning, the list-level total, the per-row budget line, the
+ *   change-order amounts and the cost field in the edit dialog. Mirrors the
+ *   web pages under app/admin/projects.
+ */
 @Composable
-fun AdminProjects(isOwner: Boolean = false) {
+fun AdminProjects(isOwner: Boolean = false, isAdmin: Boolean = true) {
     var rows by remember { mutableStateOf<List<ProjectRow>>(emptyList()) }
     var clients by remember { mutableStateOf<List<ClientRow>>(emptyList()) }
     var materials by remember { mutableStateOf<List<MaterialRow>>(emptyList()) }
@@ -358,7 +365,7 @@ fun AdminProjects(isOwner: Boolean = false) {
             }
             val spent = materialsCost + labourPaid + wages
             val budgetPct = if (p.totalCost > 0) spent / p.totalCost * 100 else 0.0
-            if (p.totalCost > 0 && budgetPct >= 80) {
+            if (isAdmin && p.totalCost > 0 && budgetPct >= 80) {
                 val over = budgetPct >= 100
                 WarningBanner(
                     if (over) "Over budget — ${"%.1f".format(budgetPct)}% of ${money(p.totalCost)} spent (${money(spent - p.totalCost)} over)"
@@ -366,13 +373,15 @@ fun AdminProjects(isOwner: Boolean = false) {
                     modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
                 )
             }
-            Row(
-                Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                MiniStatCard("Budget", money(p.totalCost), Modifier.weight(1f))
-                MiniStatCard("Spent", money(spent), Modifier.weight(1f))
-                MiniStatCard("Remaining", money(p.totalCost - spent), Modifier.weight(1f))
+            if (isAdmin) {
+                Row(
+                    Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    MiniStatCard("Budget", money(p.totalCost), Modifier.weight(1f))
+                    MiniStatCard("Spent", money(spent), Modifier.weight(1f))
+                    MiniStatCard("Remaining", money(p.totalCost - spent), Modifier.weight(1f))
+                }
             }
             val client = clients.find { it.id == p.clientId }
             Text(
@@ -453,12 +462,18 @@ fun AdminProjects(isOwner: Boolean = false) {
                         )
                     }
                     ProjectAgreementSection(project = p, onChanged = { version++ })
-                    ProjectChangeOrdersSection(project = p, isOwner = isOwner, onChanged = { version++ })
+                    ProjectChangeOrdersSection(
+                        project = p,
+                        isOwner = isOwner,
+                        isAdmin = isAdmin,
+                        onChanged = { version++ },
+                    )
                     ProjectRowCard(
                         project = p,
                         clients = clients,
                         archived = false,
                         isOwner = isOwner,
+                        isAdmin = isAdmin,
                         onChanged = { version++ },
                     )
                 }
@@ -468,7 +483,11 @@ fun AdminProjects(isOwner: Boolean = false) {
 
         if (!showArchived) {
             if (rows.isNotEmpty()) {
-                StatCard("Total cost", money(rows.sumOf { it.totalCost }), modifier = Modifier.padding(horizontal = 16.dp), accent = true)
+                // Gate only the total, not the block -- the project list that
+                // follows is the manager's way into each project.
+                if (isAdmin) {
+                    StatCard("Total cost", money(rows.sumOf { it.totalCost }), modifier = Modifier.padding(horizontal = 16.dp), accent = true)
+                }
                 Spacer(Modifier.height(8.dp))
                 rows.forEach { p ->
                     val spent = remember(materials, payments, attendance, labourerWage, p) {
@@ -480,7 +499,12 @@ fun AdminProjects(isOwner: Boolean = false) {
                         attendance.filter { it.projectId == p.id }
                             .sumOf { roundMoney((ReportWageFactor[it.status] ?: 0.0) * (labourerWage[it.labourerId] ?: 0.0)) }
                     }
-                    ProjectListRow(project = p, spent = spent, onClick = { selectedProject = p })
+                    ProjectListRow(
+                        project = p,
+                        spent = spent,
+                        isAdmin = isAdmin,
+                        onClick = { selectedProject = p },
+                    )
                 }
             } else {
                 Divider()
@@ -584,7 +608,12 @@ private fun ProjectAgreementSection(project: ProjectRow, onChanged: () -> Unit) 
 // cycle; onChanged bumps the parent's version so Budget/Spent/Remaining
 // reflect the total_cost adjustment Repo.createChangeOrder/archive make.
 @Composable
-private fun ProjectChangeOrdersSection(project: ProjectRow, isOwner: Boolean, onChanged: () -> Unit) {
+private fun ProjectChangeOrdersSection(
+    project: ProjectRow,
+    isOwner: Boolean,
+    isAdmin: Boolean = true,
+    onChanged: () -> Unit,
+) {
     var changeOrders by remember { mutableStateOf<List<ProjectChangeOrderRow>>(emptyList()) }
     var showArchived by remember { mutableStateOf(false) }
     var refreshTrigger by remember { mutableStateOf(0) }
@@ -610,7 +639,11 @@ private fun ProjectChangeOrdersSection(project: ProjectRow, isOwner: Boolean, on
                 Text(if (showArchived) "Show active" else "Show archived")
             }
         }
-        if (!showArchived) {
+        // Creating a change order raises the project budget immediately and
+        // there is no edit action for one, so a manager filing it without the
+        // cost field would lock in a zero. Admin-only; managers still see the
+        // list below for context on what was agreed.
+        if (isAdmin && !showArchived) {
             OutlinedButton(
                 onClick = { showCreate = true },
                 shape = RoundedCornerShape(100),
@@ -655,7 +688,7 @@ private fun ProjectChangeOrdersSection(project: ProjectRow, isOwner: Boolean, on
                 ItemCard(
                     co.description,
                     listOfNotNull(co.createdAt?.take(10), co.workCategory).joinToString(" · "),
-                    if (co.extraCost > 0.0) "+${money(co.extraCost)}" else null,
+                    if (isAdmin && co.extraCost > 0.0) "+${money(co.extraCost)}" else null,
                     actions = {
                         if (showArchived) {
                             TextButton(onClick = {
@@ -710,7 +743,12 @@ private fun ProjectChangeOrdersSection(project: ProjectRow, isOwner: Boolean, on
 // on the client dashboard and web's Projects index, styled after the
 // Claude Design mockup's cardStyle/progressTrackStyle/badge().
 @Composable
-private fun ProjectListRow(project: ProjectRow, spent: Double, onClick: () -> Unit) {
+private fun ProjectListRow(
+    project: ProjectRow,
+    spent: Double,
+    isAdmin: Boolean,
+    onClick: () -> Unit,
+) {
     val (statusColor, _) = statusBadgeColors(project.status)
     MockupCard(
         modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
@@ -732,7 +770,10 @@ private fun ProjectListRow(project: ProjectRow, spent: Double, onClick: () -> Un
             color = statusColor,
         )
         Text(
-            "${"%.0f".format(project.completionPct)}% · Budget ${money(project.totalCost)} · Spent ${money(spent)}",
+            if (isAdmin)
+                "${"%.0f".format(project.completionPct)}% · Budget ${money(project.totalCost)} · Spent ${money(spent)}"
+            else
+                "${"%.0f".format(project.completionPct)}% complete",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
@@ -745,6 +786,7 @@ private fun ProjectRowCard(
     clients: List<ClientRow>,
     archived: Boolean,
     isOwner: Boolean,
+    isAdmin: Boolean = true,
     onChanged: () -> Unit,
 ) {
     var extending by remember { mutableStateOf(false) }
@@ -761,7 +803,7 @@ private fun ProjectRowCard(
         "${p.currentStage ?: "—"} · ${"%.1f".format(p.completionPct)}%" +
             (p.endDate?.let { " · Finish $it" } ?: "") +
             (p.nextPaymentDate?.let { " · Next payment $it" } ?: ""),
-        money(p.totalCost),
+        if (isAdmin) money(p.totalCost) else null,
         status = p.status,
         actions = {
             if (archived) {
@@ -807,6 +849,7 @@ private fun ProjectRowCard(
         EditProjectDialog(
             project = p,
             clients = clients,
+            isAdmin = isAdmin,
             onDismiss = { editing = false },
             onSaved = { editing = false; onChanged() },
         )
@@ -861,6 +904,7 @@ private fun ProjectRowCard(
 private fun EditProjectDialog(
     project: ProjectRow,
     clients: List<ClientRow>,
+    isAdmin: Boolean = true,
     onDismiss: () -> Unit,
     onSaved: () -> Unit,
 ) {
@@ -885,7 +929,13 @@ private fun EditProjectDialog(
             ) {
                 TextField(name, { name = it }, "Name")
                 TextField(stage, { stage = it }, "Current stage")
-                NumberField(cost, { cost = it }, "Total cost")
+                // Hidden for managers. `cost` stays seeded from
+                // project.totalCost and is still passed to Repo.updateProject
+                // below, so saving round-trips the existing budget rather
+                // than clearing it.
+                if (isAdmin) {
+                    NumberField(cost, { cost = it }, "Total cost")
+                }
                 NumberField(completion, { completion = it }, "Completion %", max = 100.0)
                 Dropdown("Status", listOf("planned","active","on_hold","completed","cancelled"),
                     status, { it }, { status = it })

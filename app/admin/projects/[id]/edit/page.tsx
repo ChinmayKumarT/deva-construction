@@ -1,12 +1,14 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { createSupabaseServerClient, getSessionAndRole } from "@/lib/supabase/server";
 import { AdminPage, AdminPageHeader, Field, Select, SubmitButton } from "@/components/admin/Page";
 import { updateProject } from "../../../actions";
 
 export default async function EditProjectPage(props: { params: Promise<{ id: string }> }) {
   const params = await props.params;
   const supabase = await createSupabaseServerClient();
+  const { role } = await getSessionAndRole();
+  const isManager = role === "manager";
   const [{ data: project }, { data: clients }] = await Promise.all([
     supabase
       .from("projects")
@@ -47,10 +49,15 @@ export default async function EditProjectPage(props: { params: Promise<{ id: str
           <option value="cancelled">Cancelled</option>
         </Select>
         <Field label="Current stage" name="current_stage" defaultValue={project.current_stage ?? ""} />
-        <Field
-          label="Total cost (₹)" name="total_cost" type="number" step="0.01" min="0"
-          defaultValue={project.total_cost ?? 0}
-        />
+        {/* Omitted for managers. updateProject only writes total_cost when
+            the form actually submits the field, so saving an edit from here
+            leaves the existing budget untouched rather than zeroing it. */}
+        {!isManager && (
+          <Field
+            label="Total cost (₹)" name="total_cost" type="number" step="0.01" min="0"
+            defaultValue={project.total_cost ?? 0}
+          />
+        )}
         <Field label="Start date" name="start_date" type="date" defaultValue={project.start_date ?? ""} />
         <Field label="End date" name="end_date" type="date" defaultValue={project.end_date ?? ""} />
         <Field
