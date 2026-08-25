@@ -61,16 +61,20 @@ fun AdminHome(vm: AuthViewModel, isAdmin: Boolean = true, isOwner: Boolean = fal
     var materialsProjectFilter by remember { mutableStateOf<ProjectRow?>(null) }
     var paymentsProjectFilter by remember { mutableStateOf<ProjectRow?>(null) }
     var showDeleteDialog by remember { mutableStateOf(false) }
-    // Reports & cash flow is company financials -- margin, spend and profit
-    // across every project. Site managers run the work, not the books, so the
-    // section is hidden for them (matching the web sidebar, which drops the
-    // whole "Insights" group for the manager role). Team access and Backup
-    // stay owner-gated independently.
+    // Two admin-only sections, matching the web sidebar:
+    //   Reports  -- company financials (margin, spend, profit across every
+    //               project). Site managers run the work, not the books.
+    //   Personal -- the owner's private income/expense ledger, nothing to do
+    //               with any project. Its RLS policy is admin-only as of
+    //               39_personal_admin_only.sql, so a manager who somehow
+    //               reached the screen would see an empty list anyway.
+    // Team access and Backup stay owner-gated independently.
     val visibleSections = remember(isOwner, isAdmin) {
         AdminSection.entries.filter {
             (it != AdminSection.TeamAccess || isOwner) &&
             (it != AdminSection.Backup || isOwner) &&
-            (it != AdminSection.Reports || isAdmin)
+            (it != AdminSection.Reports || isAdmin) &&
+            (it != AdminSection.Personal || isAdmin)
         }
     }
 
@@ -217,7 +221,7 @@ fun AdminHome(vm: AuthViewModel, isAdmin: Boolean = true, isOwner: Boolean = fal
         ) { padding ->
             Box(Modifier.padding(padding)) {
                 when (section) {
-                    AdminSection.Overview -> AdminOverview()
+                    AdminSection.Overview -> AdminOverview(isAdmin = isAdmin)
                     AdminSection.Search -> AdminSearch(onNavigateToProject = { navigateTo(AdminSection.Projects) })
                     AdminSection.Projects -> AdminProjects(isOwner)
                     AdminSection.Clients -> AdminClients(isOwner)
@@ -241,8 +245,13 @@ fun AdminHome(vm: AuthViewModel, isAdmin: Boolean = true, isOwner: Boolean = fal
     }
 }
 
+/**
+ * @param isAdmin when false (manager role) the rupee stat cards and the
+ *   over/near-budget warnings are omitted, leaving only operational figures.
+ *   Mirrors the web Overview at app/admin/page.tsx.
+ */
 @Composable
-fun AdminOverview() {
+fun AdminOverview(isAdmin: Boolean = true) {
     var m by remember { mutableStateOf<Repo.AdminMetrics?>(null) }
     var err by remember { mutableStateOf<String?>(null) }
     var reloadKey by remember { mutableStateOf(0) }
@@ -263,15 +272,19 @@ fun AdminOverview() {
             friendly != null -> Text("Error: $friendly")
             m == null -> CircularProgressIndicator()
             else -> {
-                StatCard("Total Cost", money(m!!.totalCost), accent = true)
                 val two = Arrangement.spacedBy(12.dp)
+                if (isAdmin) {
+                    StatCard("Total Cost", money(m!!.totalCost), accent = true)
+                }
                 Row(horizontalArrangement = two) {
                     StatCard("Total Projects", m!!.totalProjects.toString(), Modifier.weight(1f), trend = m!!.projectsTrend)
                     StatCard("Active Projects", m!!.activeProjects.toString(), Modifier.weight(1f))
                 }
-                Row(horizontalArrangement = two) {
-                    StatCard("Spending", money(m!!.spendingThisMonth), Modifier.weight(1f), trend = m!!.spendingTrend)
-                    StatCard("Pending Payments", money(m!!.pendingPayments), Modifier.weight(1f))
+                if (isAdmin) {
+                    Row(horizontalArrangement = two) {
+                        StatCard("Spending", money(m!!.spendingThisMonth), Modifier.weight(1f), trend = m!!.spendingTrend)
+                        StatCard("Pending Payments", money(m!!.pendingPayments), Modifier.weight(1f))
+                    }
                 }
                 Row(horizontalArrangement = two) {
                     StatCard("Attendance", m!!.labourCount.toString(), Modifier.weight(1f), trend = m!!.attendanceTrend)
@@ -281,12 +294,15 @@ fun AdminOverview() {
                     StatCard("Material Stock", "%,.0f".format(m!!.materialStock), Modifier.weight(1f))
                     StatCard("Labour Count", m!!.labourCount.toString(), Modifier.weight(1f))
                 }
-                if (m!!.overBudgetCount > 0) {
+                // Budget-performance warnings name projects and the percentage
+                // of budget consumed -- financial, so admin-only like the
+                // rupee cards above.
+                if (isAdmin && m!!.overBudgetCount > 0) {
                     WarningBanner(
                         "${m!!.overBudgetCount} project${if (m!!.overBudgetCount > 1) "s" else ""} over budget: ${m!!.overBudgetNames.joinToString(", ")}",
                     )
                 }
-                if (m!!.nearBudgetCount > 0) {
+                if (isAdmin && m!!.nearBudgetCount > 0) {
                     WarningBanner(
                         "${m!!.nearBudgetCount} project${if (m!!.nearBudgetCount > 1) "s" else ""} approaching budget: ${m!!.nearBudgetNames.joinToString(", ")}",
                     )

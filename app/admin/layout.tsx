@@ -55,10 +55,19 @@ function buildGroups(isOwner: boolean, isManager: boolean): NavGroup[] {
       title: "Website",
       items: [{ href: "/admin/website", label: "Projects shown online", icon: "photo" }],
     },
-    {
-      title: "Personal",
-      items: [{ href: "/admin/personal", label: "Personal", icon: "wallet" }],
-    },
+    // The owner's private income/expense ledger — nothing to do with any
+    // project. Hidden from managers here; the real boundary is the RLS
+    // policy narrowed to admins in 39_personal_admin_only.sql.
+    ...(isManager
+      ? []
+      : [
+          {
+            title: "Personal",
+            items: [
+              { href: "/admin/personal", label: "Personal", icon: "wallet" as const },
+            ],
+          },
+        ]),
   ];
 }
 

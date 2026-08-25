@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { requireRole } from "@/lib/guard";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { AdminPage, AdminPageHeader } from "@/components/admin/Page";
 import { wageForStatus } from "@/lib/wages";
@@ -15,6 +16,11 @@ function monthRange(offset: number) {
 }
 
 export default async function AdminOverview() {
+  // Managers get the operational half of this dashboard only — no rupee
+  // figures and no budget-performance callouts. See the metrics array below.
+  const { role } = await requireRole(["admin", "manager"]);
+  const isManager = role === "manager";
+
   const supabase = await createSupabaseServerClient();
   const thisMonth = monthRange(0);
   const lastMonth = monthRange(-1);
@@ -114,17 +120,30 @@ export default async function AdminOverview() {
     return { delta: pct, label: `${pct >= 0 ? "+" : ""}${pct}% vs last month` };
   }
 
-  const metrics: { label: string; value: string; accent?: boolean; warn?: boolean; danger?: boolean; trend?: Trend }[] = [
-    { label: "Total Projects", value: String(totalProjects.count ?? 0), trend: trend(projectsThisMonth.count ?? 0, projectsLastMonth.count ?? 0) },
-    { label: "Active Projects", value: String(activeProjects.count ?? 0), accent: true },
+  type Metric = { label: string; value: string; accent?: boolean; warn?: boolean; danger?: boolean; trend?: Trend };
+
+  // Money metrics — total budget, monthly spend, outstanding payments — plus
+  // the over-budget count, which is budget performance expressed as a
+  // headline number. Admins and owners see all of it; managers see none of
+  // it. What's left is genuinely operational: how many projects, how much
+  // stock, who turned up, how far along the work is.
+  const moneyMetrics: Metric[] = [
     { label: "Total Cost", value: `₹${totalCost.toLocaleString()}` },
     { label: "Spending", value: `₹${spendThis.toLocaleString()}`, trend: trend(spendThis, spendLast) },
     { label: "Pending Payments", value: `₹${pendingTotal.toLocaleString()}` },
+  ];
+
+  const metrics: Metric[] = [
+    { label: "Total Projects", value: String(totalProjects.count ?? 0), trend: trend(projectsThisMonth.count ?? 0, projectsLastMonth.count ?? 0) },
+    { label: "Active Projects", value: String(activeProjects.count ?? 0), accent: true },
+    ...(isManager ? [] : moneyMetrics),
     { label: "Material Stock", value: stock.toLocaleString() },
     { label: "Attendance", value: String(attendanceThisMonth.count ?? 0), trend: trend(attendanceThisMonth.count ?? 0, attendanceLastMonth.count ?? 0) },
     { label: "Labour Count", value: String(labourCount.count ?? 0) },
     { label: "Completion %", value: `${completion.toFixed(1)}%` },
-    { label: "Over Budget", value: String(overBudget.length), danger: overBudget.length > 0 },
+    ...(isManager
+      ? []
+      : [{ label: "Over Budget", value: String(overBudget.length), danger: overBudget.length > 0 }]),
   ];
 
   return (
@@ -155,7 +174,9 @@ export default async function AdminOverview() {
         ))}
       </section>
 
-      {(overBudget.length > 0 || nearBudget.length > 0) && (
+      {/* Budget-performance banners: "Site A — 105% spent". Same reasoning as
+          the money metrics above, so managers don't get these either. */}
+      {!isManager && (overBudget.length > 0 || nearBudget.length > 0) && (
         <section className="mt-6 space-y-3">
           {overBudget.length > 0 && (
             <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">

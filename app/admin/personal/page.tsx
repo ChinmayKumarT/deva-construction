@@ -1,3 +1,5 @@
+import { redirect } from "next/navigation";
+import { requireRole } from "@/lib/guard";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { AdminPage, AdminPageHeader, CostBox, DataTable, Field, Select, SubmitButton } from "@/components/admin/Page";
 import { ArchivedToggle, DeleteForeverButton, ManageCard, ManageSection, RestoreAction, RowActions } from "@/components/admin/RowActions";
@@ -15,6 +17,14 @@ export default async function PersonalTransactionsPage(
   }
 ) {
   const searchParams = await props.searchParams;
+  // This is the owner's private income/expense ledger, not project data.
+  // Managers have no business here — the sidebar hides it, and this guard
+  // stops a manager reaching it by typing the URL. The RLS policy on
+  // personal_transactions is narrowed to admins too (39_personal_admin_only),
+  // so a manager querying the table directly gets zero rows either way.
+  const { role } = await requireRole(["admin", "manager"]);
+  if (role === "manager") redirect("/admin");
+
   const showArchived = searchParams.archived === "1";
   const supabase = await createSupabaseServerClient();
 
