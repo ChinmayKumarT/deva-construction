@@ -48,7 +48,7 @@ enum class AdminSection(val label: String) {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun AdminHome(vm: AuthViewModel, isAdmin: Boolean = true, isOwner: Boolean = false) {
+fun AdminHome(vm: AuthViewModel, isAdmin: Boolean = true, isOwner: Boolean = false, isSuperadmin: Boolean = false) {
     val drawerState = rememberDrawerState(DrawerValue.Closed)
     val scope = rememberCoroutineScope()
     // A stack (not a single value) so the system back button retraces the
@@ -71,10 +71,11 @@ fun AdminHome(vm: AuthViewModel, isAdmin: Boolean = true, isOwner: Boolean = fal
     //               39_personal_admin_only.sql, so a manager who somehow
     //               reached the screen would see an empty list anyway.
     // Team access and Backup stay owner-gated independently.
-    val visibleSections = remember(isOwner, isAdmin) {
+    val canTeamAccess = isSuperadmin || isOwner
+    val visibleSections = remember(isOwner, isAdmin, isSuperadmin) {
         AdminSection.entries.filter {
-            (it != AdminSection.TeamAccess || isOwner) &&
-            (it != AdminSection.Backup || isOwner) &&
+            (it != AdminSection.TeamAccess || canTeamAccess) &&
+            (it != AdminSection.Backup || canTeamAccess) &&
             (it != AdminSection.Reports || isAdmin) &&
             (it != AdminSection.Costs || isAdmin) &&
             (it != AdminSection.Personal || isAdmin)
@@ -104,7 +105,7 @@ fun AdminHome(vm: AuthViewModel, isAdmin: Boolean = true, isOwner: Boolean = fal
                         contentAlignment = Alignment.Center,
                     ) {
                         Text(
-                            if (isAdmin) "A" else "M",
+                            if (isSuperadmin) "SA" else if (isAdmin) "A" else "M",
                             color = androidx.compose.ui.graphics.Color.White,
                             style = MaterialTheme.typography.titleMedium.copy(
                                 fontFamily = com.construction.manager.ui.theme.Fraunces,
@@ -114,7 +115,7 @@ fun AdminHome(vm: AuthViewModel, isAdmin: Boolean = true, isOwner: Boolean = fal
                     Spacer(Modifier.width(12.dp))
                     Column {
                         Text(
-                            if (isAdmin) "Admin" else "Manager",
+                            if (isSuperadmin) "Super Admin" else if (isAdmin) "Admin" else "Manager",
                             style = MaterialTheme.typography.titleSmall,
                         )
                         Text(

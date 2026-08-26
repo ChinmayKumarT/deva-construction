@@ -4,7 +4,7 @@ import io.github.jan.supabase.auth.OtpType
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
-enum class Role { admin, manager, client, supplier, labour;
+enum class Role { superadmin, admin, manager, client, supplier, labour;
     companion object { fun fromString(s: String?): Role? = entries.firstOrNull { it.name == s } }
 }
 

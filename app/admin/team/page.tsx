@@ -5,8 +5,8 @@ import { AdminPage, AdminPageHeader } from "@/components/admin/Page";
 import { TeamAccessClient } from "@/components/admin/TeamAccessClient";
 
 export default async function TeamAccessPage() {
-  const { isOwner } = await requireRole(["admin", "manager"]);
-  if (!isOwner) redirect("/admin");
+  const { role, isOwner } = await requireRole(["superadmin", "admin", "manager"]);
+  if (role !== "superadmin" && !isOwner) redirect("/admin");
 
   const supabase = await createSupabaseServerClient();
   const [{ data: profiles }, { data: reservations }] = await Promise.all([

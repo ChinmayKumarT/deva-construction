@@ -841,8 +841,8 @@ export async function removeProjectAgreement(fd: FormData) {
 }
 
 export async function assignRoleByEmail(fd: FormData) {
-  const { isOwner } = await getSessionAndRole();
-  if (!isOwner) throw new Error("only the owner can assign roles");
+  const { role: callerRole, isOwner } = await getSessionAndRole();
+  if (callerRole !== "superadmin" && !isOwner) throw new Error("only superadmin can assign roles");
   const email = str(fd, "email");
   const role = str(fd, "role");
   if (!email || !role) throw new Error("email and role required");
@@ -866,8 +866,8 @@ export async function assignRoleByEmail(fd: FormData) {
 }
 
 export async function deleteRoleReservation(fd: FormData) {
-  const { isOwner } = await getSessionAndRole();
-  if (!isOwner) throw new Error("only the owner can manage reservations");
+  const { role: callerRole, isOwner } = await getSessionAndRole();
+  if (callerRole !== "superadmin" && !isOwner) throw new Error("only superadmin can manage reservations");
   const email = str(fd, "email");
   if (!email) throw new Error("email required");
   const supabase = await createSupabaseServerClient();

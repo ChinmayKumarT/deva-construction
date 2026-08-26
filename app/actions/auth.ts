@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 import { headers } from "next/headers";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
-type Role = "admin" | "manager" | "client" | "supplier" | "labour";
+type Role = "superadmin" | "admin" | "manager" | "client" | "supplier" | "labour";
 
 // No hardcoded site-URL env var -- derive it from the incoming request so
 // this works the same on localhost and whatever domain Vercel deploys to,
@@ -36,8 +36,9 @@ export async function signIn(formData: FormData) {
     .single();
 
   const role = (profile?.role ?? "client") as Role;
-  // Manager shares admin's UI.
-  redirect(role === "manager" ? "/admin" : `/${role}`);
+  // Superadmin and manager share admin's UI.
+  const dest = role === "superadmin" || role === "manager" ? "/admin" : `/${role}`;
+  redirect(dest);
 }
 
 // Only reachable with role_pending still true (see 18_oauth_role_pending.sql)

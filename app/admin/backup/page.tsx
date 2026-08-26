@@ -6,8 +6,8 @@ import BackupButton from "@/components/admin/BackupButton";
 import BackupLog from "@/components/admin/BackupLog";
 
 export default async function BackupPage() {
-  const { isOwner } = await requireRole(["admin", "manager"]);
-  if (!isOwner) redirect("/admin");
+  const { role, isOwner } = await requireRole(["superadmin", "admin", "manager"]);
+  if (role !== "superadmin" && !isOwner) redirect("/admin");
 
   return (
     <AdminPage>

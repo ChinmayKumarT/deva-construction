@@ -3296,7 +3296,7 @@ fun AdminTeamAccess() {
         safe({ rows = Repo.listAllProfiles() }) { error = it }
     }
 
-    val assignableRoles = listOf(Role.client, Role.supplier, Role.labour, Role.manager, Role.admin)
+    val assignableRoles = listOf(Role.client, Role.supplier, Role.labour, Role.manager, Role.admin, Role.superadmin)
     val filtered = remember(rows, query) {
         val q = query.trim()
         if (q.isBlank()) rows

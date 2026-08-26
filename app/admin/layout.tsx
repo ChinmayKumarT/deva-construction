@@ -1,15 +1,14 @@
 import { requireRole } from "@/lib/guard";
 import { Sidebar, type NavGroup } from "@/components/Sidebar";
 
-function buildGroups(isOwner: boolean, isManager: boolean): NavGroup[] {
+function buildGroups(canTeamAccess: boolean, isManager: boolean): NavGroup[] {
   // Reports, cash flow and P&L are company financials — margin, spend, and
   // profit across every project. Site managers run the work, not the books,
   // so they don't get this group.
   //
-  // Team access and Backup live in the same group but are gated on isOwner
-  // independently, so an owner who happens to hold the manager role keeps
-  // them. If nothing survives both filters the group header is dropped
-  // rather than rendering an empty "Insights" heading.
+  // Team access is gated on superadmin role (or owner flag). Backup follows
+  // the same gate. If nothing survives both filters the group header is
+  // dropped rather than rendering an empty "Insights" heading.
   const insightItems: NavGroup["items"] = [
     ...(isManager
       ? []
@@ -18,7 +17,7 @@ function buildGroups(isOwner: boolean, isManager: boolean): NavGroup[] {
           { href: "/admin/cashflow", label: "Cash flow", icon: "reports" as const },
           { href: "/admin/profitloss", label: "Profit & Loss", icon: "costs" as const },
         ]),
-    ...(isOwner
+    ...(canTeamAccess
       ? [
           { href: "/admin/team", label: "Team access", icon: "team" as const },
           { href: "/admin/backup", label: "Backup", icon: "reports" as const },
@@ -76,13 +75,14 @@ function buildGroups(isOwner: boolean, isManager: boolean): NavGroup[] {
 }
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
-  const { user, role, isOwner } = await requireRole(["admin", "manager"]);
+  const { user, role, isOwner } = await requireRole(["superadmin", "admin", "manager"]);
+  const canTeamAccess = role === "superadmin" || isOwner;
   return (
     <div className="min-h-screen flex bg-[var(--bg)]">
       <Sidebar
         role={role ?? "admin"}
         email={user.email ?? ""}
-        groups={buildGroups(isOwner, role === "manager")}
+        groups={buildGroups(canTeamAccess, role === "manager")}
         homeHref="/admin"
       />
       <section className="flex-1 min-h-screen">{children}</section>

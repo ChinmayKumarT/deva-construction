@@ -7,7 +7,7 @@ import { DeleteForeverButton } from "@/components/admin/RowActions";
 type Profile = { id: string; full_name: string | null; role: string; is_owner: boolean };
 type Reservation = { email: string; role: string; created_at: string };
 
-const ROLES = ["client", "supplier", "labour", "manager", "admin"];
+const ROLES = ["client", "supplier", "labour", "manager", "admin", "superadmin"];
 
 export function TeamAccessClient({ profiles, reservations }: { profiles: Profile[]; reservations: Reservation[] }) {
   const [query, setQuery] = useState("");

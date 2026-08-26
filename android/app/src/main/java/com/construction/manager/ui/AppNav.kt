@@ -37,8 +37,8 @@ fun AppNav(vm: AuthViewModel = viewModel()) {
             AuthState.NeedsPasswordReset -> ResetPasswordScreen(vm)
             AuthState.NeedsRoleSelection -> ChooseRoleScreen(vm)
             is AuthState.SignedIn -> when (s.role) {
-                Role.admin, Role.manager ->
-                    AdminHome(vm, isAdmin = s.role == Role.admin, isOwner = s.isOwner)
+                Role.superadmin, Role.admin, Role.manager ->
+                    AdminHome(vm, isAdmin = s.role != Role.manager, isOwner = s.isOwner, isSuperadmin = s.role == Role.superadmin)
                 Role.client -> ClientDashboard(vm)
                 Role.supplier -> SupplierDashboard(vm)
                 Role.labour -> LabourDashboard(vm)

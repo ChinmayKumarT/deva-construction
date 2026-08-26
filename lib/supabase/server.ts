@@ -25,7 +25,7 @@ export async function createSupabaseServerClient() {
   );
 }
 
-export type Role = "admin" | "manager" | "client" | "supplier" | "labour";
+export type Role = "superadmin" | "admin" | "manager" | "client" | "supplier" | "labour";
 
 export async function getSessionAndRole() {
   const supabase = await createSupabaseServerClient();

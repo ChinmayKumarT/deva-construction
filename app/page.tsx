@@ -13,7 +13,7 @@ export default async function LoginPage(
 ) {
   const searchParams = await props.searchParams;
   const { user, role } = await getSessionAndRole();
-  if (user && role) redirect(role === "manager" ? "/admin" : `/${role}`);
+  if (user && role) redirect(role === "superadmin" || role === "manager" ? "/admin" : `/${role}`);
 
   const isSignUp = searchParams.mode === "signup";
   const isMagicLink = searchParams.mode === "magic-link";

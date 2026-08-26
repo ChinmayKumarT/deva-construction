@@ -32,7 +32,8 @@ export async function GET(request: Request) {
         // a fresh signup role_pending until they pick client vs. supplier.
         if (profile?.role_pending) return NextResponse.redirect(`${origin}/choose-role`);
         const role = profile?.role ?? "client";
-        return NextResponse.redirect(`${origin}${role === "manager" ? "/admin" : `/${role}`}`);
+        const dest = role === "superadmin" || role === "manager" ? "/admin" : `/${role}`;
+        return NextResponse.redirect(`${origin}${dest}`);
       }
     }
   }
