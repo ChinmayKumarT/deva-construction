@@ -12,7 +12,7 @@ export const fetchCache = "force-no-store";
 export default async function CostsPage() {
   // Budget vs spend per project. The sidebar hides this for managers, but a
   // hidden link is not a permission — guard the route.
-  const { role } = await requireRole(["admin", "manager"]);
+  const { role } = await requireRole(["superadmin", "admin", "manager"]);
   if (role === "manager") redirect("/admin");
 
   const supabase = await createSupabaseServerClient();

@@ -18,7 +18,7 @@ function monthRange(offset: number) {
 export default async function AdminOverview() {
   // Managers get the operational half of this dashboard only — no rupee
   // figures and no budget-performance callouts. See the metrics array below.
-  const { role } = await requireRole(["admin", "manager"]);
+  const { role } = await requireRole(["superadmin", "admin", "manager"]);
   const isManager = role === "manager";
 
   const supabase = await createSupabaseServerClient();

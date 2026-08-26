@@ -22,7 +22,7 @@ export default async function PersonalTransactionsPage(
   // stops a manager reaching it by typing the URL. The RLS policy on
   // personal_transactions is narrowed to admins too (39_personal_admin_only),
   // so a manager querying the table directly gets zero rows either way.
-  const { role } = await requireRole(["admin", "manager"]);
+  const { role } = await requireRole(["superadmin", "admin", "manager"]);
   if (role === "manager") redirect("/admin");
 
   const showArchived = searchParams.archived === "1";

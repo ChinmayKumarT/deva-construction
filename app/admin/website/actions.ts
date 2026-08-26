@@ -22,7 +22,7 @@ type Kind = (typeof KINDS)[number];
 
 /** Every write here is staff-only; the public site only ever reads. */
 async function staffClient() {
-  await requireRole(["admin", "manager"]);
+  await requireRole(["superadmin", "admin", "manager"]);
   return createSupabaseServerClient();
 }
 

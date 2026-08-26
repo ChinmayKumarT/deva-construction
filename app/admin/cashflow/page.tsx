@@ -20,7 +20,7 @@ export default async function CashFlowPage(
   const searchParams = await props.searchParams;
   // Company financials are admin/owner information. The sidebar hides this
   // for managers, but hiding a link is not a permission — guard the route.
-  const { role } = await requireRole(["admin", "manager"]);
+  const { role } = await requireRole(["superadmin", "admin", "manager"]);
   if (role === "manager") redirect("/admin");
 
   const supabase = await createSupabaseServerClient();
