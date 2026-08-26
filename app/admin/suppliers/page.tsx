@@ -38,9 +38,15 @@ export default async function SuppliersPage(
     deliveriesBySupplier.set(m.supplier_id, (deliveriesBySupplier.get(m.supplier_id) ?? 0) + 1);
   }
   const pendingBySupplier = new Map<string, number>();
+  const paidBySupplier = new Map<string, number>();
   for (const p of payments ?? []) {
-    if ((p.status !== "pending" && p.status !== "approved") || !p.supplier_id) continue;
-    pendingBySupplier.set(p.supplier_id, (pendingBySupplier.get(p.supplier_id) ?? 0) + Number(p.amount));
+    if (!p.supplier_id) continue;
+    if (p.status === "pending" || p.status === "approved") {
+      pendingBySupplier.set(p.supplier_id, (pendingBySupplier.get(p.supplier_id) ?? 0) + Number(p.amount));
+    }
+    if (p.status === "paid") {
+      paidBySupplier.set(p.supplier_id, (paidBySupplier.get(p.supplier_id) ?? 0) + Number(p.amount));
+    }
   }
 
   return (
@@ -87,6 +93,10 @@ export default async function SuppliersPage(
                 <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2">
                   <div className="text-[10px] font-medium uppercase tracking-wide text-amber-700">Remaining</div>
                   <div className="text-sm font-semibold text-amber-700">₹{(pendingBySupplier.get(s.id) ?? 0).toLocaleString()}</div>
+                </div>
+                <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2">
+                  <div className="text-[10px] font-medium uppercase tracking-wide text-emerald-700">Total paid</div>
+                  <div className="text-sm font-semibold text-emerald-700">₹{(paidBySupplier.get(s.id) ?? 0).toLocaleString()}</div>
                 </div>
               </div>
               <p className="mt-3 text-sm font-medium text-brand-700">Manage →</p>
