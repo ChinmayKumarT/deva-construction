@@ -75,7 +75,7 @@ export default async function SupplierDashboard() {
         <Stat label="Material orders" value={String(materials?.length ?? 0)} />
         <Stat label="Delivered" value={String(deliveredCount)} />
         <Stat label="Remaining" value={`₹${pendingPay.toLocaleString()}`} />
-        <Stat label="Total received" value={`₹${paidTotal.toLocaleString()}`} />
+        <Stat label="Total paid" value={`₹${paidTotal.toLocaleString()}`} />
       </section>
 
       <section className="mt-8 rounded-xl border border-slate-200 bg-white p-6">

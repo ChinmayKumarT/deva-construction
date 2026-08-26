@@ -78,7 +78,7 @@ export default async function ManageSupplierPage(props: { params: Promise<{ id: 
       <div className="mb-6 flex flex-wrap gap-2">
         <StatBox label="Deliveries" value={String(deliveredCount)} />
         <StatBox label="Remaining" value={`₹${pending.toLocaleString()}`} className="border-amber-200 bg-amber-50 text-amber-700" />
-        <StatBox label="Received" value={`₹${received.toLocaleString()}`} className="border-emerald-200 bg-emerald-50 text-emerald-700" />
+        <StatBox label="Total paid" value={`₹${received.toLocaleString()}`} className="border-emerald-200 bg-emerald-50 text-emerald-700" />
       </div>
 
       <div className="max-w-xl rounded-xl border border-slate-200 bg-white p-6">
