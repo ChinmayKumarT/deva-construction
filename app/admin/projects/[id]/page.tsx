@@ -14,17 +14,21 @@ import { FormSubmitButton } from "@/components/FormSubmitButton";
 import {
   archiveBudgetExtension,
   archiveChangeOrder,
+  archiveClientPayment,
   archiveProject,
   createBudgetExtension,
   createChangeOrder,
+  createClientPayment,
   deleteBudgetExtension,
   deleteChangeOrder,
+  deleteClientPayment,
   deleteProject,
   extendProjectEndDate,
   removeProjectAgreement,
   setNextPaymentDate,
   unarchiveBudgetExtension,
   unarchiveChangeOrder,
+  unarchiveClientPayment,
   unarchiveProject,
   uploadProjectAgreement,
 } from "../../actions";
@@ -69,7 +73,7 @@ export default async function ManageProjectPage(
       supabase.from("project_change_orders").select("id", { count: "exact", head: true }).eq("project_id", params.id).not("archived_at", "is", null),
       supabase.from("materials").select("name, quantity, unit, unit_cost, status").eq("project_id", params.id).is("archived_at", null).neq("status", "returned"),
       supabase.from("payments").select("amount, status, payee_type, description").eq("project_id", params.id).is("archived_at", null).eq("payee_type", "labour").in("status", ["paid", "approved"]),
-      supabase.from("client_payments").select("amount").eq("project_id", params.id).is("archived_at", null),
+      supabase.from("client_payments").select("id, amount, description, paid_on").eq("project_id", params.id).is("archived_at", null).order("paid_on", { ascending: false }),
       supabase.from("budget_extensions").select("id, amount, reason, created_at").eq("project_id", params.id).is("archived_at", null).order("created_at", { ascending: false }),
     ]);
   if (!project) notFound();
@@ -258,6 +262,95 @@ export default async function ManageProjectPage(
           )
         }
       </div>
+
+      {/* Client payments received — admin only */}
+      {!isManager && (
+        <div className="mb-6 max-w-xl rounded-xl border border-slate-200 bg-white p-4">
+          <div className="mb-2 text-[11px] uppercase tracking-[0.12em] text-slate-500">Client payments received</div>
+
+          <div className="mb-3 flex gap-3 text-sm">
+            <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2">
+              <div className="text-[10px] font-medium uppercase tracking-wide text-emerald-700">Paid</div>
+              <div className="text-sm font-semibold text-emerald-700">₹{amountPaid.toLocaleString()}</div>
+            </div>
+            <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
+              <div className="text-[10px] font-medium uppercase tracking-wide text-slate-500">Remaining</div>
+              <div className="text-sm font-semibold">₹{(budget - amountPaid > 0 ? budget - amountPaid : 0).toLocaleString()}</div>
+            </div>
+          </div>
+
+          {!archived && (
+            <form action={createClientPayment} className="mb-4 grid gap-3 border-b border-slate-100 pb-4 sm:grid-cols-2">
+              <input type="hidden" name="project_id" value={project.id} />
+              <label className="text-sm">
+                <span className="mb-1 block text-slate-600">Date</span>
+                <input
+                  type="date"
+                  name="paid_on"
+                  defaultValue={new Date().toISOString().slice(0, 10)}
+                  required
+                  className="w-full rounded-lg border border-[var(--line)] bg-white px-2 py-1.5 text-sm"
+                />
+              </label>
+              <label className="text-sm">
+                <span className="mb-1 block text-slate-600">Amount (₹)</span>
+                <input
+                  type="number" step="0.01" min="0"
+                  name="amount"
+                  required
+                  className="w-full rounded-lg border border-[var(--line)] bg-white px-2 py-1.5 text-sm"
+                />
+              </label>
+              <label className="text-sm sm:col-span-2">
+                <span className="mb-1 block text-slate-600">Description (optional)</span>
+                <input
+                  type="text"
+                  name="description"
+                  placeholder="e.g. Second installment"
+                  className="w-full rounded-lg border border-[var(--line)] bg-white px-2 py-1.5 text-sm"
+                />
+              </label>
+              <div className="flex items-end">
+                <FormSubmitButton className="rounded-lg bg-brand px-3 py-1.5 text-sm font-medium text-white hover:bg-brand-700">
+                  Record payment
+                </FormSubmitButton>
+              </div>
+            </form>
+          )}
+
+          {(clientPayments ?? []).length === 0 ? (
+            <p className="text-sm text-slate-500">No client payments recorded yet.</p>
+          ) : (
+            <div className="space-y-2">
+              {clientPayments?.map((cp) => (
+                <div
+                  key={cp.id}
+                  className="flex items-center justify-between gap-3 rounded-lg border border-slate-100 bg-slate-50 px-3 py-2"
+                >
+                  <div>
+                    <div className="text-sm font-medium text-ink">₹{Number(cp.amount).toLocaleString()}</div>
+                    <div className="text-xs text-slate-500">
+                      {cp.paid_on}
+                      {cp.description ? ` · ${cp.description}` : ""}
+                    </div>
+                  </div>
+                  {!archived && (
+                    <form action={archiveClientPayment}>
+                      <input type="hidden" name="id" value={cp.id} />
+                      <button
+                        type="submit"
+                        className="rounded-lg border border-red-300 bg-white px-2 py-1 text-xs text-red-700 hover:bg-red-50"
+                      >
+                        Archive
+                      </button>
+                    </form>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
       <div className="mb-6 max-w-xl rounded-xl border border-slate-200 bg-white p-4">
         <div className="mb-2 flex items-center justify-between">
