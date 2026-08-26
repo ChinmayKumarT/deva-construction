@@ -840,9 +840,9 @@ export async function removeProjectAgreement(fd: FormData) {
   revalidatePath("/client");
 }
 
-export async function inviteUser(fd: FormData) {
+export async function assignRoleByEmail(fd: FormData) {
   const { isOwner } = await getSessionAndRole();
-  if (!isOwner) throw new Error("only the owner can invite users");
+  if (!isOwner) throw new Error("only the owner can assign roles");
   const email = str(fd, "email");
   const role = str(fd, "role");
   if (!email || !role) throw new Error("email and role required");
@@ -850,15 +850,28 @@ export async function inviteUser(fd: FormData) {
   const { createSupabaseAdmin } = await import("@/lib/supabase/admin");
   const admin = createSupabaseAdmin();
 
-  const { data, error } = await admin.auth.admin.inviteUserByEmail(email, {
-    data: { role },
-  });
-  if (error) throw new Error(error.message);
+  const { data: existingUser } = await admin.auth.admin.listUsers();
+  const match = existingUser?.users?.find((u) => u.email === email);
 
-  if (data.user && (role === "admin" || role === "manager")) {
-    await admin.from("profiles").update({ role }).eq("id", data.user.id);
+  if (match) {
+    await admin.from("profiles").update({ role, role_pending: false }).eq("id", match.id);
+  } else {
+    await admin.from("role_reservations").upsert(
+      { email: email.toLowerCase(), role },
+      { onConflict: "email" },
+    );
   }
 
+  revalidatePath("/admin/team");
+}
+
+export async function deleteRoleReservation(fd: FormData) {
+  const { isOwner } = await getSessionAndRole();
+  if (!isOwner) throw new Error("only the owner can manage reservations");
+  const email = str(fd, "email");
+  if (!email) throw new Error("email required");
+  const supabase = await createSupabaseServerClient();
+  await supabase.from("role_reservations").delete().eq("email", email);
   revalidatePath("/admin/team");
 }
 

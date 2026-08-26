@@ -1,14 +1,15 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { inviteUser, setUserRole, deleteUser } from "@/app/admin/actions";
+import { assignRoleByEmail, deleteRoleReservation, setUserRole, deleteUser } from "@/app/admin/actions";
 import { DeleteForeverButton } from "@/components/admin/RowActions";
 
 type Profile = { id: string; full_name: string | null; role: string; is_owner: boolean };
+type Reservation = { email: string; role: string; created_at: string };
 
 const ROLES = ["client", "supplier", "labour", "manager", "admin"];
 
-export function TeamAccessClient({ profiles }: { profiles: Profile[] }) {
+export function TeamAccessClient({ profiles, reservations }: { profiles: Profile[]; reservations: Reservation[] }) {
   const [query, setQuery] = useState("");
 
   const filtered = useMemo(() => {
@@ -24,7 +25,7 @@ export function TeamAccessClient({ profiles }: { profiles: Profile[] }) {
 
   return (
     <div>
-      <form action={inviteUser} className="mb-6 flex flex-wrap items-end gap-3 rounded-xl border border-[var(--line)] bg-white p-5">
+      <form action={assignRoleByEmail} className="mb-6 flex flex-wrap items-end gap-3 rounded-xl border border-[var(--line)] bg-white p-5">
         <div>
           <label className="mb-1 block text-[11px] font-medium uppercase tracking-wider text-slate-500">Email</label>
           <input
@@ -51,9 +52,28 @@ export function TeamAccessClient({ profiles }: { profiles: Profile[] }) {
           type="submit"
           className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800 transition"
         >
-          Invite
+          Assign role
         </button>
       </form>
+
+      {reservations.length > 0 && (
+        <div className="mb-6 rounded-xl border border-amber-200 bg-amber-50 p-4">
+          <h3 className="mb-2 text-xs font-semibold uppercase tracking-wider text-amber-800">Pending sign-ups</h3>
+          <p className="mb-3 text-xs text-amber-700">These emails will get the assigned role when they sign up.</p>
+          <div className="flex flex-wrap gap-2">
+            {reservations.map((r) => (
+              <div key={r.email} className="flex items-center gap-2 rounded-lg border border-amber-300 bg-white px-3 py-1.5 text-sm">
+                <span className="text-slate-700">{r.email}</span>
+                <span className="rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold uppercase text-amber-800">{r.role}</span>
+                <form action={deleteRoleReservation} className="inline">
+                  <input type="hidden" name="email" value={r.email} />
+                  <button type="submit" className="ml-1 text-xs text-slate-400 hover:text-red-600" title="Remove reservation">&times;</button>
+                </form>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       <input
         value={query}

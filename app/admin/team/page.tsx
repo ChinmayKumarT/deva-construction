@@ -9,10 +9,10 @@ export default async function TeamAccessPage() {
   if (!isOwner) redirect("/admin");
 
   const supabase = await createSupabaseServerClient();
-  const { data: profiles } = await supabase
-    .from("profiles")
-    .select("id, full_name, role, is_owner")
-    .order("full_name");
+  const [{ data: profiles }, { data: reservations }] = await Promise.all([
+    supabase.from("profiles").select("id, full_name, role, is_owner").order("full_name"),
+    supabase.from("role_reservations").select("email, role, created_at").order("created_at", { ascending: false }),
+  ]);
 
   return (
     <AdminPage>
@@ -20,7 +20,7 @@ export default async function TeamAccessPage() {
         title="Team access"
         subtitle="Only you can grant admin or manager access. Everyone else signs up as client or supplier."
       />
-      <TeamAccessClient profiles={profiles ?? []} />
+      <TeamAccessClient profiles={profiles ?? []} reservations={reservations ?? []} />
     </AdminPage>
   );
 }
