@@ -36,7 +36,7 @@ export default async function PaymentsIndexPage(
       : supabase.from("payments").select("id, project_id, amount, status, payee_type, created_at").is("archived_at", null),
     supabase.from("payments").select("id", { count: "exact", head: true }).not("archived_at", "is", null),
     supabase.from("suppliers").select("id, name").is("archived_at", null).order("name"),
-    supabase.from("labourers").select("id, name").is("archived_at", null).order("name"),
+    supabase.from("labourers").select("id, name, family_id").is("archived_at", null).order("name"),
     supabase
       .from("materials")
       .select("id, name, unit, quantity, unit_cost, work_category, supplier_id, project_id")
@@ -109,7 +109,7 @@ export default async function PaymentsIndexPage(
           action={createPayment}
           projects={projects ?? []}
           suppliers={suppliers ?? []}
-          labourers={labourers ?? []}
+          labourers={(labourers ?? []).map((l) => ({ id: l.id, name: l.name, familyId: l.family_id }))}
           materials={materials ?? []}
           assignments={assignments ?? []}
           wageDue={wageDue}

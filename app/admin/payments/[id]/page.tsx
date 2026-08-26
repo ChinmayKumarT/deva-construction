@@ -39,7 +39,7 @@ export default async function ProjectPaymentsPage(
 
   let base = supabase
     .from("payments")
-    .select("id, amount, status, payee_type, description, work_category, created_at, archived_at, suppliers(name), labourers(name)")
+    .select("id, amount, status, payee_type, description, work_category, created_at, archived_at, collected_by, suppliers(name), labourers(name)")
     .order("created_at", { ascending: false });
   base = isUnassigned ? base.is("project_id", null) : base.eq("project_id", params.id);
 
@@ -63,7 +63,7 @@ export default async function ProjectPaymentsPage(
     showArchived ? base.not("archived_at", "is", null) : base.is("archived_at", null),
     supabase.from("projects").select("id, name").is("archived_at", null).order("name"),
     supabase.from("suppliers").select("id, name").is("archived_at", null).order("name"),
-    supabase.from("labourers").select("id, name").is("archived_at", null).order("name"),
+    supabase.from("labourers").select("id, name, family_id").is("archived_at", null).order("name"),
     supabase
       .from("materials")
       .select("id, name, unit, quantity, unit_cost, work_category, supplier_id, project_id")
@@ -96,6 +96,8 @@ export default async function ProjectPaymentsPage(
 
   const wageDue = computeWagesDueFromAccrued(wageAccrued ?? [], allLabourPayments ?? []);
 
+  const labourerName = new Map((labourers ?? []).map((l) => [l.id, l.name]));
+
   const categoryTotals = byCategoryTotals(payments ?? []);
   const categoryBars = Array.from(categoryTotals.entries())
     .sort((a, b) => b[1] - a[1])
@@ -124,7 +126,7 @@ export default async function ProjectPaymentsPage(
           action={createPayment}
           projects={projects ?? []}
           suppliers={suppliers ?? []}
-          labourers={labourers ?? []}
+          labourers={(labourers ?? []).map((l) => ({ id: l.id, name: l.name, familyId: l.family_id }))}
           materials={materials ?? []}
           assignments={assignments ?? []}
           wageDue={wageDue}
@@ -173,7 +175,14 @@ export default async function ProjectPaymentsPage(
                       {p.status}
                     </span>
                   </td>
-                  <td className="px-4 py-2 text-slate-600">{p.description ?? "—"}</td>
+                  <td className="px-4 py-2 text-slate-600">
+                    {p.description ?? "—"}
+                    {p.collected_by && (
+                      <span className="ml-1 rounded bg-violet-50 px-1 py-0.5 text-[10px] text-violet-700">
+                        collected by {labourerName.get(p.collected_by) ?? "family"}
+                      </span>
+                    )}
+                  </td>
                   <td className="px-4 py-2">
                     <div className="flex flex-wrap gap-1">
                       {showArchived ? (

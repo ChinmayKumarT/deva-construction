@@ -61,7 +61,7 @@ function PaymentFormFields({
   action: (fd: FormData) => void;
   projects: { id: string; name: string }[];
   suppliers: { id: string; name: string }[];
-  labourers: { id: string; name: string }[];
+  labourers: { id: string; name: string; familyId?: string | null }[];
   materials: Material[];
   assignments: Assignment[];
   wageDue: Record<string, number>;
@@ -176,25 +176,45 @@ function PaymentFormFields({
       )}
 
       {payeeType === "labour" ? (
-        <label className="block text-sm">
-          <span className="mb-1 block font-medium text-slate-700">Labourer</span>
-          <select
-            name="labourer_id"
-            className={selectClass}
-            value={labourerId}
-            onChange={(e) => handleLabourerChange(e.target.value)}
-            disabled={projectId === "none"}
-          >
-            <option value="none">
-              {projectId === "none" ? "— choose a project first —" : "— none —"}
-            </option>
-            {assignedLabourers.map((l) => (<option key={l.id} value={l.id}>{l.name}</option>))}
-          </select>
-          <span className="mt-1 block text-xs text-slate-500">
-            Only labourers currently assigned to this project. Selecting one fills in the
-            wages owed based on their attendance.
-          </span>
-        </label>
+        <>
+          <label className="block text-sm">
+            <span className="mb-1 block font-medium text-slate-700">Labourer</span>
+            <select
+              name="labourer_id"
+              className={selectClass}
+              value={labourerId}
+              onChange={(e) => handleLabourerChange(e.target.value)}
+              disabled={projectId === "none"}
+            >
+              <option value="none">
+                {projectId === "none" ? "— choose a project first —" : "— none —"}
+              </option>
+              {assignedLabourers.map((l) => (<option key={l.id} value={l.id}>{l.name}</option>))}
+            </select>
+            <span className="mt-1 block text-xs text-slate-500">
+              Only labourers currently assigned to this project. Selecting one fills in the
+              wages owed based on their attendance.
+            </span>
+          </label>
+          {(() => {
+            const selected = labourers.find((l) => l.id === labourerId);
+            if (!selected?.familyId) return null;
+            const family = labourers.filter((l) => l.familyId === selected.familyId && l.id !== labourerId);
+            if (family.length === 0) return null;
+            return (
+              <label className="block text-sm">
+                <span className="mb-1 block font-medium text-slate-700">Collected by</span>
+                <select name="collected_by" className={selectClass} defaultValue="">
+                  <option value="">— self —</option>
+                  {family.map((f) => (<option key={f.id} value={f.id}>{f.name} (family)</option>))}
+                </select>
+                <span className="mt-1 block text-xs text-slate-500">
+                  If a family member collects the payment on their behalf.
+                </span>
+              </label>
+            );
+          })()}
+        </>
       ) : (
         <div>
           <label className="block text-sm">
@@ -350,7 +370,7 @@ export function CreatePaymentForm({
   action: (prevState: CreatePaymentState, fd: FormData) => Promise<CreatePaymentState>;
   projects: { id: string; name: string }[];
   suppliers: { id: string; name: string }[];
-  labourers: { id: string; name: string }[];
+  labourers: { id: string; name: string; familyId?: string | null }[];
   materials: Material[];
   assignments: Assignment[];
   wageDue: Record<string, number>;
@@ -415,7 +435,7 @@ export function EditPaymentForm({
   action: (fd: FormData) => Promise<void>;
   projects: { id: string; name: string }[];
   suppliers: { id: string; name: string }[];
-  labourers: { id: string; name: string }[];
+  labourers: { id: string; name: string; familyId?: string | null }[];
   materials: Material[];
   assignments: Assignment[];
   wageDue: Record<string, number>;

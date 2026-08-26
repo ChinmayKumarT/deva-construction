@@ -3,7 +3,8 @@ import { AdminPage, AdminPageHeader, DataTable, Field, SubmitButton } from "@/co
 import { ArchivedToggle, DeleteForeverButton, ManageCard, ManageSection, RestoreAction, RowActions } from "@/components/admin/RowActions";
 import { AssignLabourerForm } from "@/components/admin/AssignLabourerForm";
 import { CategoryField } from "@/components/admin/CategoryField";
-import { assignLabourer, createLabourer, archiveLabourer, unarchiveLabourer, deleteLabourer } from "../actions";
+import { LinkFamilyForm, FamilyBadge } from "@/components/admin/FamilyLink";
+import { assignLabourer, createLabourer, archiveLabourer, unarchiveLabourer, deleteLabourer, linkFamily, unlinkFamily } from "../actions";
 
 export default async function LabourersPage(
   props: {
@@ -17,7 +18,7 @@ export default async function LabourersPage(
 
   const base = supabase
     .from("labourers")
-    .select("id, name, phone, daily_wage, active, category, profile_id, archived_at")
+    .select("id, name, phone, daily_wage, active, category, profile_id, archived_at, family_id")
     .order("created_at", { ascending: false });
 
   const [{ data: labourers }, { data: projects }, { data: assignments }, { count: archivedCount }] =
@@ -39,15 +40,37 @@ export default async function LabourersPage(
     ]),
   );
 
+  // Build family lookup: family_id → list of member names (excluding self)
+  const familyMembers = new Map<string, string[]>();
+  if (labourers) {
+    const byFamily = new Map<string, { id: string; name: string }[]>();
+    for (const l of labourers) {
+      if (l.family_id) {
+        const arr = byFamily.get(l.family_id) ?? [];
+        arr.push({ id: l.id, name: l.name });
+        byFamily.set(l.family_id, arr);
+      }
+    }
+    for (const members of byFamily.values()) {
+      for (const m of members) {
+        familyMembers.set(m.id, members.filter((x) => x.id !== m.id).map((x) => x.name));
+      }
+    }
+  }
+
   const rows =
-    labourers?.map((l) => [
-      l.name,
-      l.category ?? "—",
-      l.phone,
-      `₹${Number(l.daily_wage).toLocaleString()}`,
-      currentSite.get(l.id) ?? "—",
-      l.active ? "active" : "inactive",
-    ]) ?? [];
+    labourers?.map((l) => {
+      const fam = familyMembers.get(l.id);
+      const nameCell = fam && fam.length > 0 ? `${l.name} 👨‍👩‍👦` : l.name;
+      return [
+        nameCell,
+        l.category ?? "—",
+        l.phone,
+        `₹${Number(l.daily_wage).toLocaleString()}`,
+        currentSite.get(l.id) ?? "—",
+        l.active ? "active" : "inactive",
+      ];
+    }) ?? [];
 
   return (
     <AdminPage>
@@ -88,29 +111,53 @@ export default async function LabourersPage(
 
       {labourers && labourers.length > 0 && (
         <ManageSection showArchived={showArchived}>
-          {labourers.map((l) => (
-            <ManageCard key={l.id} title={l.name}>
-              {showArchived ? (
-                <div className="flex items-center gap-2">
-                  <RestoreAction id={l.id} action={unarchiveLabourer} />
-                  {isOwner && (
-                    <DeleteForeverButton
-                      id={l.id} name={l.name} action={deleteLabourer}
-                      warning="Their entire attendance and wage history will be deleted too."
-                    />
-                  )}
-                </div>
-              ) : (
-                <RowActions
-                  editHref={`/admin/labourers/${l.id}/edit`}
-                  id={l.id}
-                  name={l.name}
-                  archiveAction={archiveLabourer}
-                />
-              )}
-            </ManageCard>
-          ))}
+          {labourers.map((l) => {
+            const fam = familyMembers.get(l.id);
+            return (
+              <ManageCard key={l.id} title={l.name}>
+                {fam && fam.length > 0 && (
+                  <div className="mb-2">
+                    <FamilyBadge members={fam} />
+                    <form action={unlinkFamily} className="inline ml-2">
+                      <input type="hidden" name="labourer_id" value={l.id} />
+                      <button type="submit" className="text-[10px] text-slate-400 hover:text-red-500" title="Remove from family">×</button>
+                    </form>
+                  </div>
+                )}
+                {showArchived ? (
+                  <div className="flex items-center gap-2">
+                    <RestoreAction id={l.id} action={unarchiveLabourer} />
+                    {isOwner && (
+                      <DeleteForeverButton
+                        id={l.id} name={l.name} action={deleteLabourer}
+                        warning="Their entire attendance and wage history will be deleted too."
+                      />
+                    )}
+                  </div>
+                ) : (
+                  <RowActions
+                    editHref={`/admin/labourers/${l.id}/edit`}
+                    id={l.id}
+                    name={l.name}
+                    archiveAction={archiveLabourer}
+                  />
+                )}
+              </ManageCard>
+            );
+          })}
         </ManageSection>
+      )}
+
+      {!showArchived && labourers && labourers.length >= 2 && (
+        <section className="mt-8">
+          <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-500">Link family</h2>
+          <div className="rounded-xl border border-slate-200 bg-white p-6">
+            <LinkFamilyForm
+              labourers={labourers.filter((l) => l.active).map((l) => ({ id: l.id, name: l.name, familyId: l.family_id }))}
+              action={linkFamily}
+            />
+          </div>
+        </section>
       )}
 
       {!showArchived && labourers && labourers.length > 0 && projects && projects.length > 0 && (
