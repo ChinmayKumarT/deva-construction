@@ -1,7 +1,16 @@
 -- Add superadmin role — sits above admin, has Team Access.
 -- Regular admin keeps all other permissions but cannot manage team roles.
+--
+-- IMPORTANT: Postgres requires ALTER TYPE ADD VALUE to be committed before
+-- the new value can be referenced. Run this file in TWO separate executions:
+--
+--   Step 1: run ONLY the ALTER TYPE line below, then commit.
+--   Step 2: run everything from "-- Step 2" onward.
 
+-- Step 1
 alter type public.user_role add value if not exists 'superadmin' before 'admin';
+
+-- Step 2 (run after Step 1 is committed)
 
 -- Superadmin is staff.
 create or replace function public.is_staff() returns boolean
