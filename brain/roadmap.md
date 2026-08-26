@@ -2,7 +2,7 @@
 slug: roadmap
 title: Roadmap
 role: milestones
-updated: "2026-08-26T18:51:39"
+updated: "2026-08-26T18:56:13"
 ---
 
 # Roadmap
@@ -39,11 +39,10 @@ gantt
 
 > **Note**: Exact dates are approximate — reconstructed from git history. The gantt shows the order and rough timeline of major capability drops.
 
-### Pending migrations
+All SQL migrations (up to 42) have been applied to production as of 2026-08-26.
 
-The following SQL migrations need to be run in the Supabase SQL Editor before their features work in production:
+### Known pending work
 
-- `supabase/39_*.sql` — (check file for description)
-- `supabase/40_*.sql` — (check file for description)
-- `supabase/41_backfill_legacy_supplier_bills.sql` — links old supplier bills to their materials
-- `supabase/42_budget_extensions.sql` — budget_extensions table + RLS
+- **Android: Mark paid button on supplier detail** — web has it, Android supplier detail still shows read-only Pending/Received pair
+- **Android: Client payments on project detail** — web shows client payment history on the project page, Android doesn't yet
+- **Android: Project detail page redesign** — web got a hero + two-column layout, Android still has the old flat layout
