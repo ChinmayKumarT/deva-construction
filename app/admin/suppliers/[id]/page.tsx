@@ -2,8 +2,11 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createSupabaseServerClient, getSessionAndRole } from "@/lib/supabase/server";
 import { AdminPage, AdminPageHeader } from "@/components/admin/Page";
-import { DeleteForeverButton } from "@/components/admin/RowActions";
-import { archiveSupplier, deleteSupplier, unarchiveSupplier, archiveMaterial, archivePayment } from "../../actions";
+import { DeleteForeverButton, MarkPaidButton } from "@/components/admin/RowActions";
+import {
+  archiveSupplier, deleteSupplier, unarchiveSupplier, archiveMaterial, archivePayment,
+  markPaymentPaid,
+} from "../../actions";
 import { lineTotal } from "@/lib/money";
 import { formatDateTime } from "@/lib/dateFormat";
 
@@ -186,8 +189,22 @@ export default async function ManageSupplierPage(props: { params: Promise<{ id: 
                 <td className="px-4 py-2 text-slate-600">{formatDateTime(p.created_at)}</td>
                 <td className="px-4 py-2 text-slate-600">{p.description ?? "—"}</td>
                 <td className="px-4 py-2 font-medium">₹{Number(p.amount).toLocaleString()}</td>
+                {/* This is the page where you look at what a supplier is owed,
+                    so it is where settling the bill belongs. A bill still
+                    awaiting payment offers the action; once paid or rejected
+                    there is nothing left to do, so the badge stays and keeps
+                    saying what happened. */}
                 <td className="px-4 py-2">
-                  <span className={`rounded-md border px-2 py-0.5 text-xs ${PAYMENT_STATUS_STYLE[p.status] ?? ""}`}>{p.status}</span>
+                  {p.status === "pending" || p.status === "approved" ? (
+                    <MarkPaidButton
+                      id={p.id}
+                      amount={Number(p.amount)}
+                      action={markPaymentPaid}
+                      supplierId={params.id}
+                    />
+                  ) : (
+                    <span className={`rounded-md border px-2 py-0.5 text-xs ${PAYMENT_STATUS_STYLE[p.status] ?? ""}`}>{p.status}</span>
+                  )}
                 </td>
                 <td className="px-4 py-2">
                   <form action={archivePayment}>

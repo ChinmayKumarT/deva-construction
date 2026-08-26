@@ -614,6 +614,13 @@ export async function markPaymentPaid(fd: FormData) {
   revalidatePath("/admin/payments");
   revalidatePath("/admin/costs");
   revalidatePath("/admin");
+  // The supplier page can trigger this too (MarkPaidButton on
+  // /admin/suppliers/[id]), and its Remaining/Received figures come straight
+  // off payment status -- without these it would redirect back showing the
+  // pre-payment totals. Optional because the payments screen doesn't send it.
+  revalidatePath("/admin/suppliers");
+  const supplierId = str(fd, "supplier_id");
+  if (supplierId) revalidatePath(`/admin/suppliers/${supplierId}`);
 }
 
 export async function rejectPayment(fd: FormData) {
