@@ -1,5 +1,10 @@
 package com.construction.manager.data
 
+// lineTotal/roundMoney live in the ui package, which is the wrong way round
+// for the data layer to depend. Importing anyway rather than re-deriving the
+// rounding here: the amount written to payments has to match what the web
+// server action stores to the paise, and two copies of a rounding rule drift.
+import com.construction.manager.ui.lineTotal
 import io.github.jan.supabase.auth.OtpType
 import io.github.jan.supabase.auth.auth
 import io.github.jan.supabase.auth.providers.Google
@@ -793,18 +798,60 @@ object Repo {
                 filter("archived_at", FilterOperator.IS, "null")
             }
         }.decodeList<MaterialRow>()
+    /**
+     * Records a delivery and, when it is actually delivered, raises the bill
+     * for it in the same call. The two used to be separate: this inserted the
+     * material, and the supplier dashboard separately called createPayment()
+     * from a second form. Keeping both halves here means Android and the web
+     * server action (app/supplier/actions.ts recordDelivery) behave the same.
+     *
+     * This also fixes two fields that were missing entirely. Without
+     * `created_by_supplier` the supplier could not delete their own
+     * Android-recorded delivery -- the RLS policy in
+     * 35_supplier_created_only_delete.sql requires the flag -- and
+     * `delivered_at` was never stamped.
+     */
     suspend fun recordSupplierDelivery(
         projectId: String, supplierId: String, name: String,
         unit: String, quantity: Double, unitCost: Double, status: String,
         imageUrl: String? = null,
     ) {
-        supabase.from("materials").insert(buildJsonObject {
+        // A delivered material bills itself below, so it is marked billed in
+        // the same insert. That flag is load-bearing: cash flow skips
+        // materials where `billed` because their cost is counted through the
+        // supplier payment instead. Set one without the other and the
+        // delivery is counted twice.
+        val bills = status == "delivered"
+
+        val material = supabase.from("materials").insert(buildJsonObject {
             put("project_id", projectId)
             put("supplier_id", supplierId)
             put("name", name); put("unit", unit)
             put("quantity", quantity); put("unit_cost", unitCost)
             put("status", status)
+            if (bills) put("delivered_at", java.time.Instant.now().toString())
             if (imageUrl != null) put("image_url", imageUrl)
+            put("created_by_supplier", true)
+            put("billed", bills)
+        }) { select() }.decodeSingle<MaterialRow>()
+
+        if (!bills) return
+
+        // Suppliers are trusted -- skip the manual approval review step, but
+        // "Mark paid" stays a separate admin-only action for the actual
+        // payment event. 26_supplier_bills_auto_approved.sql *requires*
+        // status = 'approved' on a supplier-context insert. The admin's
+        // Pending Payments metric counts pending + approved, so this lands
+        // there immediately.
+        supabase.from("payments").insert(buildJsonObject {
+            put("project_id", projectId)
+            put("payee_type", "supplier")
+            put("supplier_id", supplierId)
+            put("amount", lineTotal(quantity, unitCost))
+            put("description", "$name ($quantity $unit)")
+            put("status", "approved")
+            put("created_by_supplier", true)
+            put("material_id", material.id)
         })
     }
     suspend fun supplierPayments(supplierId: String) = supabase.from("payments")

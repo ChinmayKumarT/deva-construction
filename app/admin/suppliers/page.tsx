@@ -85,7 +85,7 @@ export default async function SuppliersPage(
                   <div className="text-sm font-semibold">{deliveriesBySupplier.get(s.id) ?? 0}</div>
                 </div>
                 <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2">
-                  <div className="text-[10px] font-medium uppercase tracking-wide text-amber-700">Pending</div>
+                  <div className="text-[10px] font-medium uppercase tracking-wide text-amber-700">Remaining</div>
                   <div className="text-sm font-semibold text-amber-700">₹{(pendingBySupplier.get(s.id) ?? 0).toLocaleString()}</div>
                 </div>
               </div>

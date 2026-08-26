@@ -1298,7 +1298,7 @@ fun AdminSuppliers(isOwner: Boolean = false) {
             }.sumOf { it.amount }
             ItemCard(
                 s.name,
-                "${s.email ?: "—"} · ${s.phone ?: "—"} · $deliveries deliveries · Pending ${money(pending)}",
+                "${s.email ?: "—"} · ${s.phone ?: "—"} · $deliveries deliveries · Remaining ${money(pending)}",
                 status = if (s.profileId != null) "linked" else "no login",
                 statusCapitalize = false,
                 modifier = if (!showArchived) Modifier.clickable { selected = s } else Modifier,
@@ -1375,7 +1375,7 @@ private fun SupplierDetail(
             Modifier.padding(horizontal = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             StatCard("Deliveries", deliveredCount.toString(), Modifier.weight(1f))
-            StatCard("Pending", money(pending), Modifier.weight(1f))
+            StatCard("Remaining", money(pending), Modifier.weight(1f))
             StatCard("Received", money(received), Modifier.weight(1f))
         }
         Divider()

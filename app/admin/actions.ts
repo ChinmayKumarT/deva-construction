@@ -508,9 +508,9 @@ export async function createPayment(
     // Supplier bills specifically: the admin typing one in here means the
     // money already changed hands, so it goes straight to "paid" -- no
     // separate "Mark paid" click needed. "Mark paid" as a distinct step is
-    // for the OTHER path into this table: a supplier self-recording a bill
-    // via generateBill() (app/supplier/actions.ts), which the admin hasn't
-    // paid yet at record time. Labour wages keep the "approved" pause since
+    // for the OTHER path into this table: the bill a supplier's own delivery
+    // raises via recordDelivery() (app/supplier/actions.ts), which the admin
+    // hasn't paid yet at record time. Labour wages keep the "approved" pause since
     // payday timing there is intentionally separate from entry time.
     // getUser() and resolveSupplierId() don't depend on each other -- run
     // them together instead of paying for both round-trips back to back.
@@ -545,6 +545,14 @@ export async function createPayment(
       row.supplier_id = null;
     }
 
+    // Record WHICH material this bill covers, not just that one does. The
+    // billed flag below is a one-way boolean; material_id is the actual link,
+    // and the unique partial index on it (40_supplier_delivery_autobill.sql)
+    // is what stops a delivery being billed twice across the two paths into
+    // this table -- here, and the supplier's own recordDelivery().
+    const materialId = uuidOrNull(fd, "material_id");
+    if (materialId) row.material_id = materialId;
+
     const duplicate = await wasJustCreated(supabase, "payments", {
       project_id: row.project_id as string | null,
       payee_type: row.payee_type as string,
@@ -561,7 +569,6 @@ export async function createPayment(
     // Mark the picked purchase as billed so it drops out of the "Purchase
     // (optional)" dropdown -- otherwise the same material could be paid for
     // more than once from repeat visits to this form.
-    const materialId = uuidOrNull(fd, "material_id");
     if (materialId) {
       const { error: materialError } = await supabase
         .from("materials")

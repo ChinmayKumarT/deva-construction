@@ -3,8 +3,8 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { lineTotal } from "@/lib/money";
 import { formatDateTime } from "@/lib/dateFormat";
 import {
-  generateBill, recordDelivery, archiveDelivery, archiveSupplierPayment,
-  type RecordDeliveryState, type GenerateBillState,
+  recordDelivery, archiveDelivery, archiveSupplierPayment,
+  type RecordDeliveryState,
 } from "./actions";
 import { FormSubmitButton } from "@/components/FormSubmitButton";
 import { ResettableForm, FormError } from "@/components/ResettableForm";
@@ -61,14 +61,6 @@ export default async function SupplierDashboard() {
     .filter((p) => p.status === "paid")
     .reduce((s, p) => s + Number(p.amount), 0);
 
-  // Distinct projects where the supplier has delivered something — for the bill form.
-  const projectMap = new Map<string, string>();
-  for (const m of materials ?? []) {
-    // @ts-expect-error relation
-    if (m.projects?.id) projectMap.set(m.projects.id, m.projects.name);
-  }
-  const billableProjects = Array.from(projectMap, ([id, name]) => ({ id, name }));
-
   return (
     <main className="mx-auto max-w-5xl p-4 sm:p-6 lg:p-8">
       <div className="mb-8 flex items-center justify-between">
@@ -82,7 +74,7 @@ export default async function SupplierDashboard() {
       <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <Stat label="Material orders" value={String(materials?.length ?? 0)} />
         <Stat label="Delivered" value={String(deliveredCount)} />
-        <Stat label="Pending payments" value={`₹${pendingPay.toLocaleString()}`} />
+        <Stat label="Remaining" value={`₹${pendingPay.toLocaleString()}`} />
         <Stat label="Total received" value={`₹${paidTotal.toLocaleString()}`} />
       </section>
 
@@ -119,13 +111,14 @@ export default async function SupplierDashboard() {
               <span className="mb-1 block font-medium text-slate-700">Unit cost (₹)</span>
               <input name="unit_cost" type="number" step="0.01" min="0" required className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2" />
             </label>
-            <label className="block text-sm">
-              <span className="mb-1 block font-medium text-slate-700">Status</span>
-              <select name="status" defaultValue="delivered" className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2">
-                <option value="ordered">Ordered</option>
-                <option value="delivered">Delivered</option>
-              </select>
-            </label>
+            {/* Status used to be a dropdown offering Ordered or Delivered.
+                Recording a delivery now raises the bill for it, and you don't
+                bill for goods that have only been ordered -- so an "ordered"
+                row would never bill, and there is no supplier-side action to
+                later mark it delivered and fix that. This form is "Record
+                delivery"; the admin can still enter ordered materials from
+                the admin side. */}
+            <input type="hidden" name="status" value="delivered" />
             <label className="block text-sm">
               <span className="mb-1 block font-medium text-slate-700">Photo (optional)</span>
               <input
@@ -145,52 +138,10 @@ export default async function SupplierDashboard() {
         )}
       </section>
 
-      <section className="mt-8 rounded-xl border border-slate-200 bg-white p-6">
-        <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-500">Generate bill</h2>
-        {billableProjects.length === 0 ? (
-          <p className="text-sm text-slate-600">You haven't been assigned to any project yet.</p>
-        ) : (
-          <ResettableForm<GenerateBillState>
-            action={generateBill}
-            initialState={{ error: null, success: false }}
-            className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4"
-          >
-            <label className="block text-sm">
-              <span className="mb-1 block font-medium text-slate-700">Project</span>
-              <select name="project_id" className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2">
-                {billableProjects.map((p) => (
-                  <option key={p.id} value={p.id}>{p.name}</option>
-                ))}
-              </select>
-            </label>
-            <label className="block text-sm">
-              <span className="mb-1 block font-medium text-slate-700">Amount (₹)</span>
-              <input
-                type="number"
-                step="0.01"
-                min="0"
-                name="amount"
-                required
-                className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2"
-              />
-            </label>
-            <label className="block text-sm sm:col-span-2">
-              <span className="mb-1 block font-medium text-slate-700">Description</span>
-              <input
-                name="description"
-                placeholder="e.g. Invoice #123 – cement delivery"
-                className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2"
-              />
-            </label>
-            <div className="sm:col-span-2 lg:col-span-4">
-              <FormError />
-              <FormSubmitButton className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800">
-                Submit bill
-              </FormSubmitButton>
-            </div>
-          </ResettableForm>
-        )}
-      </section>
+      {/* The "Generate bill" form used to sit here, asking the supplier to
+          retype the project, amount and description for a delivery they had
+          just recorded above. Recording a delivery now raises its own bill,
+          so the form is gone and the bills below are read-only. */}
 
       <section className="mt-8">
         <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-500">Deliveries</h2>

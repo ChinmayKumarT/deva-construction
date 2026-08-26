@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { wasJustCreated } from "@/app/admin/actions";
+import { lineTotal } from "@/lib/money";
 
 export type RecordDeliveryState = { error: string | null; success: boolean };
 
@@ -69,24 +70,62 @@ export async function recordDelivery(
         image_url = pub.publicUrl;
       }
 
-      const { error } = await supabase.from("materials").insert({
-        project_id,
-        supplier_id: supplier.id,
-        name,
-        unit,
-        quantity,
-        unit_cost,
-        status,
-        delivered_at: status === "delivered" ? new Date().toISOString() : null,
-        image_url,
-        created_by_supplier: true,
-      });
+      // A delivered material bills itself (see the bill insert below), so it
+      // is marked billed in the same insert. That flag is load-bearing:
+      // lib/cashflow.ts skips materials where `billed` because their cost is
+      // counted through the supplier payment instead. Set one without the
+      // other and the delivery is counted twice.
+      const bills = status === "delivered";
+
+      const { data: material, error } = await supabase
+        .from("materials")
+        .insert({
+          project_id,
+          supplier_id: supplier.id,
+          name,
+          unit,
+          quantity,
+          unit_cost,
+          status,
+          delivered_at: status === "delivered" ? new Date().toISOString() : null,
+          image_url,
+          created_by_supplier: true,
+          billed: bills,
+        })
+        .select("id")
+        .single();
       if (error) throw new Error(error.message);
+
+      if (bills && material) {
+        // Suppliers are trusted -- skip the manual approval review step, but
+        // "Mark paid" stays a separate admin-only action for the actual
+        // payment event (see 26_supplier_bills_auto_approved.sql, whose
+        // insert policy *requires* status = 'approved' here).
+        //
+        // The admin's Pending Payments metric counts pending + approved, so
+        // an approved bill lands there immediately -- which is the point of
+        // recording the delivery in the first place.
+        const { error: billError } = await supabase.from("payments").insert({
+          project_id,
+          payee_type: "supplier",
+          supplier_id: supplier.id,
+          amount: lineTotal(quantity, unit_cost),
+          // Same description shape the admin's own purchase-billing flow
+          // produces (components/admin/PaymentForm.tsx), so bills from the
+          // two paths read identically in the payments list.
+          description: `${name} (${quantity} ${unit})`,
+          status: "approved",
+          created_by_supplier: true,
+          material_id: material.id,
+        });
+        if (billError) throw new Error(billError.message);
+      }
     }
 
     revalidatePath("/supplier");
     revalidatePath("/admin/materials");
     revalidatePath(`/admin/materials/${project_id}`);
+    revalidatePath("/admin/payments");
     revalidatePath(`/admin/payments/${project_id}`);
     revalidatePath(`/admin/suppliers/${supplier.id}`);
     revalidatePath("/admin");
@@ -96,66 +135,10 @@ export async function recordDelivery(
   }
 }
 
-export type GenerateBillState = { error: string | null; success: boolean };
-
-export async function generateBill(
-  _prevState: GenerateBillState,
-  fd: FormData,
-): Promise<GenerateBillState> {
-  const supabase = await createSupabaseServerClient();
-  try {
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-    if (!user) throw new Error("not signed in");
-
-    const { data: supplier } = await supabase
-      .from("suppliers")
-      .select("id")
-      .eq("profile_id", user.id)
-      .single();
-    if (!supplier) throw new Error("no supplier profile linked");
-
-    const project_id = String(fd.get("project_id") ?? "");
-    const amount = Number(fd.get("amount") ?? 0);
-    const description = String(fd.get("description") ?? "");
-    if (!project_id || !Number.isFinite(amount) || amount <= 0) {
-      throw new Error("project + positive amount required");
-    }
-
-    const duplicate = await wasJustCreated(supabase, "payments", {
-      project_id,
-      payee_type: "supplier",
-      supplier_id: supplier.id,
-      amount,
-      description: description || null,
-    });
-    if (!duplicate) {
-      const { error } = await supabase.from("payments").insert({
-        project_id,
-        payee_type: "supplier",
-        supplier_id: supplier.id,
-        amount,
-        description,
-        // Suppliers are trusted -- skip the manual approval review step, but
-        // "Mark paid" stays a separate admin-only action for the actual
-        // payment event (see 26_supplier_bills_auto_approved.sql).
-        status: "approved",
-        created_by_supplier: true,
-      });
-      if (error) throw new Error(error.message);
-    }
-
-    revalidatePath("/supplier");
-    revalidatePath("/admin/payments");
-    revalidatePath(`/admin/payments/${project_id}`);
-    revalidatePath(`/admin/suppliers/${supplier.id}`);
-    revalidatePath("/admin");
-    return { error: null, success: true };
-  } catch (e) {
-    return { error: e instanceof Error ? e.message : "Failed to submit bill", success: false };
-  }
-}
+// generateBill() used to live here: a second form where the supplier retyped
+// the project, amount and description to raise the bill for a delivery they
+// had just recorded. recordDelivery() now creates that bill itself, so the
+// form and this action are gone.
 
 export async function archiveDelivery(fd: FormData) {
   const supabase = await createSupabaseServerClient();
@@ -185,8 +168,25 @@ export async function archiveDelivery(fd: FormData) {
     .select("id");
   if (error) throw new Error(error.message);
   if (!data || data.length === 0) throw new Error("You can only delete deliveries you recorded yourself.");
+
+  // The delivery raised its own bill, so removing the delivery has to remove
+  // the debt with it -- otherwise the admin keeps owing money for goods that
+  // are no longer recorded, and the supplier has no bill form left to undo it
+  // from. Scoped the same way as the material update above so this can only
+  // ever reach a bill this supplier's own delivery created.
+  const { error: billError } = await supabase
+    .from("payments")
+    .update({ archived_at: new Date().toISOString() })
+    .eq("material_id", id)
+    .eq("supplier_id", supplier.id)
+    .eq("created_by_supplier", true);
+  if (billError) throw new Error(billError.message);
+
   revalidatePath("/supplier");
   revalidatePath("/admin/materials");
+  revalidatePath("/admin/payments");
+  revalidatePath(`/admin/suppliers/${supplier.id}`);
+  revalidatePath("/admin");
 }
 
 export async function archiveSupplierPayment(fd: FormData) {
@@ -214,9 +214,28 @@ export async function archiveSupplierPayment(fd: FormData) {
     .eq("id", id)
     .eq("supplier_id", supplier.id)
     .eq("created_by_supplier", true)
-    .select("id");
+    .select("id, material_id");
   if (error) throw new Error(error.message);
   if (!data || data.length === 0) throw new Error("You can only delete bills you generated yourself.");
+
+  // If this bill came from a delivery, hand the cost back to the material.
+  // materials.billed tells lib/cashflow.ts to skip the material because its
+  // payment covers it; leaving the flag set after archiving that payment
+  // would drop the cost from cash flow entirely -- counted in neither place.
+  const materialId = data[0]?.material_id;
+  if (materialId) {
+    const { error: materialError } = await supabase
+      .from("materials")
+      .update({ billed: false })
+      .eq("id", materialId)
+      .eq("supplier_id", supplier.id)
+      .eq("created_by_supplier", true);
+    if (materialError) throw new Error(materialError.message);
+    revalidatePath("/admin/materials");
+  }
+
   revalidatePath("/supplier");
   revalidatePath("/admin/payments");
+  revalidatePath(`/admin/suppliers/${supplier.id}`);
+  revalidatePath("/admin");
 }

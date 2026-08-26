@@ -88,7 +88,8 @@ fun SupplierDashboard(vm: AuthViewModel) = RoleScaffold("Supplier", vm) { paddin
     var dUnit by remember { mutableStateOf("bag") }
     var dQty by remember { mutableStateOf("") }
     var dUnitCost by remember { mutableStateOf("") }
-    var dStatus by remember { mutableStateOf("delivered") }
+    // Always "delivered" -- see the note where the Status picker used to be.
+    val dStatus = "delivered"
     // Optional photo of what was actually delivered, so admin can check it.
     var dPickedUri by remember { mutableStateOf<Uri?>(null) }
     val dPhotoPicker = rememberLauncherForActivityResult(
@@ -96,9 +97,8 @@ fun SupplierDashboard(vm: AuthViewModel) = RoleScaffold("Supplier", vm) { paddin
     ) { uri -> dPickedUri = uri }
 
     // Bill form state
-    var amount by remember { mutableStateOf("") }
-    var desc by remember { mutableStateOf("") }
-    var billProject by remember { mutableStateOf<ProjectRow?>(null) }
+    // amount / desc / billProject lived here for the removed "Generate bill"
+    // form; recordSupplierDelivery derives all three from the delivery now.
 
     Column(Modifier.padding(padding).verticalScroll(rememberScrollState())) {
         if (supplier == null) {
@@ -107,7 +107,7 @@ fun SupplierDashboard(vm: AuthViewModel) = RoleScaffold("Supplier", vm) { paddin
             Row(Modifier.padding(8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 StatCard("Deliveries", materials.count { it.status == "delivered" }.toString(),
                     Modifier.weight(1f))
-                StatCard("Pending", money(pendingPay), Modifier.weight(1f))
+                StatCard("Remaining", money(pendingPay), Modifier.weight(1f))
             }
             Row(Modifier.padding(horizontal = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 StatCard("Total received", money(paid), Modifier.weight(1f))
@@ -122,9 +122,12 @@ fun SupplierDashboard(vm: AuthViewModel) = RoleScaffold("Supplier", vm) { paddin
             com.construction.manager.ui.TextField(dUnit, { dUnit = it }, "Unit (bag, kg, m³…)")
             com.construction.manager.ui.NumberField(dQty, { dQty = it }, "Quantity")
             com.construction.manager.ui.NumberField(dUnitCost, { dUnitCost = it }, "Unit cost")
-            LabeledChipPicker(
-                "Status", listOf("delivered","ordered"), dStatus, { it }, { dStatus = it },
-            )
+            // The Status picker (delivered / ordered) used to sit here.
+            // Recording a delivery now raises the bill for it, and you don't
+            // bill for goods that have only been ordered -- an "ordered" row
+            // would never bill and there is no supplier-side action to later
+            // mark it delivered and fix that. This form is "Record delivery";
+            // the admin can still enter ordered materials from the admin side.
             Row(Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -165,29 +168,13 @@ fun SupplierDashboard(vm: AuthViewModel) = RoleScaffold("Supplier", vm) { paddin
                 modifier = Modifier.padding(16.dp),
             ) { Text("Record delivery") }
 
-            SectionTitle("Generate bill")
-            LabeledChipPicker(
-                "Project",
-                projects.filter { p -> materials.any { it.projectId == p.id } },
-                billProject, { it.name }, { billProject = it },
-            )
-            com.construction.manager.ui.NumberField(amount, { amount = it }, "Amount")
-            com.construction.manager.ui.TextField(desc, { desc = it }, "Description")
             com.construction.manager.util.friendlyError(error)?.let { Text(it, color = MaterialTheme.colorScheme.error,
                 modifier = Modifier.padding(16.dp)) }
-            Button(onClick = {
-                val p = billProject ?: return@Button
-                val a = amount.toDoubleOrNull() ?: return@Button
-                scope.launch {
-                    try {
-                        // Suppliers are trusted -- skip the manual approval review
-                        // step, but "Mark paid" stays a separate admin-only action.
-                        Repo.createPayment(p.id, "supplier", supplier!!.id, null, a,
-                            desc.ifBlank { null }, null, status = "approved")
-                        amount = ""; desc = ""; version++
-                    } catch (e: Exception) { error = e.message }
-                }
-            }, modifier = Modifier.padding(16.dp)) { Text("Submit bill") }
+
+            // A "Generate bill" form used to follow, asking the supplier to
+            // pick the project again and retype the amount and description for
+            // a delivery they had just recorded above. Repo.recordSupplierDelivery
+            // now raises that bill itself, so the bills below are read-only.
 
             SectionTitle("Deliveries")
             materials.forEach { m ->
