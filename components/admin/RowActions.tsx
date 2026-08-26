@@ -115,7 +115,7 @@ export function MarkPaidButton({
       {supplierId && <input type="hidden" name="supplier_id" value={supplierId} />}
       <button
         type="submit"
-        className="rounded-md border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-xs font-medium text-emerald-700 hover:bg-emerald-100 transition"
+        className="rounded-md border border-slate-900 bg-slate-900 px-2 py-0.5 text-xs font-medium text-white hover:bg-slate-800 transition"
       >
         Mark paid
       </button>
