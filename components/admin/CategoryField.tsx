@@ -1,16 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { WORK_CATEGORIES } from "@/lib/workCategories";
 
 export const OTHER_CATEGORY = "__other__";
 
-// Same fixed list as the plain Select (keeps the "Spend by work category"
-// report from fragmenting into typo'd near-duplicates for the common
-// cases), but with an escape hatch: picking "Other..." reveals a text
-// input for whatever category doesn't fit the list. Only one of the two
-// controls carries the `name` at a time, so the form always submits a
-// single clean value under the given field name either way.
 export function CategoryField({
   label = "Category",
   name = "category",
@@ -20,10 +14,29 @@ export function CategoryField({
   name?: string;
   defaultValue?: string;
 }) {
-  const isKnown = (WORK_CATEGORIES as readonly string[]).includes(defaultValue);
+  const [customCategories, setCustomCategories] = useState<string[]>([]);
+
+  useEffect(() => {
+    fetch("/api/custom-categories")
+      .then((r) => r.ok ? r.json() : [])
+      .then((data: string[]) => setCustomCategories(data))
+      .catch(() => {});
+  }, []);
+
+  const allKnown = [...WORK_CATEGORIES, ...customCategories];
+  const isKnown = allKnown.includes(defaultValue);
   const [rawSelect, setRawSelect] = useState(isKnown ? defaultValue : defaultValue ? OTHER_CATEGORY : "");
   const [otherValue, setOtherValue] = useState(isKnown ? "" : defaultValue);
   const isOther = rawSelect === OTHER_CATEGORY;
+
+  useEffect(() => {
+    if (customCategories.length > 0 && defaultValue && rawSelect === OTHER_CATEGORY) {
+      if (customCategories.includes(defaultValue)) {
+        setRawSelect(defaultValue);
+        setOtherValue("");
+      }
+    }
+  }, [customCategories, defaultValue, rawSelect]);
 
   return (
     <div>
@@ -39,6 +52,13 @@ export function CategoryField({
           {WORK_CATEGORIES.map((c) => (
             <option key={c} value={c}>{c}</option>
           ))}
+          {customCategories.length > 0 && (
+            <optgroup label="Custom">
+              {customCategories.map((c) => (
+                <option key={c} value={c}>{c}</option>
+              ))}
+            </optgroup>
+          )}
           <option value={OTHER_CATEGORY}>Other…</option>
         </select>
       </label>

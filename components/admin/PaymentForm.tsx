@@ -71,6 +71,15 @@ function PaymentFormFields({
   cancelHref?: string;
   fixedProject?: { id: string; name: string };
 }) {
+  const [customCategories, setCustomCategories] = useState<string[]>([]);
+
+  useEffect(() => {
+    fetch("/api/custom-categories")
+      .then((r) => r.ok ? r.json() : [])
+      .then((data: string[]) => setCustomCategories(data))
+      .catch(() => {});
+  }, []);
+
   const [projectId, setProjectId] = useState(fixedProject?.id ?? initial.projectId);
   const [purchaseId, setPurchaseId] = useState("none");
   const [payeeType, setPayeeType] = useState(initial.payeeType);
@@ -80,7 +89,8 @@ function PaymentFormFields({
   const [amount, setAmount] = useState(initial.amount);
   const [description, setDescription] = useState(initial.description);
   const [purchaseOtherText, setPurchaseOtherText] = useState("");
-  const initialCategoryKnown = (WORK_CATEGORIES as readonly string[]).includes(initial.workCategory);
+  const allKnownCategories = [...(WORK_CATEGORIES as readonly string[]), ...customCategories];
+  const initialCategoryKnown = allKnownCategories.includes(initial.workCategory);
   const [workCategory, setWorkCategory] = useState(
     initialCategoryKnown ? initial.workCategory : initial.workCategory ? OTHER_CATEGORY : "",
   );
@@ -127,7 +137,7 @@ function PaymentFormFields({
     setAmount(String(lineTotal(m.quantity, m.unit_cost)));
     setDescription(`${m.name} (${m.quantity} ${m.unit})`);
     const mCategory = m.work_category ?? "";
-    const mCategoryKnown = (WORK_CATEGORIES as readonly string[]).includes(mCategory);
+    const mCategoryKnown = allKnownCategories.includes(mCategory);
     setWorkCategory(mCategoryKnown ? mCategory : mCategory ? OTHER_CATEGORY : "");
     setWorkCategoryOther(mCategoryKnown ? "" : mCategory);
   }
@@ -282,6 +292,11 @@ function PaymentFormFields({
           >
             <option value="">— select category —</option>
             {WORK_CATEGORIES.map((c) => (<option key={c} value={c}>{c}</option>))}
+            {customCategories.length > 0 && (
+              <optgroup label="Custom">
+                {customCategories.map((c) => (<option key={c} value={c}>{c}</option>))}
+              </optgroup>
+            )}
             <option value={OTHER_CATEGORY}>Other…</option>
           </select>
         </label>
