@@ -60,16 +60,13 @@ export function Sidebar({
           <Icon name="menu" size={22} />
         </button>
         {expanded && (
-          <Link href={homeHref} className="ml-1 flex items-center gap-2">
+          <Link href={homeHref} className="ml-1 flex items-center gap-2 min-w-0">
             <Image
               src="/icon.png" alt="" width={28} height={28}
-              className="rounded-md" style={{ objectFit: "contain" }}
+              className="rounded-md shrink-0" style={{ objectFit: "contain" }}
             />
-            <span className="text-[15px] font-semibold leading-none tracking-tight text-[var(--ink)]">
+            <span className="text-[15px] font-semibold leading-none tracking-tight text-[var(--ink)] truncate">
               Deva <span className="font-normal text-slate-500">Construction</span>
-            </span>
-            <span className={"ml-0.5 " + roleBadgeCls}>
-              {role}
             </span>
           </Link>
         )}
