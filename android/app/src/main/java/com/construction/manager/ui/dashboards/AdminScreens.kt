@@ -468,6 +468,13 @@ fun AdminProjects(isOwner: Boolean = false, isAdmin: Boolean = true) {
                         isAdmin = isAdmin,
                         onChanged = { version++ },
                     )
+                    if (isAdmin) {
+                        BudgetExtensionsSection(
+                            project = p,
+                            isOwner = isOwner,
+                            onChanged = { version++ },
+                        )
+                    }
                     ProjectRowCard(
                         project = p,
                         clients = clients,
@@ -727,6 +734,104 @@ private fun ProjectChangeOrdersSection(
                     confirmDelete = null
                     scope.launch {
                         safe({ Repo.deleteChangeOrderForever(co.id); refreshTrigger++ }) { error = it }
+                    }
+                }) { Text("Delete forever", color = MaterialTheme.colorScheme.error) }
+            },
+            dismissButton = {
+                TextButton(onClick = { confirmDelete = null }) { Text("Cancel") }
+            },
+        )
+    }
+}
+
+@Composable
+private fun BudgetExtensionsSection(
+    project: ProjectRow,
+    isOwner: Boolean,
+    onChanged: () -> Unit,
+) {
+    var extensions by remember { mutableStateOf<List<BudgetExtensionRow>>(emptyList()) }
+    var refreshTrigger by remember { mutableStateOf(0) }
+    var amount by remember { mutableStateOf("") }
+    var reason by remember { mutableStateOf("") }
+    var confirmDelete by remember { mutableStateOf<BudgetExtensionRow?>(null) }
+    var error by remember { mutableStateOf<String?>(null) }
+    var showCreate by remember { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
+
+    LaunchedEffect(project.id, refreshTrigger) {
+        safe({ extensions = Repo.fetchBudgetExtensions(project.id) }) { error = it }
+    }
+
+    Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+            Text("Budget extensions", style = MaterialTheme.typography.labelLarge, modifier = Modifier.weight(1f))
+        }
+        OutlinedButton(
+            onClick = { showCreate = true },
+            shape = RoundedCornerShape(100),
+        ) { Text("+ Extend budget") }
+        if (showCreate) {
+            CreateDialog("Extend budget", onDismiss = { showCreate = false }) {
+                NumberField(amount, { amount = it }, "Amount (₹)")
+                TextField(reason, { reason = it }, "Reason (optional)")
+                Text(
+                    "This amount is added to the project's budget immediately.",
+                    style = MaterialTheme.typography.labelSmall,
+                )
+                Button(
+                    onClick = {
+                        val amt = amount.toDoubleOrNull()
+                        if (amt == null || amt <= 0) { error = "Amount must be greater than zero"; return@Button }
+                        scope.launch {
+                            safe({
+                                Repo.createBudgetExtension(project.id, amt, reason.takeIf { it.isNotBlank() })
+                                amount = ""; reason = ""
+                                showCreate = false
+                                refreshTrigger++; onChanged()
+                            }) { error = it }
+                        }
+                    },
+                    modifier = Modifier.padding(top = 4.dp),
+                ) { Text("Extend budget") }
+            }
+        }
+        if (extensions.isEmpty()) {
+            Text(
+                "No budget extensions yet.",
+                style = MaterialTheme.typography.bodySmall,
+                modifier = Modifier.padding(top = 8.dp),
+            )
+        } else {
+            extensions.forEach { ext ->
+                ItemCard(
+                    "+${money(ext.amount)}",
+                    listOfNotNull(ext.createdAt?.take(10), ext.reason).joinToString(" · "),
+                    actions = {
+                        TextButton(onClick = {
+                            scope.launch {
+                                safe({ Repo.archiveBudgetExtension(ext.id); refreshTrigger++; onChanged() }) { error = it }
+                            }
+                        }) { Text("Remove") }
+                    },
+                )
+            }
+        }
+        error?.let {
+            Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.labelSmall)
+        }
+    }
+
+    confirmDelete?.let { ext ->
+        AlertDialog(
+            onDismissRequest = { confirmDelete = null },
+            title = { Text("Delete this budget extension?") },
+            text = { Text("This cannot be undone: +${money(ext.amount)}") },
+            confirmButton = {
+                TextButton(onClick = {
+                    confirmDelete = null
+                    scope.launch {
+                        safe({ Repo.deleteBudgetExtensionForever(ext.id); refreshTrigger++ }) { error = it }
                     }
                 }) { Text("Delete forever", color = MaterialTheme.colorScheme.error) }
             },

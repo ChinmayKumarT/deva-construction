@@ -12,14 +12,18 @@ import { formatDateOnly } from "@/lib/dateFormat";
 import { DownloadInvoiceButton, type InvoiceData } from "@/components/admin/InvoicePdf";
 import { FormSubmitButton } from "@/components/FormSubmitButton";
 import {
+  archiveBudgetExtension,
   archiveChangeOrder,
   archiveProject,
+  createBudgetExtension,
   createChangeOrder,
+  deleteBudgetExtension,
   deleteChangeOrder,
   deleteProject,
   extendProjectEndDate,
   removeProjectAgreement,
   setNextPaymentDate,
+  unarchiveBudgetExtension,
   unarchiveChangeOrder,
   unarchiveProject,
   uploadProjectAgreement,
@@ -45,6 +49,7 @@ export default async function ManageProjectPage(
     { data: project }, { data: materials }, { data: payments }, { data: attendance }, { data: labourers },
     { data: changeOrders }, { count: archivedChangeOrderCount },
     { data: materialDetails }, { data: paymentDetails }, { data: clientPayments },
+    { data: budgetExtensions },
   ] =
     await Promise.all([
       supabase
@@ -65,6 +70,7 @@ export default async function ManageProjectPage(
       supabase.from("materials").select("name, quantity, unit, unit_cost, status").eq("project_id", params.id).is("archived_at", null).neq("status", "returned"),
       supabase.from("payments").select("amount, status, payee_type, description").eq("project_id", params.id).is("archived_at", null).eq("payee_type", "labour").in("status", ["paid", "approved"]),
       supabase.from("client_payments").select("amount").eq("project_id", params.id).is("archived_at", null),
+      supabase.from("budget_extensions").select("id, amount, reason, created_at").eq("project_id", params.id).is("archived_at", null).order("created_at", { ascending: false }),
     ]);
   if (!project) notFound();
 
@@ -152,6 +158,78 @@ export default async function ManageProjectPage(
             <CostBox label="Remaining" value={budget - spent} accent={budget - spent >= 0} danger={budget - spent < 0} />
           </div>
         </>
+      )}
+
+      {/* Budget extensions — admin only, hidden from managers */}
+      {!isManager && (
+        <div className="mb-6 max-w-xl rounded-xl border border-slate-200 bg-white p-4">
+          <div className="mb-2 text-[11px] uppercase tracking-[0.12em] text-slate-500">Budget extensions</div>
+
+          {!archived && (
+            <form action={createBudgetExtension} className="mb-4 grid gap-3 border-b border-slate-100 pb-4 sm:grid-cols-2">
+              <input type="hidden" name="project_id" value={project.id} />
+              <label className="text-sm">
+                <span className="mb-1 block text-slate-600">Amount (₹)</span>
+                <input
+                  type="number" step="0.01" min="0.01"
+                  name="amount"
+                  required
+                  placeholder="e.g. 200000"
+                  className="w-full rounded-lg border border-[var(--line)] bg-white px-2 py-1.5 text-sm"
+                />
+              </label>
+              <label className="text-sm">
+                <span className="mb-1 block text-slate-600">Reason (optional)</span>
+                <input
+                  type="text"
+                  name="reason"
+                  placeholder="e.g. Client approved additional funds"
+                  className="w-full rounded-lg border border-[var(--line)] bg-white px-2 py-1.5 text-sm"
+                />
+              </label>
+              <div className="flex items-end">
+                <FormSubmitButton className="rounded-lg bg-brand px-3 py-1.5 text-sm font-medium text-white hover:bg-brand-700">
+                  Extend budget
+                </FormSubmitButton>
+              </div>
+              <p className="text-xs text-slate-500 sm:col-span-2">
+                This amount is added to the project&apos;s budget immediately.
+              </p>
+            </form>
+          )}
+
+          {(budgetExtensions ?? []).length === 0 ? (
+            <p className="text-sm text-slate-500">No budget extensions yet.</p>
+          ) : (
+            <div className="space-y-2">
+              {budgetExtensions?.map((ext) => (
+                <div
+                  key={ext.id}
+                  className="flex items-center justify-between gap-3 rounded-lg border border-slate-100 bg-slate-50 px-3 py-2"
+                >
+                  <div>
+                    <div className="text-sm font-medium text-ink">+₹{Number(ext.amount).toLocaleString()}</div>
+                    <div className="text-xs text-slate-500">
+                      {formatDateOnly(ext.created_at)}
+                      {ext.reason ? ` · ${ext.reason}` : ""}
+                    </div>
+                  </div>
+                  {!archived && (
+                    <form action={archiveBudgetExtension}>
+                      <input type="hidden" name="id" value={ext.id} />
+                      <button
+                        type="submit"
+                        className="rounded-lg border border-red-300 bg-white px-2 py-1 text-xs text-red-700 hover:bg-red-50"
+                      >
+                        Remove
+                      </button>
+                    </form>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
       )}
 
       <div className="mb-6 flex max-w-xl items-center justify-between rounded-xl border border-slate-200 bg-white p-4">

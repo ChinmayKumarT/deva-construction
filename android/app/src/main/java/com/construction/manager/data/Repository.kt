@@ -522,6 +522,44 @@ object Repo {
     suspend fun unarchiveChangeOrder(id: String) = adjustChangeOrderArchive(id, false)
     suspend fun deleteChangeOrderForever(id: String) = ownerDeleteRow("project_change_orders", id)
 
+    // --------------- Budget extensions ---------------
+    suspend fun fetchBudgetExtensions(projectId: String): List<BudgetExtensionRow> =
+        supabase.from("budget_extensions").select {
+            filter { eq("project_id", projectId); isExact("archived_at", null) }
+            order("created_at", io.github.jan.supabase.postgrest.query.Order.DESCENDING)
+        }.decodeList()
+
+    suspend fun createBudgetExtension(projectId: String, amount: Double, reason: String?) {
+        supabase.from("budget_extensions").insert(buildJsonObject {
+            put("project_id", projectId)
+            put("amount", amount)
+            if (reason != null) put("reason", reason)
+        })
+        val project = supabase.from("projects").select { filter { eq("id", projectId) } }
+            .decodeSingleOrNull<ProjectRow>()
+        if (project != null) {
+            supabase.from("projects").update(buildJsonObject {
+                put("total_cost", project.totalCost + amount)
+            }) { filter { eq("id", projectId) } }
+        }
+    }
+    private suspend fun adjustBudgetExtensionArchive(id: String, archived: Boolean) {
+        val ext = supabase.from("budget_extensions").select { filter { eq("id", id) } }
+            .decodeSingleOrNull<BudgetExtensionRow>() ?: return
+        setArchived("budget_extensions", id, archived)
+        val project = supabase.from("projects").select { filter { eq("id", ext.projectId) } }
+            .decodeSingleOrNull<ProjectRow>()
+        if (project != null) {
+            val delta = if (archived) -ext.amount else ext.amount
+            supabase.from("projects").update(buildJsonObject {
+                put("total_cost", project.totalCost + delta)
+            }) { filter { eq("id", ext.projectId) } }
+        }
+    }
+    suspend fun archiveBudgetExtension(id: String) = adjustBudgetExtensionArchive(id, true)
+    suspend fun unarchiveBudgetExtension(id: String) = adjustBudgetExtensionArchive(id, false)
+    suspend fun deleteBudgetExtensionForever(id: String) = ownerDeleteRow("budget_extensions", id)
+
     // Uploaded image goes through uploadProjectImage (same project-images
     // bucket); this just points/clears the project row's agreement field.
     suspend fun setProjectAgreementImage(projectId: String, url: String?) {

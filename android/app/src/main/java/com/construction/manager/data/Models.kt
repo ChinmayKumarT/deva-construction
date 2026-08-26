@@ -154,6 +154,16 @@ data class ProjectChangeOrderRow(
 )
 
 @Serializable
+data class BudgetExtensionRow(
+    val id: String,
+    @SerialName("project_id") val projectId: String,
+    val amount: Double = 0.0,
+    val reason: String? = null,
+    @SerialName("created_at") val createdAt: String? = null,
+    @SerialName("archived_at") val archivedAt: String? = null,
+)
+
+@Serializable
 data class AttendanceRow(
     val id: String? = null,
     @SerialName("labourer_id") val labourerId: String,

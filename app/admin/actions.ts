@@ -958,3 +958,81 @@ export async function unarchiveClientPayment(fd: FormData) {
 export async function deleteClientPayment(fd: FormData) {
   await ownerDeleteRow("client_payments", str(fd, "id"));
 }
+
+// --------------- Budget extensions ---------------
+
+export async function createBudgetExtension(fd: FormData) {
+  const supabase = await createSupabaseServerClient();
+  const project_id = str(fd, "project_id");
+  if (!project_id) throw new Error("project_id required");
+  const amount = nonNegNum(fd, "amount", "Amount");
+  if (!amount || amount <= 0) throw new Error("Amount must be greater than zero");
+  const reason = str(fd, "reason");
+
+  const { error } = await supabase.from("budget_extensions").insert({
+    project_id,
+    amount,
+    reason,
+  });
+  if (error) throw new Error(error.message);
+
+  const { data: project } = await supabase
+    .from("projects")
+    .select("total_cost")
+    .eq("id", project_id)
+    .single();
+  if (project) {
+    await supabase
+      .from("projects")
+      .update({ total_cost: Number(project.total_cost) + amount })
+      .eq("id", project_id);
+  }
+  revalidatePath(`/admin/projects/${project_id}`);
+  revalidatePath("/admin/projects");
+  revalidatePath("/admin/costs");
+  revalidatePath("/client");
+}
+
+async function adjustBudgetExtensionArchive(id: string | null, archived: boolean) {
+  if (!id) throw new Error("id required");
+  const supabase = await createSupabaseServerClient();
+  const { data: ext } = await supabase
+    .from("budget_extensions")
+    .select("project_id, amount")
+    .eq("id", id)
+    .single();
+  if (!ext) throw new Error("budget extension not found");
+
+  const { error } = await supabase
+    .from("budget_extensions")
+    .update({ archived_at: archived ? new Date().toISOString() : null })
+    .eq("id", id);
+  if (error) throw new Error(error.message);
+
+  const extAmount = Number(ext.amount);
+  const { data: project } = await supabase
+    .from("projects")
+    .select("total_cost")
+    .eq("id", ext.project_id)
+    .single();
+  if (project) {
+    const delta = archived ? -extAmount : extAmount;
+    await supabase
+      .from("projects")
+      .update({ total_cost: Number(project.total_cost) + delta })
+      .eq("id", ext.project_id);
+  }
+  revalidatePath(`/admin/projects/${ext.project_id}`);
+  revalidatePath("/admin/projects");
+  revalidatePath("/admin/costs");
+  revalidatePath("/client");
+}
+export async function archiveBudgetExtension(fd: FormData) {
+  await adjustBudgetExtensionArchive(str(fd, "id"), true);
+}
+export async function unarchiveBudgetExtension(fd: FormData) {
+  await adjustBudgetExtensionArchive(str(fd, "id"), false);
+}
+export async function deleteBudgetExtension(fd: FormData) {
+  await ownerDeleteRow("budget_extensions", str(fd, "id"));
+}
