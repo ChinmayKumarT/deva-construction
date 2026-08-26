@@ -2,7 +2,7 @@
 slug: roadmap
 title: Roadmap
 role: milestones
-updated: "2026-08-26T18:56:13"
+updated: "2026-08-26T22:51:49"
 ---
 
 # Roadmap
@@ -35,11 +35,13 @@ gantt
     Client payments tracking              :done, 2026-08-26, 1d
     Project detail page redesign          :done, 2026-08-26, 1d
     Supplier "Total paid" on all views    :done, 2026-08-26, 1d
+    Pre-assign roles by email             :done, 2026-08-26, 1d
+    Superadmin role (web + Android)       :done, 2026-08-26, 1d
 ```
 
 > **Note**: Exact dates are approximate — reconstructed from git history. The gantt shows the order and rough timeline of major capability drops.
 
-All SQL migrations (up to 42) have been applied to production as of 2026-08-26.
+All SQL migrations (up to 44) have been applied to production as of 2026-08-26.
 
 ### Known pending work
 

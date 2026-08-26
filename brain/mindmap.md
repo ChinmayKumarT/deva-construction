@@ -2,7 +2,7 @@
 slug: mindmap
 title: Feature mindmap
 role: feature mindmap
-updated: "2026-08-26T18:52:09"
+updated: "2026-08-26T22:52:07"
 ---
 
 # Feature mindmap
@@ -12,6 +12,11 @@ updated: "2026-08-26T18:52:09"
 ```mermaid
 mindmap
   root((Deva Construction))
+    Super Admin
+      Team Access (invite, role assignment)
+        Pre-assign roles by email
+      Backup (daily Excel export)
+      All Admin features
     Admin Dashboard
       Overview (KPIs + budget alerts)
       Projects (stages, budget, completion%)
@@ -30,9 +35,7 @@ mindmap
       Profit & Loss
       Cost Tracking (budget vs spend)
       Search (global full-text)
-      Team Access (invite, role assignment)
-      Backup (daily Excel export)
-      Personal Transactions (owner only)
+      Personal Transactions (admin only)
       Website Management (showcase projects)
     Manager View
       Same as Admin minus financials
