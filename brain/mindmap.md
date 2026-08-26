@@ -2,7 +2,7 @@
 slug: mindmap
 title: Feature mindmap
 role: feature mindmap
-updated: "2026-08-26T17:44:09"
+updated: "2026-08-26T18:52:09"
 ---
 
 # Feature mindmap
@@ -15,8 +15,12 @@ mindmap
     Admin Dashboard
       Overview (KPIs + budget alerts)
       Projects (stages, budget, completion%)
+        Budget Extensions (admin-only)
+        Change Orders (scope changes)
+        Client Payments (incoming money)
       Clients
       Suppliers (deliveries, bills, mark paid)
+        Total paid tracking across all views
       Labour (daily wages, assignments)
       Materials (per-project, billed flag)
       Payments (approve/pay, purchase picker)

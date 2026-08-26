@@ -2,7 +2,7 @@
 slug: roadmap
 title: Roadmap
 role: milestones
-updated: "2026-08-26T17:44:23"
+updated: "2026-08-26T18:51:39"
 ---
 
 # Roadmap
@@ -27,9 +27,23 @@ gantt
     Security hardening (Semgrep, audit)   :done, 2025-07-01, 2025-08-01
     Next.js 15 → 16 migration             :done, 2025-08-01, 2025-08-15
     section Recent
-    Supplier auto-billing                 :done, 2026-08-26, 1d
-    Manager role restrictions             :done, 2026-08-25, 1d
     Showcase / website management         :done, 2026-07-01, 2026-08-01
+    Manager role restrictions             :done, 2026-08-25, 1d
+    Supplier auto-billing                 :done, 2026-08-26, 1d
+    Mark paid button on supplier detail   :done, 2026-08-26, 1d
+    Budget extensions (web + Android)     :done, 2026-08-26, 1d
+    Client payments tracking              :done, 2026-08-26, 1d
+    Project detail page redesign          :done, 2026-08-26, 1d
+    Supplier "Total paid" on all views    :done, 2026-08-26, 1d
 ```
 
 > **Note**: Exact dates are approximate — reconstructed from git history. The gantt shows the order and rough timeline of major capability drops.
+
+### Pending migrations
+
+The following SQL migrations need to be run in the Supabase SQL Editor before their features work in production:
+
+- `supabase/39_*.sql` — (check file for description)
+- `supabase/40_*.sql` — (check file for description)
+- `supabase/41_backfill_legacy_supplier_bills.sql` — links old supplier bills to their materials
+- `supabase/42_budget_extensions.sql` — budget_extensions table + RLS
