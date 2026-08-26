@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { createSupabaseServerClient, getSessionAndRole } from "@/lib/supabase/server";
 import { WAGE_FACTOR } from "@/lib/wages";
 
 function str(fd: FormData, k: string) {
@@ -838,6 +838,28 @@ export async function removeProjectAgreement(fd: FormData) {
   if (error) throw new Error(error.message);
   revalidatePath(`/admin/projects/${project_id}`);
   revalidatePath("/client");
+}
+
+export async function inviteUser(fd: FormData) {
+  const { isOwner } = await getSessionAndRole();
+  if (!isOwner) throw new Error("only the owner can invite users");
+  const email = str(fd, "email");
+  const role = str(fd, "role");
+  if (!email || !role) throw new Error("email and role required");
+
+  const { createSupabaseAdmin } = await import("@/lib/supabase/admin");
+  const admin = createSupabaseAdmin();
+
+  const { data, error } = await admin.auth.admin.inviteUserByEmail(email, {
+    data: { role },
+  });
+  if (error) throw new Error(error.message);
+
+  if (data.user && (role === "admin" || role === "manager")) {
+    await admin.from("profiles").update({ role }).eq("id", data.user.id);
+  }
+
+  revalidatePath("/admin/team");
 }
 
 // The set_user_role RPC re-checks is_owner() server-side (08_owner_admin_approval.sql),

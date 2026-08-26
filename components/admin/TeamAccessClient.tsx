@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { setUserRole, deleteUser } from "@/app/admin/actions";
+import { inviteUser, setUserRole, deleteUser } from "@/app/admin/actions";
 import { DeleteForeverButton } from "@/components/admin/RowActions";
 
 type Profile = { id: string; full_name: string | null; role: string; is_owner: boolean };
@@ -24,6 +24,37 @@ export function TeamAccessClient({ profiles }: { profiles: Profile[] }) {
 
   return (
     <div>
+      <form action={inviteUser} className="mb-6 flex flex-wrap items-end gap-3 rounded-xl border border-[var(--line)] bg-white p-5">
+        <div>
+          <label className="mb-1 block text-[11px] font-medium uppercase tracking-wider text-slate-500">Email</label>
+          <input
+            name="email"
+            type="email"
+            required
+            placeholder="user@example.com"
+            className="w-64 rounded-lg border border-slate-200 bg-slate-50/50 px-3 py-2 text-sm outline-none focus:border-brand focus:ring-1 focus:ring-brand/20"
+          />
+        </div>
+        <div>
+          <label className="mb-1 block text-[11px] font-medium uppercase tracking-wider text-slate-500">Role</label>
+          <select
+            name="role"
+            defaultValue="client"
+            className="rounded-lg border border-slate-200 bg-slate-50/50 px-3 py-2 text-sm outline-none focus:border-brand focus:ring-1 focus:ring-brand/20"
+          >
+            {ROLES.map((r) => (
+              <option key={r} value={r}>{r}</option>
+            ))}
+          </select>
+        </div>
+        <button
+          type="submit"
+          className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800 transition"
+        >
+          Invite
+        </button>
+      </form>
+
       <input
         value={query}
         onChange={(e) => setQuery(e.target.value)}
