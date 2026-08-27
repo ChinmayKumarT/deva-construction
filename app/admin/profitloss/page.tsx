@@ -5,8 +5,7 @@ import { AdminPage, AdminPageHeader, DataTable } from "@/components/admin/Page";
 import { wageForStatus } from "@/lib/wages";
 import { lineTotal } from "@/lib/money";
 
-export const dynamic = "force-dynamic";
-export const fetchCache = "force-no-store";
+export const revalidate = 60;
 
 export default async function ProfitLossPage() {
   // Company financials are admin/owner information. The sidebar hides this

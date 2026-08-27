@@ -6,8 +6,7 @@ import { AdminPage, AdminPageHeader, DataTable, BudgetAlert } from "@/components
 import { wageForStatus } from "@/lib/wages";
 import { lineTotal } from "@/lib/money";
 
-export const dynamic = "force-dynamic";
-export const fetchCache = "force-no-store";
+export const revalidate = 60;
 
 export default async function CostsPage() {
   // Budget vs spend per project. The sidebar hides this for managers, but a

@@ -19,8 +19,7 @@ const OVER_BUDGET = "#DC2626";
 const MATERIALS_COLOR = "#635bff";
 const WAGES_COLOR = "#A855F7";
 
-export const dynamic = "force-dynamic";
-export const fetchCache = "force-no-store";
+export const revalidate = 60;
 
 export default async function SiteReportPage(
   props: {

@@ -8,8 +8,7 @@ import { DownloadSummaryCsvButton } from "@/components/admin/ReportCsv";
 import { WAGE_FACTOR, wageForStatus } from "@/lib/wages";
 import { lineTotal } from "@/lib/money";
 
-export const dynamic = "force-dynamic";
-export const fetchCache = "force-no-store";
+export const revalidate = 60;
 
 export default async function ReportsPage() {
   // Company financials are admin/owner information. The sidebar hides this
