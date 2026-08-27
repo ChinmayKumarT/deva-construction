@@ -54,6 +54,9 @@ export function LinkFamilyForm({
     }
   }
 
+  const unlinkedIds = new Set(unlinked.map((l) => l.id));
+  const submittableIds = Array.from(selected).filter((id) => unlinkedIds.has(id));
+
   function toggle(id: string) {
     setSelected((prev) => {
       const next = new Set(prev);
@@ -63,9 +66,14 @@ export function LinkFamilyForm({
     });
   }
 
+  async function handleSubmit(fd: FormData) {
+    await action(fd);
+    setSelected(new Set());
+  }
+
   return (
-    <form action={action}>
-      {Array.from(selected).map((id) => (
+    <form action={handleSubmit}>
+      {submittableIds.map((id) => (
         <input key={id} type="hidden" name="labourer_id" value={id} />
       ))}
 
@@ -117,8 +125,8 @@ export function LinkFamilyForm({
         </div>
       )}
 
-      {selected.size >= 2 && <SubmitButton>Link as family</SubmitButton>}
-      {selected.size === 1 && (
+      {submittableIds.length >= 2 && <SubmitButton>Link as family</SubmitButton>}
+      {submittableIds.length === 1 && (
         <p className="text-xs text-amber-600">Select at least one more person.</p>
       )}
     </form>
