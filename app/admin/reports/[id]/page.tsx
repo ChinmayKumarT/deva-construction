@@ -17,7 +17,6 @@ const SPEND = "#F59E0B";
 const TRACK = "#E2E8F0";
 const OVER_BUDGET = "#DC2626";
 const MATERIALS_COLOR = "#635bff";
-const LABOUR_COLOR = "#0EA5E9";
 const WAGES_COLOR = "#A855F7";
 
 export const dynamic = "force-dynamic";
@@ -84,10 +83,6 @@ export default async function SiteReportPage(
     (materials ?? [])
       .filter((m) => m.status !== "returned")
       .reduce((sum, m) => sum + lineTotal(m.quantity, m.unit_cost), 0) +
-    (payments ?? [])
-      // Labour only: supplier payments settle already-counted material costs.
-      .filter((p) => (p.status === "paid" || p.status === "approved") && p.payee_type === "labour")
-      .reduce((sum, p) => sum + Number(p.amount), 0) +
     totalWages;
 
   const budget = Number(project.total_cost);
@@ -133,7 +128,7 @@ export default async function SiteReportPage(
     categoryTotals.set(cat, (categoryTotals.get(cat) ?? 0) + Number(p.amount));
   }
   if (totalWages > 0) {
-    categoryTotals.set("Wages (attendance)", (categoryTotals.get("Wages (attendance)") ?? 0) + totalWages);
+    categoryTotals.set("Wages", (categoryTotals.get("Wages") ?? 0) + totalWages);
   }
   const categoryRows = Array.from(categoryTotals)
     .sort((a, b) => b[1] - a[1])
@@ -322,8 +317,7 @@ export default async function SiteReportPage(
         <CashFlowBarChart
           bars={[
             { label: "Materials", value: cashFlow.materialsCost, color: MATERIALS_COLOR },
-            { label: "Labour payments", value: cashFlow.labourPayments, color: LABOUR_COLOR },
-            { label: "Wages (attendance)", value: cashFlow.wages, color: WAGES_COLOR },
+            { label: "Wages", value: cashFlow.wages, color: WAGES_COLOR },
           ]}
         />
         <p className="mt-3 text-sm text-slate-600">

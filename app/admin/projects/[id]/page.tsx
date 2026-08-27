@@ -142,14 +142,11 @@ export default async function ManageProjectPage(
   const materialsCost = (materials ?? [])
     .filter((m) => m.status !== "returned")
     .reduce((sum, m) => sum + lineTotal(m.quantity, m.unit_cost), 0);
-  const labourPaid = (payments ?? [])
-    .filter((p) => (p.status === "paid" || p.status === "approved") && p.payee_type === "labour")
-    .reduce((sum, p) => sum + Number(p.amount), 0);
   const wages = (attendance ?? []).reduce(
     (sum, a) => sum + wageForStatus(a.status, labourerWage.get(a.labourer_id) ?? 0),
     0,
   );
-  const spent = materialsCost + labourPaid + wages;
+  const spent = materialsCost + wages;
   const budget = Number(project.total_cost);
   const remaining = budget - spent;
   const completionPct = Number(project.completion_pct);

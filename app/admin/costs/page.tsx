@@ -69,7 +69,7 @@ export default async function CostsPage() {
   const rows =
     projects?.map((p) => {
       const c = byProject.get(p.id)!;
-      const spent = c.materials + c.labour + c.wages;
+      const spent = c.materials + c.wages;
       const budget = Number(p.total_cost);
       totalBudget += budget;
       totalSpent += spent;
@@ -84,7 +84,6 @@ export default async function CostsPage() {
         p.status,
         `₹${budget.toLocaleString()}`,
         `₹${c.materials.toLocaleString()}`,
-        `₹${c.labour.toLocaleString()}`,
         `₹${c.wages.toLocaleString()}`,
         `₹${spent.toLocaleString()}`,
         `₹${remaining.toLocaleString()}`,
@@ -117,14 +116,14 @@ export default async function CostsPage() {
       </section>
 
       <DataTable
-        columns={["Project", "Status", "Budget", "Materials", "Labour payments", "Wages (attendance)", "Spent", "Remaining"]}
+        columns={["Project", "Status", "Budget", "Materials", "Wages", "Spent", "Remaining"]}
         rows={rows}
         empty="Create a project first."
       />
 
       <p className="mt-4 text-xs text-slate-500">
-        Spend includes <strong>approved</strong> and <strong>paid</strong> payments, plus wages accrued from marked
-        attendance (present = full daily wage, half day = 50%). Pending payments are not counted. Materials marked{" "}
+        Spend includes materials cost plus wages accrued from marked
+        attendance (present = full daily wage, half day = 50%, overtime = 150%). Materials marked{" "}
         <strong>returned</strong> are excluded.
       </p>
 

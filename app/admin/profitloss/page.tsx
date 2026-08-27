@@ -19,14 +19,12 @@ export default async function ProfitLossPage() {
   const [
     { data: projects },
     { data: materials },
-    { data: payments },
     { data: attendance },
     { data: labourers },
     { data: clientPayments },
   ] = await Promise.all([
     supabase.from("projects").select("id, name, total_cost, status").is("archived_at", null).order("name"),
     supabase.from("materials").select("project_id, quantity, unit_cost, status").is("archived_at", null),
-    supabase.from("payments").select("project_id, amount, status, payee_type").is("archived_at", null),
     supabase.from("attendance").select("project_id, status, labourer_id"),
     supabase.from("labourers").select("id, daily_wage"),
     supabase.from("client_payments").select("project_id, amount").is("archived_at", null),
@@ -34,11 +32,11 @@ export default async function ProfitLossPage() {
 
   const labourerWage = new Map((labourers ?? []).map((l) => [l.id, Number(l.daily_wage)]));
 
-  const spentByProject = new Map<string, { materials: number; labour: number; wages: number }>();
+  const spentByProject = new Map<string, { materials: number; wages: number }>();
   const receivedByProject = new Map<string, number>();
 
   for (const p of projects ?? []) {
-    spentByProject.set(p.id, { materials: 0, labour: 0, wages: 0 });
+    spentByProject.set(p.id, { materials: 0, wages: 0 });
     receivedByProject.set(p.id, 0);
   }
 
@@ -46,14 +44,6 @@ export default async function ProfitLossPage() {
     if (!m.project_id || m.status === "returned") continue;
     const row = spentByProject.get(m.project_id);
     if (row) row.materials += lineTotal(m.quantity, m.unit_cost);
-  }
-
-  for (const pay of payments ?? []) {
-    if (!pay.project_id) continue;
-    const row = spentByProject.get(pay.project_id);
-    if (!row) continue;
-    if (pay.status !== "paid" && pay.status !== "approved") continue;
-    if (pay.payee_type === "labour") row.labour += Number(pay.amount);
   }
 
   for (const a of attendance ?? []) {
@@ -73,7 +63,7 @@ export default async function ProfitLossPage() {
 
   const rows = projects?.map((p) => {
     const c = spentByProject.get(p.id)!;
-    const spent = c.materials + c.labour + c.wages;
+    const spent = c.materials + c.wages;
     const received = receivedByProject.get(p.id) ?? 0;
     const profit = received - spent;
     const budget = Number(p.total_cost);
@@ -127,7 +117,7 @@ export default async function ProfitLossPage() {
 
       <p className="mt-4 text-xs text-slate-500">
         <strong>Received</strong> = client payments recorded for this project.{" "}
-        <strong>Spent</strong> = materials + approved/paid labour payments + attendance wages.{" "}
+        <strong>Spent</strong> = materials + wages accrued from attendance.{" "}
         <strong>Collected %</strong> = what percentage of the budget has been collected from the client.
       </p>
     </AdminPage>

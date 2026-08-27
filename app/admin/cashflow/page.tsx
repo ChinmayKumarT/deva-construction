@@ -9,7 +9,6 @@ import { DownloadCashFlowCsvButton } from "@/components/admin/ReportCsv";
 import { computeCashFlow, defaultCashFlowRange } from "@/lib/cashflow";
 
 const MATERIALS_COLOR = "#635bff";
-const LABOUR_COLOR = "#0EA5E9";
 const WAGES_COLOR = "#A855F7";
 
 export default async function CashFlowPage(
@@ -18,8 +17,6 @@ export default async function CashFlowPage(
   }
 ) {
   const searchParams = await props.searchParams;
-  // Company financials are admin/owner information. The sidebar hides this
-  // for managers, but hiding a link is not a permission — guard the route.
   const { role } = await requireRole(["superadmin", "admin", "manager"]);
   if (role === "manager") redirect("/admin");
 
@@ -36,37 +33,35 @@ export default async function CashFlowPage(
   const projectName = new Map((projects ?? []).map((p) => [p.id, p.name]));
   const projectIds = new Set([
     ...cashFlow.byProjectMaterials.keys(),
-    ...cashFlow.byProjectLabour.keys(),
     ...cashFlow.byProjectWages.keys(),
   ]);
 
+  const total = cashFlow.materialsCost + cashFlow.wages;
+
   const rows = Array.from(projectIds).map((id) => {
     const materials = cashFlow.byProjectMaterials.get(id) ?? 0;
-    const labour = cashFlow.byProjectLabour.get(id) ?? 0;
     const wages = cashFlow.byProjectWages.get(id) ?? 0;
     return [
       projectName.get(id) ?? "—",
       `₹${materials.toLocaleString()}`,
-      `₹${labour.toLocaleString()}`,
       `₹${wages.toLocaleString()}`,
-      `₹${(materials + labour + wages).toLocaleString()}`,
+      `₹${(materials + wages).toLocaleString()}`,
     ];
   });
 
   const bars = [
     { label: "Materials", value: cashFlow.materialsCost, color: MATERIALS_COLOR },
-    { label: "Labour payments", value: cashFlow.labourPayments, color: LABOUR_COLOR },
-    { label: "Wages (attendance)", value: cashFlow.wages, color: WAGES_COLOR },
+    { label: "Wages", value: cashFlow.wages, color: WAGES_COLOR },
   ];
 
   const pdfData = {
     from, to,
     bars: bars.map((b) => ({ label: b.label, value: b.value, color: b.color })),
-    total: cashFlow.total,
+    total,
     projects: Array.from(projectIds).map((id) => ({
       name: projectName.get(id) ?? "—",
       materials: cashFlow.byProjectMaterials.get(id) ?? 0,
-      labour: cashFlow.byProjectLabour.get(id) ?? 0,
+      labour: 0,
       wages: cashFlow.byProjectWages.get(id) ?? 0,
     })),
   };
@@ -75,7 +70,7 @@ export default async function CashFlowPage(
     <AdminPage>
       <AdminPageHeader
         title="Cash flow"
-        subtitle="Money going out over a date range: materials (including supplier payments), labour payments and attendance wages, shown separately."
+        subtitle="Money going out over a date range: materials (including supplier payments) and wages from attendance."
       />
 
       <form method="get" className="mb-8 flex flex-wrap items-end gap-4 rounded-xl border border-slate-200 bg-white p-6">
@@ -91,11 +86,10 @@ export default async function CashFlowPage(
         </div>
       </form>
 
-      <section className="mb-8 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      <section className="mb-8 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
         <SummaryCard label="Materials cost" value={cashFlow.materialsCost} />
-        <SummaryCard label="Labour payments" value={cashFlow.labourPayments} />
-        <SummaryCard label="Wages (attendance)" value={cashFlow.wages} />
-        <SummaryCard label="Total outflow" value={cashFlow.total} accent />
+        <SummaryCard label="Wages" value={cashFlow.wages} />
+        <SummaryCard label="Total outflow" value={total} accent />
       </section>
 
       <div className="mb-8 rounded-xl border border-[var(--line)] bg-white p-5">
@@ -112,7 +106,7 @@ export default async function CashFlowPage(
 
       <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-500">By project</h2>
       <DataTable
-        columns={["Project", "Materials", "Labour payments", "Wages (attendance)", "Total"]}
+        columns={["Project", "Materials", "Wages", "Total"]}
         rows={rows}
         empty="No outflow recorded in this date range."
       />

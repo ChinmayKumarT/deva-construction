@@ -35,7 +35,6 @@ export default async function AdminOverview() {
     materialStock,
     { data: allProjects },
     { data: allMaterials },
-    { data: allPayments },
     { data: allAttendance },
     { data: allLabourers },
     projectsThisMonth,
@@ -56,7 +55,6 @@ export default async function AdminOverview() {
     supabase.from("materials").select("quantity, status").is("archived_at", null).eq("status", "delivered"),
     supabase.from("projects").select("id, name, total_cost").is("archived_at", null),
     supabase.from("materials").select("project_id, quantity, unit_cost, status").is("archived_at", null),
-    supabase.from("payments").select("project_id, amount, status, payee_type").is("archived_at", null),
     supabase.from("attendance").select("project_id, status, labourer_id"),
     supabase.from("labourers").select("id, daily_wage"),
     supabase.from("projects").select("*", { count: "exact", head: true }).is("archived_at", null).gte("created_at", thisMonth.start).lt("created_at", thisMonth.end),
@@ -83,10 +81,6 @@ export default async function AdminOverview() {
   for (const m of allMaterials ?? []) {
     if (!m.project_id || m.status === "returned") continue;
     spentByProject.set(m.project_id, (spentByProject.get(m.project_id) ?? 0) + lineTotal(m.quantity, m.unit_cost));
-  }
-  for (const pay of allPayments ?? []) {
-    if (!pay.project_id || (pay.status !== "paid" && pay.status !== "approved") || pay.payee_type !== "labour") continue;
-    spentByProject.set(pay.project_id, (spentByProject.get(pay.project_id) ?? 0) + Number(pay.amount));
   }
   for (const a of allAttendance ?? []) {
     if (!a.project_id) continue;
