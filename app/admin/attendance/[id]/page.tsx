@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { AdminPage, AdminPageHeader } from "@/components/admin/Page";
 import { AttendanceMarkForm } from "@/components/admin/AttendanceMarkForm";
+import { AttendanceDateNav } from "@/components/admin/AttendanceDateNav";
 
 export default async function ProjectAttendancePage(
   props: {
@@ -54,21 +55,7 @@ export default async function ProjectAttendancePage(
       </Link>
       <AdminPageHeader title={project.name} subtitle="Mark attendance for this site." />
 
-      <form method="get" className="mb-6 flex items-end gap-3">
-        <label className="block text-sm">
-          <span className="mb-1 block font-medium text-slate-700">Date</span>
-          <input
-            type="date"
-            name="date"
-            defaultValue={date}
-            className="rounded-lg border border-slate-300 bg-white px-3 py-2"
-          />
-        </label>
-        <button className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800">
-          Load
-        </button>
-        <Link href={`/admin/attendance/${params.id}`} className="text-sm text-slate-600 hover:underline">Today</Link>
-      </form>
+      <AttendanceDateNav projectId={params.id} date={date} />
 
       {(!labourers || labourers.length === 0) && (
         <p className="rounded-lg border border-dashed border-slate-300 bg-white p-6 text-sm text-slate-600">
