@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { requireRole } from "@/lib/guard";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+
+export const revalidate = 60;
 import { AdminPage, AdminPageHeader } from "@/components/admin/Page";
 import { wageForStatus } from "@/lib/wages";
 import { lineTotal } from "@/lib/money";
