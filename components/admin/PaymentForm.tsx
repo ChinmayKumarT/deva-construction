@@ -276,7 +276,14 @@ function PaymentFormFields({
                             onChange={() => toggleLabourer(l.id)}
                             className="accent-brand"
                           />
-                          <span className="flex-1 font-medium">{l.name}</span>
+                          <div className="flex-1">
+                            <span className="font-medium">{l.name}</span>
+                            {l.category && (
+                              <span className="ml-1.5 rounded bg-slate-100 px-1.5 py-0.5 text-[10px] text-slate-500">
+                                {l.category}
+                              </span>
+                            )}
+                          </div>
                           <span className="text-xs text-slate-500">₹{due.toLocaleString()}</span>
                         </label>
                       );
@@ -293,7 +300,10 @@ function PaymentFormFields({
                 name="labourer_amounts"
                 value={JSON.stringify(
                   Object.fromEntries(
-                    [...selectedLabourerIds].map((id) => [id, wageDue[wageDueKey(projectId, id)] ?? 0]),
+                    [...selectedLabourerIds].map((id) => {
+                      const l = labourers.find((x) => x.id === id);
+                      return [id, { amount: wageDue[wageDueKey(projectId, id)] ?? 0, category: l?.category ?? "" }];
+                    }),
                   ),
                 )}
               />
@@ -425,37 +435,39 @@ function PaymentFormFields({
         </>
       )}
 
-      <div>
-        <label className="block text-sm">
-          <span className="mb-1 block font-medium text-slate-700">Work category</span>
-          <select
-            name={workCategory === OTHER_CATEGORY ? undefined : "work_category"}
-            className={selectClass}
-            value={workCategory}
-            onChange={(e) => setWorkCategory(e.target.value)}
-            required
-          >
-            <option value="">— select category —</option>
-            {WORK_CATEGORIES.map((c) => (<option key={c} value={c}>{c}</option>))}
-            {customCategories.length > 0 && (
-              <optgroup label="Custom">
-                {customCategories.map((c) => (<option key={c} value={c}>{c}</option>))}
-              </optgroup>
-            )}
-            <option value={OTHER_CATEGORY}>Other…</option>
-          </select>
-        </label>
-        {workCategory === OTHER_CATEGORY && (
-          <input
-            name="work_category"
-            value={workCategoryOther}
-            onChange={(e) => setWorkCategoryOther(e.target.value)}
-            placeholder="Enter category"
-            required
-            className={`mt-2 ${inputClass}`}
-          />
-        )}
-      </div>
+      {!(multiSelect && payeeType === "labour") && (
+        <div>
+          <label className="block text-sm">
+            <span className="mb-1 block font-medium text-slate-700">Work category</span>
+            <select
+              name={workCategory === OTHER_CATEGORY ? undefined : "work_category"}
+              className={selectClass}
+              value={workCategory}
+              onChange={(e) => setWorkCategory(e.target.value)}
+              required
+            >
+              <option value="">— select category —</option>
+              {WORK_CATEGORIES.map((c) => (<option key={c} value={c}>{c}</option>))}
+              {customCategories.length > 0 && (
+                <optgroup label="Custom">
+                  {customCategories.map((c) => (<option key={c} value={c}>{c}</option>))}
+                </optgroup>
+              )}
+              <option value={OTHER_CATEGORY}>Other…</option>
+            </select>
+          </label>
+          {workCategory === OTHER_CATEGORY && (
+            <input
+              name="work_category"
+              value={workCategoryOther}
+              onChange={(e) => setWorkCategoryOther(e.target.value)}
+              placeholder="Enter category"
+              required
+              className={`mt-2 ${inputClass}`}
+            />
+          )}
+        </div>
+      )}
 
       {!(multiSelect && payeeType === "labour") && (
         <label className="block text-sm">

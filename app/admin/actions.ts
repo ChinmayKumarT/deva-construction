@@ -524,7 +524,7 @@ export async function createPayment(
       payee_type,
       amount: nonNegNum(fd, "amount", "Amount") ?? 0,
       description: str(fd, "description"),
-      work_category: requiredStr(fd, "work_category", "Work category"),
+      work_category: str(fd, "multi") === "1" ? (str(fd, "work_category") || null) : requiredStr(fd, "work_category", "Work category"),
       status: payee_type === "supplier" ? "paid" : "approved",
       approved_at: now,
       approved_by: user?.id ?? null,
@@ -542,12 +542,13 @@ export async function createPayment(
 
       if (isMulti && labourerIds.length > 0) {
         const amountsRaw = str(fd, "labourer_amounts");
-        const amounts: Record<string, number> = amountsRaw ? JSON.parse(amountsRaw) : {};
+        const parsed: Record<string, { amount: number; category: string }> = amountsRaw ? JSON.parse(amountsRaw) : {};
         const rows = labourerIds.map((lid) => ({
           ...row,
           labourer_id: lid,
           supplier_id: null,
-          amount: amounts[lid] ?? 0,
+          amount: parsed[lid]?.amount ?? 0,
+          work_category: parsed[lid]?.category || row.work_category || "Labour",
         }));
         const { error } = await supabase.from("payments").insert(rows);
         if (error) throw new Error(error.message);
