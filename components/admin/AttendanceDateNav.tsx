@@ -4,14 +4,18 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 
 function shiftDate(date: string, days: number) {
-  const d = new Date(date + "T00:00:00");
-  d.setDate(d.getDate() + days);
-  return d.toISOString().slice(0, 10);
+  const [y, m, d] = date.split("-").map(Number);
+  const dt = new Date(y, m - 1, d + days);
+  const yy = dt.getFullYear();
+  const mm = String(dt.getMonth() + 1).padStart(2, "0");
+  const dd = String(dt.getDate()).padStart(2, "0");
+  return `${yy}-${mm}-${dd}`;
 }
 
 export function AttendanceDateNav({ projectId, date }: { projectId: string; date: string }) {
   const router = useRouter();
-  const today = new Date().toISOString().slice(0, 10);
+  const now = new Date();
+  const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
   const isToday = date === today;
 
   function go(newDate: string) {
