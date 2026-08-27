@@ -57,6 +57,7 @@ function PaymentFormFields({
   submitLabel,
   cancelHref,
   fixedProject,
+  allowMulti = false,
 }: {
   action: (fd: FormData) => void;
   projects: { id: string; name: string }[];
@@ -70,6 +71,7 @@ function PaymentFormFields({
   submitLabel: string;
   cancelHref?: string;
   fixedProject?: { id: string; name: string };
+  allowMulti?: boolean;
 }) {
   const [customCategories, setCustomCategories] = useState<string[]>([]);
 
@@ -86,6 +88,8 @@ function PaymentFormFields({
   const [supplierId, setSupplierId] = useState(initial.supplierId);
   const [supplierOtherName, setSupplierOtherName] = useState("");
   const [labourerId, setLabourerId] = useState(initial.labourerId);
+  const [multiSelect, setMultiSelect] = useState(false);
+  const [selectedLabourerIds, setSelectedLabourerIds] = useState<Set<string>>(new Set());
   const [amount, setAmount] = useState(initial.amount);
   const [description, setDescription] = useState(initial.description);
   const [purchaseOtherText, setPurchaseOtherText] = useState("");
@@ -115,7 +119,26 @@ function PaymentFormFields({
     setProjectId(id);
     setPurchaseId("none");
     setLabourerId("none");
+    setSelectedLabourerIds(new Set());
   }
+
+  function toggleLabourer(id: string) {
+    setSelectedLabourerIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  const multiTotal = useMemo(() => {
+    if (!multiSelect || projectId === "none") return 0;
+    let sum = 0;
+    for (const id of selectedLabourerIds) {
+      sum += wageDue[wageDueKey(projectId, id)] ?? 0;
+    }
+    return sum;
+  }, [multiSelect, selectedLabourerIds, projectId, wageDue]);
 
   function handleLabourerChange(id: string) {
     setLabourerId(id);
@@ -183,43 +206,139 @@ function PaymentFormFields({
 
       {payeeType === "labour" ? (
         <>
-          <label className="block text-sm">
-            <span className="mb-1 block font-medium text-slate-700">Labourer</span>
-            <select
-              name="labourer_id"
-              className={selectClass}
-              value={labourerId}
-              onChange={(e) => handleLabourerChange(e.target.value)}
-              disabled={projectId === "none"}
-            >
-              <option value="none">
-                {projectId === "none" ? "— choose a project first —" : "— none —"}
-              </option>
-              {assignedLabourers.map((l) => (<option key={l.id} value={l.id}>{l.name}</option>))}
-            </select>
-            <span className="mt-1 block text-xs text-slate-500">
-              Only labourers currently assigned to this project. Selecting one fills in the
-              wages owed based on their attendance.
-            </span>
-          </label>
-          {(() => {
-            const selected = labourers.find((l) => l.id === labourerId);
-            if (!selected?.familyId) return null;
-            const family = labourers.filter((l) => l.familyId === selected.familyId && l.id !== labourerId);
-            if (family.length === 0) return null;
-            return (
+          {allowMulti && (
+            <div className="flex items-center gap-2 sm:col-span-2 lg:col-span-3">
+              <button
+                type="button"
+                onClick={() => {
+                  setMultiSelect((v) => !v);
+                  setLabourerId("none");
+                  setSelectedLabourerIds(new Set());
+                  setAmount("");
+                }}
+                className={`rounded-md border px-3 py-1.5 text-xs font-medium transition ${
+                  multiSelect
+                    ? "border-brand bg-brand text-white"
+                    : "border-slate-300 bg-white text-slate-700 hover:bg-slate-50"
+                }`}
+              >
+                {multiSelect ? "Multiple labourers" : "Single labourer"}
+              </button>
+              <span className="text-xs text-slate-500">
+                {multiSelect ? "Creating one payment per labourer" : "Click to pay multiple labourers at once"}
+              </span>
+            </div>
+          )}
+
+          {multiSelect ? (
+            <div className="sm:col-span-2 lg:col-span-3">
+              <span className="mb-2 block text-sm font-medium text-slate-700">Select labourers</span>
+              {projectId === "none" ? (
+                <p className="text-sm text-slate-500">Choose a project first.</p>
+              ) : assignedLabourers.length === 0 ? (
+                <p className="text-sm text-slate-500">No labourers assigned to this project.</p>
+              ) : (
+                <>
+                  <div className="mb-2 flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setSelectedLabourerIds(new Set(assignedLabourers.map((l) => l.id)))}
+                      className="rounded border border-slate-300 px-2 py-1 text-xs text-slate-700 hover:bg-slate-50"
+                    >
+                      Select all
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setSelectedLabourerIds(new Set())}
+                      className="rounded border border-slate-300 px-2 py-1 text-xs text-slate-700 hover:bg-slate-50"
+                    >
+                      Clear
+                    </button>
+                  </div>
+                  <div className="grid gap-1 sm:grid-cols-2">
+                    {assignedLabourers.map((l) => {
+                      const due = wageDue[wageDueKey(projectId, l.id)] ?? 0;
+                      const checked = selectedLabourerIds.has(l.id);
+                      return (
+                        <label
+                          key={l.id}
+                          className={`flex cursor-pointer items-center gap-2 rounded-lg border px-3 py-2 text-sm transition ${
+                            checked
+                              ? "border-brand bg-brand/5"
+                              : "border-slate-200 hover:border-slate-300"
+                          }`}
+                        >
+                          <input
+                            type="checkbox"
+                            name="labourer_id"
+                            value={l.id}
+                            checked={checked}
+                            onChange={() => toggleLabourer(l.id)}
+                            className="accent-brand"
+                          />
+                          <span className="flex-1 font-medium">{l.name}</span>
+                          <span className="text-xs text-slate-500">₹{due.toLocaleString()}</span>
+                        </label>
+                      );
+                    })}
+                  </div>
+                  <p className="mt-2 text-sm font-medium text-slate-700">
+                    Total: ₹{multiTotal.toLocaleString()} ({selectedLabourerIds.size} labourers)
+                  </p>
+                </>
+              )}
+              <input type="hidden" name="multi" value="1" />
+              <input
+                type="hidden"
+                name="labourer_amounts"
+                value={JSON.stringify(
+                  Object.fromEntries(
+                    [...selectedLabourerIds].map((id) => [id, wageDue[wageDueKey(projectId, id)] ?? 0]),
+                  ),
+                )}
+              />
+            </div>
+          ) : (
+            <>
               <label className="block text-sm">
-                <span className="mb-1 block font-medium text-slate-700">Collected by</span>
-                <select name="collected_by" className={selectClass} defaultValue="">
-                  <option value="">— self —</option>
-                  {family.map((f) => (<option key={f.id} value={f.id}>{f.name} (family)</option>))}
+                <span className="mb-1 block font-medium text-slate-700">Labourer</span>
+                <select
+                  name="labourer_id"
+                  className={selectClass}
+                  value={labourerId}
+                  onChange={(e) => handleLabourerChange(e.target.value)}
+                  disabled={projectId === "none"}
+                >
+                  <option value="none">
+                    {projectId === "none" ? "— choose a project first —" : "— none —"}
+                  </option>
+                  {assignedLabourers.map((l) => (<option key={l.id} value={l.id}>{l.name}</option>))}
                 </select>
                 <span className="mt-1 block text-xs text-slate-500">
-                  If a family member collects the payment on their behalf.
+                  Only labourers currently assigned to this project. Selecting one fills in the
+                  wages owed based on their attendance.
                 </span>
               </label>
-            );
-          })()}
+              {(() => {
+                const selected = labourers.find((l) => l.id === labourerId);
+                if (!selected?.familyId) return null;
+                const family = labourers.filter((l) => l.familyId === selected.familyId && l.id !== labourerId);
+                if (family.length === 0) return null;
+                return (
+                  <label className="block text-sm">
+                    <span className="mb-1 block font-medium text-slate-700">Collected by</span>
+                    <select name="collected_by" className={selectClass} defaultValue="">
+                      <option value="">— self —</option>
+                      {family.map((f) => (<option key={f.id} value={f.id}>{f.name} (family)</option>))}
+                    </select>
+                    <span className="mt-1 block text-xs text-slate-500">
+                      If a family member collects the payment on their behalf.
+                    </span>
+                  </label>
+                );
+              })()}
+            </>
+          )}
         </>
       ) : (
         <div>
@@ -338,19 +457,21 @@ function PaymentFormFields({
         )}
       </div>
 
-      <label className="block text-sm">
-        <span className="mb-1 block font-medium text-slate-700">Amount (₹)</span>
-        <input
-          name="amount"
-          type="number"
-          step="0.01"
-          min="0"
-          required
-          className={inputClass}
-          value={amount}
-          onChange={(e) => setAmount(e.target.value)}
-        />
-      </label>
+      {!(multiSelect && payeeType === "labour") && (
+        <label className="block text-sm">
+          <span className="mb-1 block font-medium text-slate-700">Amount (₹)</span>
+          <input
+            name="amount"
+            type="number"
+            step="0.01"
+            min="0"
+            required={!multiSelect}
+            className={inputClass}
+            value={amount}
+            onChange={(e) => setAmount(e.target.value)}
+          />
+        </label>
+      )}
 
       <div className="flex items-center gap-3 sm:col-span-2 lg:col-span-3">
         <SubmitButton>{submitLabel}</SubmitButton>
@@ -420,8 +541,9 @@ export function CreatePaymentForm({
           workCategory: "",
         }}
         submitLabel="Create payment"
+        allowMulti
       />
-      <ConfirmPopup open={showConfirm} message="Payment created." onClose={() => setShowConfirm(false)} />
+      <ConfirmPopup open={showConfirm} message="Payment(s) created." onClose={() => setShowConfirm(false)} />
     </>
   );
 }

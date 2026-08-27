@@ -537,7 +537,26 @@ export async function createPayment(
       row.supplier_id = resolvedSupplierId;
       row.labourer_id = null;
     } else {
-      const labourerId = uuidOrNull(fd, "labourer_id");
+      const isMulti = str(fd, "multi") === "1";
+      const labourerIds = fd.getAll("labourer_id").map((v) => String(v).trim()).filter(Boolean);
+
+      if (isMulti && labourerIds.length > 0) {
+        const amountsRaw = str(fd, "labourer_amounts");
+        const amounts: Record<string, number> = amountsRaw ? JSON.parse(amountsRaw) : {};
+        const rows = labourerIds.map((lid) => ({
+          ...row,
+          labourer_id: lid,
+          supplier_id: null,
+          amount: amounts[lid] ?? 0,
+        }));
+        const { error } = await supabase.from("payments").insert(rows);
+        if (error) throw new Error(error.message);
+        revalidatePath("/admin/payments");
+        revalidatePath("/admin");
+        return { error: null, success: true };
+      }
+
+      const labourerId = labourerIds[0] || null;
       if (!labourerId) {
         return { error: "Pick a labourer for these wages.", success: false };
       }
