@@ -9,8 +9,7 @@ import { byCategoryTotals } from "@/lib/paymentsChart";
 import { computeWagesDueFromAccrued } from "@/lib/wages";
 import { formatDateTime } from "@/lib/dateFormat";
 import {
-  approvePayment, createPayment, markPaymentPaid, rejectPayment,
-  archivePayment, unarchivePayment, deletePayment,
+  createPayment, unarchivePayment, deletePayment,
   createClientPayment, archiveClientPayment, unarchiveClientPayment, deleteClientPayment,
 } from "../../actions";
 
@@ -198,22 +197,17 @@ export default async function ProjectPaymentsPage(
                         </>
                       ) : (
                         <>
-                          {p.status === "pending" && (
-                            <>
-                              <ActionButton id={p.id} action={approvePayment} label="Approve" />
-                              <ActionButton id={p.id} action={rejectPayment} label="Reject" variant="ghost" />
-                            </>
-                          )}
-                          {p.status === "approved" && (
-                            <ActionButton id={p.id} action={markPaymentPaid} label="Mark paid" />
-                          )}
                           <Link
                             href={`/admin/payments/${p.id}/edit`}
                             className="rounded-md border border-slate-300 bg-white px-2 py-1 text-xs text-slate-700 hover:bg-slate-100"
                           >
                             Edit
                           </Link>
-                          <ActionButton id={p.id} action={archivePayment} label="Archive" variant="ghost" />
+                          <DeleteForeverButton
+                            id={p.id}
+                            name={`this ${p.payee_type} payment`}
+                            action={deletePayment}
+                          />
                         </>
                       )}
                     </div>
