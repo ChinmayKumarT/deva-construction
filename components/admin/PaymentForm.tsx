@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { useFormState } from "react-dom";
 import { SubmitButton } from "@/components/admin/Page";
@@ -516,19 +517,17 @@ export function CreatePaymentForm({
   defaultProjectId?: string;
   fixedProject?: { id: string; name: string };
 }) {
+  const router = useRouter();
   const [state, formAction] = useFormState(action, initialCreatePaymentState);
   const [showConfirm, setShowConfirm] = useState(false);
   const [formKey, setFormKey] = useState(0);
   useEffect(() => {
     if (state.success) {
       setShowConfirm(true);
-      // Remount PaymentFormFields so its controlled inputs (amount,
-      // description, supplier, ...) clear -- otherwise the same values sit
-      // in the form after a successful submit, ready to be re-submitted as
-      // an accidental duplicate payment by clicking "Create payment" again.
       setFormKey((k) => k + 1);
+      router.refresh();
     }
-  }, [state]);
+  }, [state, router]);
 
   return (
     <>

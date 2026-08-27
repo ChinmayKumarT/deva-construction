@@ -552,6 +552,8 @@ export async function createPayment(
         }));
         const { error } = await supabase.from("payments").insert(rows);
         if (error) throw new Error(error.message);
+        const pid = row.project_id as string | null;
+        if (pid) revalidatePath(`/admin/payments/${pid}`);
         revalidatePath("/admin/payments");
         revalidatePath("/admin");
         return { error: null, success: true };
