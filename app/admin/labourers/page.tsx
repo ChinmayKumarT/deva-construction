@@ -3,7 +3,7 @@ import { AdminPage, AdminPageHeader, DataTable, Field, SubmitButton } from "@/co
 import { ArchivedToggle, DeleteForeverButton, ManageCard, ManageSection, RestoreAction, RowActions } from "@/components/admin/RowActions";
 import { AssignLabourerForm } from "@/components/admin/AssignLabourerForm";
 import { CategoryField } from "@/components/admin/CategoryField";
-import { LinkFamilyForm, FamilyBadge, buildFamilyColorMap } from "@/components/admin/FamilyLink";
+import { LinkFamilyForm, FamilyBadge } from "@/components/admin/FamilyLink";
 import { assignLabourer, createLabourer, archiveLabourer, unarchiveLabourer, deleteLabourer, linkFamily, unlinkFamily } from "../actions";
 
 export default async function LabourersPage(
@@ -43,7 +43,8 @@ export default async function LabourersPage(
   const familyMembers = new Map<string, string[]>();
   const familyColorIdx = new Map<string, number>();
   if (labourers) {
-    const colorMap = buildFamilyColorMap(labourers.map((l) => ({ familyId: l.family_id })));
+    const familyIds = Array.from(new Set(labourers.map((l) => l.family_id).filter(Boolean) as string[]));
+    const colorMap = new Map(familyIds.map((fid, i) => [fid, i]));
     const byFamily = new Map<string, { id: string; name: string }[]>();
     for (const l of labourers) {
       if (l.family_id) {
