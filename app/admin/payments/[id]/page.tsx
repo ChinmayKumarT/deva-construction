@@ -39,7 +39,7 @@ export default async function ProjectPaymentsPage(
 
   let base = supabase
     .from("payments")
-    .select("id, amount, status, payee_type, description, work_category, created_at, archived_at, collected_by, suppliers(name), labourers(name)")
+    .select("id, amount, status, payee_type, description, work_category, created_at, archived_at, collected_by, suppliers(name), labourers!payments_labourer_id_fkey(name)")
     .order("created_at", { ascending: false });
   base = isUnassigned ? base.is("project_id", null) : base.eq("project_id", params.id);
 
