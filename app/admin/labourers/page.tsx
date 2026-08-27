@@ -3,7 +3,7 @@ import { AdminPage, AdminPageHeader, DataTable, Field, SubmitButton } from "@/co
 import { ArchivedToggle, DeleteForeverButton, ManageCard, ManageSection, RestoreAction, RowActions } from "@/components/admin/RowActions";
 import { AssignLabourerForm } from "@/components/admin/AssignLabourerForm";
 import { CategoryField } from "@/components/admin/CategoryField";
-import { LinkFamilyForm, FamilyBadge } from "@/components/admin/FamilyLink";
+import { LinkFamilyForm, FamilyBadge, buildFamilyColorMap } from "@/components/admin/FamilyLink";
 import { assignLabourer, createLabourer, archiveLabourer, unarchiveLabourer, deleteLabourer, linkFamily, unlinkFamily } from "../actions";
 
 export default async function LabourersPage(
@@ -40,15 +40,17 @@ export default async function LabourersPage(
     ]),
   );
 
-  // Build family lookup: family_id → list of member names (excluding self)
   const familyMembers = new Map<string, string[]>();
+  const familyColorIdx = new Map<string, number>();
   if (labourers) {
+    const colorMap = buildFamilyColorMap(labourers.map((l) => ({ familyId: l.family_id })));
     const byFamily = new Map<string, { id: string; name: string }[]>();
     for (const l of labourers) {
       if (l.family_id) {
         const arr = byFamily.get(l.family_id) ?? [];
         arr.push({ id: l.id, name: l.name });
         byFamily.set(l.family_id, arr);
+        familyColorIdx.set(l.id, colorMap.get(l.family_id) ?? 0);
       }
     }
     for (const members of byFamily.values()) {
@@ -117,7 +119,7 @@ export default async function LabourersPage(
               <ManageCard key={l.id} title={l.name}>
                 {fam && fam.length > 0 && (
                   <div className="mb-2">
-                    <FamilyBadge members={fam} />
+                    <FamilyBadge members={fam} colorIndex={familyColorIdx.get(l.id)} />
                     <form action={unlinkFamily} className="inline ml-2">
                       <input type="hidden" name="labourer_id" value={l.id} />
                       <button type="submit" className="text-[10px] text-slate-400 hover:text-red-500" title="Remove from family">×</button>
