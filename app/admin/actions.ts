@@ -425,7 +425,7 @@ export async function markAttendance(
   const date = str(fd, "date") ?? new Date().toISOString().slice(0, 10);
   const labourer_id = str(fd, "labourer_id");
   const project_id = uuidOrNull(fd, "project_id");
-  const status = (str(fd, "status") ?? "present") as "present" | "absent" | "half_day";
+  const status = (str(fd, "status") ?? "present") as "present" | "absent" | "half_day" | "overtime";
   if (!labourer_id) return { error: "labourer_id required" };
   if (!project_id) return { error: "project_id required" };
 
@@ -433,7 +433,7 @@ export async function markAttendance(
   // 25_multi_site_attendance.sql), to record a day split across sites.
   // Guard against accidentally paying for more than one full day: sum this
   // status against whatever's already recorded for this labourer on this
-  // date at OTHER projects.
+  // date at OTHER projects. Overtime (1.5x) is allowed at a single site.
   const { data: otherRows } = await supabase
     .from("attendance")
     .select("status, projects(name)")
@@ -442,7 +442,7 @@ export async function markAttendance(
     .neq("project_id", project_id);
   const otherTotal = (otherRows ?? []).reduce((sum, r) => sum + (WAGE_FACTOR[r.status] ?? 0), 0);
   const newTotal = otherTotal + (WAGE_FACTOR[status] ?? 0);
-  if (newTotal > 1) {
+  if (newTotal > 1.5) {
     const otherNames = (otherRows ?? [])
       // @ts-expect-error relation
       .map((r) => r.projects?.name)

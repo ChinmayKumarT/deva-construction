@@ -43,8 +43,8 @@ export function AttendanceMarkForm({
       <input type="hidden" name="project_id" value={projectId} />
       <input type="hidden" name="date" value={date} />
       <div className="flex gap-1">
-        {(["present", "half_day", "absent"] as const).map((s) => (
-          <StatusButton key={s} status={s} label={s.replace("_", " ")} active={currentStatus === s} />
+        {(["present", "half_day", "overtime", "absent"] as const).map((s) => (
+          <StatusButton key={s} status={s} label={s === "overtime" ? "OT 1.5×" : s.replace("_", " ")} active={currentStatus === s} />
         ))}
       </div>
       {state.error && <p className="mt-1 max-w-xs text-xs text-red-600">{state.error}</p>}

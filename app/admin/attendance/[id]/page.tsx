@@ -96,6 +96,8 @@ export default async function ProjectAttendancePage(
                       className={
                         status === "present"
                           ? "text-emerald-700"
+                          : status === "overtime"
+                          ? "text-blue-700 font-medium"
                           : status === "half_day"
                           ? "text-amber-700"
                           : status === "absent"
@@ -103,7 +105,7 @@ export default async function ProjectAttendancePage(
                           : "text-slate-400"
                       }
                     >
-                      {status ?? "not marked"}
+                      {status === "overtime" ? "overtime 1.5×" : (status ?? "not marked")}
                     </span>
                   </td>
                   <td className="px-4 py-2">
