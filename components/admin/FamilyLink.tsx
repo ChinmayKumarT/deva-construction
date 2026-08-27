@@ -74,19 +74,9 @@ export function LinkFamilyForm({
               <div key={fid} className={`flex flex-wrap items-center gap-2 rounded-lg p-2.5 ${c.bg} ring-1 ring-inset ${c.ring}`}>
                 <span className={`inline-block h-2.5 w-2.5 rounded-full ${c.dot} shrink-0`} />
                 {members.map((l) => (
-                  <button
-                    key={l.id}
-                    type="button"
-                    onClick={() => toggle(l.id)}
-                    className={
-                      "rounded-md border px-2.5 py-1 text-sm transition-colors " +
-                      (selected.has(l.id)
-                        ? `${c.selBorder} ${c.selBg} ${c.text} font-medium`
-                        : `border-transparent ${c.text}`)
-                    }
-                  >
+                  <span key={l.id} className={`px-2.5 py-1 text-sm ${c.text}`}>
                     {l.name}
-                  </button>
+                  </span>
                 ))}
               </div>
             );

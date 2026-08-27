@@ -923,14 +923,7 @@ export async function linkFamily(fd: FormData) {
   const ids = fd.getAll("labourer_id").map(String).filter(Boolean);
   if (ids.length < 2) throw new Error("Select at least two labourers to link as family.");
   const supabase = await createSupabaseServerClient();
-  // Check if any of them already have a family_id — reuse it
-  const { data: existing } = await supabase
-    .from("labourers")
-    .select("family_id")
-    .in("id", ids)
-    .not("family_id", "is", null)
-    .limit(1);
-  const familyId = existing?.[0]?.family_id ?? crypto.randomUUID();
+  const familyId = crypto.randomUUID();
   const { error } = await supabase
     .from("labourers")
     .update({ family_id: familyId })
