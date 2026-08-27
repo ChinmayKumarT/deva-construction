@@ -34,15 +34,23 @@ export function LinkFamilyForm({
 
   const colorMap = buildFamilyColorMap(labourers);
 
-  const families = new Map<string, Labourer[]>();
+  const familyGroups = new Map<string, Labourer[]>();
   const unlinked: Labourer[] = [];
   for (const l of labourers) {
     if (l.familyId) {
-      const arr = families.get(l.familyId) ?? [];
+      const arr = familyGroups.get(l.familyId) ?? [];
       arr.push(l);
-      families.set(l.familyId, arr);
+      familyGroups.set(l.familyId, arr);
     } else {
       unlinked.push(l);
+    }
+  }
+  const families = new Map<string, Labourer[]>();
+  for (const [fid, members] of familyGroups) {
+    if (members.length >= 2) {
+      families.set(fid, members);
+    } else {
+      unlinked.push(...members);
     }
   }
 

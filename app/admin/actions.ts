@@ -935,11 +935,22 @@ export async function linkFamily(fd: FormData) {
 export async function unlinkFamily(fd: FormData) {
   const id = str(fd, "labourer_id");
   const supabase = await createSupabaseServerClient();
+  const { data: self } = await supabase.from("labourers").select("family_id").eq("id", id).single();
   const { error } = await supabase
     .from("labourers")
     .update({ family_id: null })
     .eq("id", id);
   if (error) throw new Error(error.message);
+  if (self?.family_id) {
+    const { data: remaining } = await supabase
+      .from("labourers")
+      .select("id")
+      .eq("family_id", self.family_id)
+      .is("archived_at", null);
+    if (remaining && remaining.length === 1) {
+      await supabase.from("labourers").update({ family_id: null }).eq("id", remaining[0].id);
+    }
+  }
   revalidatePath("/admin/labourers");
 }
 
