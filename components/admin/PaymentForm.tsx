@@ -61,7 +61,7 @@ function PaymentFormFields({
   action: (fd: FormData) => void;
   projects: { id: string; name: string }[];
   suppliers: { id: string; name: string }[];
-  labourers: { id: string; name: string; familyId?: string | null }[];
+  labourers: { id: string; name: string; familyId?: string | null; category?: string | null }[];
   materials: Material[];
   assignments: Assignment[];
   wageDue: Record<string, number>;
@@ -121,6 +121,12 @@ function PaymentFormFields({
     setLabourerId(id);
     if (id === "none" || projectId === "none") return;
     setAmount(String(wageDue[wageDueKey(projectId, id)] ?? 0));
+    const l = labourers.find((x) => x.id === id);
+    if (l?.category) {
+      const catKnown = allKnownCategories.includes(l.category);
+      setWorkCategory(catKnown ? l.category : OTHER_CATEGORY);
+      setWorkCategoryOther(catKnown ? "" : l.category);
+    }
   }
 
   function handlePurchaseChange(id: string) {
@@ -370,7 +376,7 @@ export function CreatePaymentForm({
   action: (prevState: CreatePaymentState, fd: FormData) => Promise<CreatePaymentState>;
   projects: { id: string; name: string }[];
   suppliers: { id: string; name: string }[];
-  labourers: { id: string; name: string; familyId?: string | null }[];
+  labourers: { id: string; name: string; familyId?: string | null; category?: string | null }[];
   materials: Material[];
   assignments: Assignment[];
   wageDue: Record<string, number>;
@@ -435,7 +441,7 @@ export function EditPaymentForm({
   action: (fd: FormData) => Promise<void>;
   projects: { id: string; name: string }[];
   suppliers: { id: string; name: string }[];
-  labourers: { id: string; name: string; familyId?: string | null }[];
+  labourers: { id: string; name: string; familyId?: string | null; category?: string | null }[];
   materials: Material[];
   assignments: Assignment[];
   wageDue: Record<string, number>;

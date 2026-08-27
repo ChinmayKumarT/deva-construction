@@ -20,7 +20,7 @@ export default async function EditPaymentPage(props: { params: Promise<{ id: str
         .single(),
       supabase.from("projects").select("id, name").is("archived_at", null).order("name"),
       supabase.from("suppliers").select("id, name").is("archived_at", null).order("name"),
-      supabase.from("labourers").select("id, name, daily_wage, family_id").is("archived_at", null).order("name"),
+      supabase.from("labourers").select("id, name, daily_wage, family_id, category").is("archived_at", null).order("name"),
       supabase
         .from("materials")
         .select("id, name, unit, quantity, unit_cost, work_category, supplier_id, project_id")
@@ -58,7 +58,7 @@ export default async function EditPaymentPage(props: { params: Promise<{ id: str
         action={updatePayment}
         projects={projects ?? []}
         suppliers={suppliers ?? []}
-        labourers={(labourers ?? []).map((l) => ({ id: l.id, name: l.name, familyId: l.family_id }))}
+        labourers={(labourers ?? []).map((l) => ({ id: l.id, name: l.name, familyId: l.family_id, category: l.category }))}
         materials={materials ?? []}
         assignments={assignments ?? []}
         wageDue={wageDue}
