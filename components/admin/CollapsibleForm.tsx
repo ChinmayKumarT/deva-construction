@@ -66,7 +66,7 @@ export function CollapsibleForm({
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="mb-6 flex items-center gap-2 rounded-xl border border-dashed border-blue-300 bg-blue-50/50 px-5 py-3 text-sm font-medium text-blue-700 transition hover:bg-blue-50 hover:border-blue-400"
+        className="mb-6 flex items-center gap-2 rounded-xl border border-dashed border-blue-300 bg-white px-5 py-3 text-sm font-medium text-blue-700 shadow-sm transition hover:bg-blue-50 hover:border-blue-400"
       >
         {icons[icon]}
         {label}

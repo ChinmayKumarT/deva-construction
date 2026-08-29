@@ -35,7 +35,7 @@ export { SubmitButton } from "./SubmitButton";
 
 export function CostBox({ label, value, accent, warn, danger }: { label: string; value: number; accent?: boolean; warn?: boolean; danger?: boolean }) {
   const color = danger ? "text-red-600" : warn ? "text-amber-600" : accent ? "text-brand-700" : "text-slate-800";
-  const bg = danger ? "bg-red-50" : warn ? "bg-amber-50" : accent ? "bg-brand/5" : "bg-white";
+  const bg = danger ? "bg-red-50" : warn ? "bg-amber-50" : accent ? "bg-white" : "bg-white";
   const border = danger ? "border-red-200" : warn ? "border-amber-200" : accent ? "border-brand/20" : "border-slate-200";
   return (
     <div className={`rounded-xl border ${border} ${bg} p-4 shadow-sm transition hover:shadow-md`}>
