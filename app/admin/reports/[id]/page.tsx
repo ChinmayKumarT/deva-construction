@@ -177,14 +177,13 @@ export default async function SiteReportPage(
   return (
     <AdminPage>
       <Link href="/admin/reports" className="text-sm text-slate-600 hover:underline">← Reports</Link>
-      <div className="flex items-start justify-between gap-4">
         <AdminPageHeader title={project.name} subtitle={`Status: ${project.status}`} />
-        <div className="flex gap-2">
-          <DownloadSiteCsvButton site={pdfSite} />
-          <DownloadSitePdfButton site={pdfSite} />
-        </div>
-      </div>
       <AdminContent>
+
+      <div className="mb-6 flex justify-end gap-2">
+        <DownloadSiteCsvButton site={pdfSite} />
+        <DownloadSitePdfButton site={pdfSite} />
+      </div>
 
       <div className="grid gap-6 sm:grid-cols-2">
         <div className="rounded-xl border border-[var(--line)] bg-white p-5">

@@ -83,14 +83,13 @@ export default async function ReportsPage() {
 
   return (
     <AdminPage>
-      <div className="mb-2 flex items-start justify-between gap-4">
         <AdminPageHeader title="Reports" subtitle="Pick a site to see its own report and transactions." />
-        <div className="flex gap-2">
-          <DownloadSummaryCsvButton data={pdfData} />
-          <DownloadSummaryPdfButton data={pdfData} />
-        </div>
-      </div>
       <AdminContent>
+
+      <div className="mb-6 flex justify-end gap-2">
+        <DownloadSummaryCsvButton data={pdfData} />
+        <DownloadSummaryPdfButton data={pdfData} />
+      </div>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {(projects ?? []).length === 0 && (
