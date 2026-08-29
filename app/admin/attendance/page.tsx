@@ -83,7 +83,10 @@ export default async function AttendanceIndexPage(
         ))}
       </div>
 
-      <AdminPageHeader title="Attendance summary" subtitle="Per-labourer counts and wages over a date range." />
+      <div className="mt-10 mb-4">
+        <h2 className="text-lg font-semibold text-slate-800">Attendance summary</h2>
+        <p className="text-sm text-slate-500">Per-labourer counts and wages over a date range.</p>
+      </div>
 
       <form method="get" className="mb-6 flex flex-wrap items-end gap-4 rounded-xl border border-slate-200 bg-white p-6">
         <Field label="From" name="from" type="date" defaultValue={from} />
