@@ -1,8 +1,8 @@
 import Image from "next/image";
 
 export const metadata = {
-  title: "Download — Deva Construction",
-  description: "Download the Deva Construction Android app.",
+  title: "Install App — Deva Construction",
+  description: "Install the Deva Construction app on your phone or desktop.",
 };
 
 export default function DownloadPage() {
@@ -17,40 +17,39 @@ export default function DownloadPage() {
           Deva Construction
         </h1>
         <p className="mt-2 text-sm text-slate-600">
-          Download the Android app to manage projects, materials, labour, and payments on the go.
+          Install the app on your phone or desktop — no app store needed, always up to date.
         </p>
 
-        <a
-          href="/downloads/deva-construction.apk"
-          download
-          className="mt-8 inline-block w-full rounded-lg bg-brand px-6 py-3 font-medium text-white hover:bg-brand-700 active:bg-brand-800 transition"
-        >
-          Download for Android
-        </a>
-
         <div className="mt-8 rounded-2xl border border-[var(--line)] bg-white p-6 text-left">
-          <h2 className="text-sm font-semibold text-ink">How to install</h2>
+          <h2 className="text-sm font-semibold text-ink">Android (Chrome)</h2>
           <ol className="mt-3 space-y-2 text-sm text-slate-600 list-decimal list-inside">
-            <li>Tap the download button above and let the file finish downloading.</li>
-            <li>
-              Open it. Android will likely show a warning like{" "}
-              <span className="italic">
-                &ldquo;For your security, your phone isn&apos;t allowed to install unknown
-                apps from this source.&rdquo;
-              </span>{" "}
-              Tap <span className="font-medium">Settings</span>, then turn on{" "}
-              <span className="font-medium">Allow from this source</span>.
-            </li>
-            <li>Go back and tap <span className="font-medium">Install</span>.</li>
+            <li>Open <span className="font-medium text-brand-700">deva-demo.vercel.app</span> in Chrome.</li>
+            <li>Tap the <span className="font-medium">Install app</span> banner at the top, or tap the <span className="font-medium">three-dot menu → Install app</span>.</li>
+            <li>Tap <span className="font-medium">Install</span> — the app icon appears on your home screen.</li>
           </ol>
-          <p className="mt-4 text-xs text-slate-500">
-            iPhone can&apos;t install this file — visit this site in Safari instead and use{" "}
-            <span className="italic">Share → Add to Home Screen</span> for an app-like experience.
-          </p>
+        </div>
+
+        <div className="mt-4 rounded-2xl border border-[var(--line)] bg-white p-6 text-left">
+          <h2 className="text-sm font-semibold text-ink">iPhone (Safari)</h2>
+          <ol className="mt-3 space-y-2 text-sm text-slate-600 list-decimal list-inside">
+            <li>Open <span className="font-medium text-brand-700">deva-demo.vercel.app</span> in Safari.</li>
+            <li>Tap the <span className="font-medium">Share</span> button (square with arrow).</li>
+            <li>Scroll down and tap <span className="font-medium">Add to Home Screen</span>.</li>
+            <li>Tap <span className="font-medium">Add</span> — the app icon appears on your home screen.</li>
+          </ol>
+        </div>
+
+        <div className="mt-4 rounded-2xl border border-[var(--line)] bg-white p-6 text-left">
+          <h2 className="text-sm font-semibold text-ink">Desktop (Chrome / Edge)</h2>
+          <ol className="mt-3 space-y-2 text-sm text-slate-600 list-decimal list-inside">
+            <li>Open <span className="font-medium text-brand-700">deva-demo.vercel.app</span> in Chrome or Edge.</li>
+            <li>Click the <span className="font-medium">install icon</span> in the address bar (or three-dot menu → Install).</li>
+            <li>Click <span className="font-medium">Install</span> — the app opens in its own window.</li>
+          </ol>
         </div>
 
         <p className="mt-6 text-xs text-slate-400">
-          Signed release build, not yet on the Play Store — you install it via the sideload flow above.
+          The app runs directly from the web — it&apos;s always the latest version, no updates needed.
         </p>
       </div>
     </main>
