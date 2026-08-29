@@ -2,7 +2,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createSupabaseServerClient, getSessionAndRole } from "@/lib/supabase/server";
-import { AdminPage, AdminPageHeader } from "@/components/admin/Page";
+import { AdminPage, AdminPageHeader, AdminContent } from "@/components/admin/Page";
 import { DeleteForeverButton } from "@/components/admin/RowActions";
 import { archiveMaterial, deleteMaterial, markMaterialDelivered, unarchiveMaterial } from "../../../actions";
 import { lineTotal } from "@/lib/money";
@@ -50,6 +50,7 @@ export default async function ManageMaterialPage(
         ← {backLabel}
       </Link>
       <AdminPageHeader title={material.name} />
+      <AdminContent>
 
       <div className="mb-6 flex flex-wrap gap-2">
         <InfoBox
@@ -134,6 +135,7 @@ export default async function ManageMaterialPage(
           </div>
         )}
       </div>
+      </AdminContent>
     </AdminPage>
   );
 }

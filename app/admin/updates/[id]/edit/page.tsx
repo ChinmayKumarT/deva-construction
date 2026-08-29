@@ -2,7 +2,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { notFound } from "next/navigation";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { AdminPage, AdminPageHeader, Field, SubmitButton } from "@/components/admin/Page";
+import { AdminPage, AdminPageHeader, AdminContent, Field, SubmitButton } from "@/components/admin/Page";
 import { updateProjectUpdate } from "../../../actions";
 
 export default async function EditUpdatePage(props: { params: Promise<{ id: string }> }) {
@@ -23,6 +23,7 @@ export default async function EditUpdatePage(props: { params: Promise<{ id: stri
         title={`Edit update — ${update.projects?.name ?? "—"}`}
         subtitle={`Posted ${new Date(update.created_at).toLocaleString()}`}
       />
+      <AdminContent>
       <form action={updateProjectUpdate} className="grid gap-4 rounded-xl border border-slate-200 bg-white p-6">
         <input type="hidden" name="id" value={update.id} />
         <Field label="Stage" name="stage" defaultValue={update.stage ?? ""} />
@@ -56,6 +57,7 @@ export default async function EditUpdatePage(props: { params: Promise<{ id: stri
         Editing the stage here does not change the project&apos;s current stage or completion —
         post a new update for that.
       </p>
+      </AdminContent>
     </AdminPage>
   );
 }

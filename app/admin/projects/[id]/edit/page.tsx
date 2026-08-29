@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createSupabaseServerClient, getSessionAndRole } from "@/lib/supabase/server";
-import { AdminPage, AdminPageHeader, Field, Select, SubmitButton } from "@/components/admin/Page";
+import { AdminPage, AdminPageHeader, AdminContent, Field, Select, SubmitButton } from "@/components/admin/Page";
 import { updateProject } from "../../../actions";
 
 export default async function EditProjectPage(props: { params: Promise<{ id: string }> }) {
@@ -27,6 +27,7 @@ export default async function EditProjectPage(props: { params: Promise<{ id: str
         ← Projects
       </Link>
       <AdminPageHeader title={`Edit ${project.name}`} subtitle="Update this project's details." />
+      <AdminContent>
 
       <form
         action={updateProject}
@@ -76,6 +77,7 @@ export default async function EditProjectPage(props: { params: Promise<{ id: str
         Changing the end date here does not record an extension. Use “Extend finish date” on the
         Projects page so the client sees what changed and why.
       </p>
+      </AdminContent>
     </AdminPage>
   );
 }

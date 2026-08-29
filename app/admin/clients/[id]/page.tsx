@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createSupabaseServerClient, getSessionAndRole } from "@/lib/supabase/server";
-import { AdminPage, AdminPageHeader } from "@/components/admin/Page";
+import { AdminPage, AdminPageHeader, AdminContent } from "@/components/admin/Page";
 import { DeleteForeverButton } from "@/components/admin/RowActions";
 import { archiveClient, deleteClient, unarchiveClient } from "../../actions";
 
@@ -33,6 +33,7 @@ export default async function ManageClientPage(props: { params: Promise<{ id: st
           `${client.email ?? "No email"} · ${client.phone ?? "No phone"} · ${client.profile_id ? "linked to a login" : "no login"}`
         }
       />
+      <AdminContent>
 
       <div className="max-w-xl rounded-xl border border-slate-200 bg-white p-6">
         {archived ? (
@@ -75,6 +76,7 @@ export default async function ManageClientPage(props: { params: Promise<{ id: st
           </div>
         )}
       </div>
+      </AdminContent>
     </AdminPage>
   );
 }

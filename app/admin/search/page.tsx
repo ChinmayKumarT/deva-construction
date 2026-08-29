@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { AdminPage, AdminPageHeader } from "@/components/admin/Page";
+import { AdminPage, AdminPageHeader, AdminContent } from "@/components/admin/Page";
 
 export const dynamic = "force-dynamic";
 export const fetchCache = "force-no-store";
@@ -85,6 +85,7 @@ export default async function SearchPage(
   return (
     <AdminPage>
       <AdminPageHeader title="Search" subtitle="Find projects, clients, suppliers, materials, and payments." />
+      <AdminContent>
 
       <form className="mb-6 max-w-xl">
         <div className="relative">
@@ -132,6 +133,7 @@ export default async function SearchPage(
           ))}
         </div>
       )}
+      </AdminContent>
     </AdminPage>
   );
 }

@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { AdminPage, AdminPageHeader, Field, Select, SubmitButton } from "@/components/admin/Page";
+import { AdminPage, AdminPageHeader, AdminContent, Field, Select, SubmitButton } from "@/components/admin/Page";
 import {
   archiveShowcaseProject,
   deleteShowcasePhoto,
@@ -58,6 +58,7 @@ export default async function EditShowcasePage(props: { params: Promise<{ id: st
           )
         }
       />
+      <AdminContent>
 
       {project.archived_at && (
         <p className="mb-8 rounded-lg bg-slate-100 px-4 py-3 text-sm text-slate-700">
@@ -242,6 +243,7 @@ export default async function EditShowcasePage(props: { params: Promise<{ id: st
           </form>
         </div>
       </section>
+      </AdminContent>
     </AdminPage>
   );
 }

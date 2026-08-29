@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createSupabaseServerClient, getSessionAndRole } from "@/lib/supabase/server";
-import { AdminPage, AdminPageHeader, Field, SubmitButton } from "@/components/admin/Page";
+import { AdminPage, AdminPageHeader, AdminContent, Field, SubmitButton } from "@/components/admin/Page";
 import { ArchivedToggle, DeleteForeverButton, RestoreAction } from "@/components/admin/RowActions";
 import { CreatePaymentForm } from "@/components/admin/PaymentForm";
 import { CashFlowBarChart } from "@/components/admin/CashFlowBarChart";
@@ -115,6 +115,7 @@ export default async function ProjectPaymentsPage(
             : "Bills and wages. Pending → approved → paid."
         }
       />
+      <AdminContent>
 
       <div className="mb-6">
         <ArchivedToggle basePath={basePath} showArchived={showArchived} archivedCount={archivedCount ?? 0} label="payments" />
@@ -279,6 +280,7 @@ export default async function ProjectPaymentsPage(
           </div>
         </>
       )}
+      </AdminContent>
     </AdminPage>
   );
 }

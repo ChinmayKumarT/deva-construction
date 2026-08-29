@@ -1,7 +1,7 @@
 import { Suspense } from "react";
 import { redirect } from "next/navigation";
 import { requireRole } from "@/lib/guard";
-import { AdminPage, AdminPageHeader } from "@/components/admin/Page";
+import { AdminPage, AdminPageHeader, AdminContent } from "@/components/admin/Page";
 import BackupButton from "@/components/admin/BackupButton";
 import BackupLog from "@/components/admin/BackupLog";
 
@@ -15,6 +15,7 @@ export default async function BackupPage() {
         title="Backup"
         subtitle="Download a full backup of all your business data."
       />
+      <AdminContent>
       <div className="space-y-4 px-1">
         <div className="rounded-xl border border-[var(--border)] bg-[var(--card)] p-5 space-y-3">
           <h3 className="font-semibold text-sm">What&apos;s included</h3>
@@ -40,6 +41,7 @@ export default async function BackupPage() {
           <BackupLog />
         </Suspense>
       </div>
+      </AdminContent>
     </AdminPage>
   );
 }

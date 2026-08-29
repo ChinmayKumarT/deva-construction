@@ -3,8 +3,8 @@
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useState, useTransition } from "react";
-import { signOut, deleteAccount } from "@/app/actions/auth";
+import { useState, Fragment } from "react";
+import { signOut } from "@/app/actions/auth";
 
 export type IconName =
   | "overview" | "projects" | "clients" | "suppliers" | "labourers"
@@ -16,8 +16,6 @@ export type NavItem = { href: string; label: string; icon: IconName };
 export type NavGroup = { title?: string; items: NavItem[] };
 
 export function Sidebar({
-  role,
-  email,
   groups,
   homeHref = "/",
 }: {
@@ -26,280 +24,159 @@ export function Sidebar({
   groups: NavGroup[];
   homeHref?: string;
 }) {
-  const [expanded, setExpanded] = useState(false);
-  const rail = groups.flatMap((g) => g.items);
-  const roleBadgeCls = "inline-flex items-center rounded-md bg-emerald-50 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-emerald-700 ring-1 ring-inset ring-emerald-200";
+  const [mobileOpen, setMobileOpen] = useState(false);
+  const pathname = usePathname();
 
   return (
     <>
-      {/* On phones the expanded panel floats over the content instead of
-          squeezing it into a sliver; tap the backdrop to close. On lg+ the
-          sidebar stays in flow and pushes content as before. */}
-      {expanded && (
+      {mobileOpen && (
         <div
-          onClick={() => setExpanded(false)}
+          onClick={() => setMobileOpen(false)}
           aria-hidden
-          className="fixed inset-0 z-40 bg-black/40 lg:hidden"
+          className="fixed inset-0 z-40 bg-black/40 backdrop-blur-sm lg:hidden"
         />
       )}
 
-      {/* Mobile-only floating hamburger when sidebar is collapsed */}
-      {!expanded && (
+      {!mobileOpen && (
         <button
-          onClick={() => setExpanded(true)}
+          onClick={() => setMobileOpen(true)}
           aria-label="Open menu"
-          className="fixed top-3 left-3 z-50 flex lg:hidden items-center justify-center h-10 w-10 rounded-full bg-white shadow-md border border-[var(--line)] text-slate-500"
+          className="fixed top-3 left-3 z-50 flex lg:hidden items-center justify-center h-10 w-10 rounded-full bg-white shadow-md border border-slate-200 text-slate-500"
         >
           <Icon name="menu" size={22} />
         </button>
       )}
 
+      {/* Desktop: slim icon rail */}
+      <aside className="hidden lg:flex w-[56px] h-screen sticky top-0 z-40 flex-col items-center bg-white/80 backdrop-blur-md border-r border-slate-200/60 py-3 shrink-0">
+        <Link href={homeHref} className="mb-3 flex items-center justify-center rounded-xl transition hover:scale-105">
+          <Image
+            src="/icon.png" alt="Deva" width={30} height={30}
+            className="rounded-lg" style={{ objectFit: "contain" }}
+          />
+        </Link>
+
+        <nav className="flex-1 flex flex-col items-center gap-0.5 overflow-y-auto no-scrollbar w-full px-1.5">
+          {groups.map((g, gi) => (
+            <Fragment key={gi}>
+              {gi > 0 && <div className="w-6 h-px bg-slate-200/80 my-2" />}
+              {g.items.map((item) => {
+                const active = isItemActive(pathname, item.href);
+                return (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    title={item.label}
+                    className={
+                      "flex items-center justify-center h-9 w-9 rounded-xl transition-all duration-150 " +
+                      (active
+                        ? "bg-brand/10 text-brand-700 shadow-sm shadow-brand/10"
+                        : "text-slate-400 hover:bg-slate-100 hover:text-slate-700")
+                    }
+                  >
+                    <Icon name={item.icon} size={20} />
+                  </Link>
+                );
+              })}
+            </Fragment>
+          ))}
+        </nav>
+
+        <form action={signOut} className="mt-2">
+          <button
+            type="submit"
+            title="Sign out"
+            className="flex items-center justify-center h-9 w-9 rounded-xl text-slate-400 transition-all hover:bg-red-50 hover:text-red-500"
+          >
+            <Icon name="signout" size={20} />
+          </button>
+        </form>
+      </aside>
+
+      {/* Mobile: slide-out panel */}
       <aside
+        aria-hidden={!mobileOpen}
         className={
-          "h-screen bg-white text-[var(--ink)] border-r border-[var(--line)] flex flex-col transition-[width] duration-150 " +
-          (expanded
-            ? "w-[240px] fixed inset-y-0 left-0 z-50 lg:sticky lg:top-0 lg:z-40"
-            : "w-[72px] sticky top-0 z-40 hidden lg:flex")
+          "fixed inset-y-0 left-0 z-50 w-72 bg-white shadow-2xl transition-transform duration-200 ease-out lg:hidden flex flex-col " +
+          (mobileOpen ? "translate-x-0" : "-translate-x-full pointer-events-none")
         }
       >
-      {/* Header */}
-      <div className="flex items-center h-14 px-2 shrink-0">
-        <button
-          onClick={() => setExpanded((v) => !v)}
-          aria-label="Toggle sidebar"
-          className="inline-flex items-center justify-center h-10 w-10 rounded-full text-slate-500 hover:bg-[var(--bg)] hover:text-[var(--ink)]"
-        >
-          <Icon name="menu" size={22} />
-        </button>
-        {expanded && (
-          <Link href={homeHref} className="ml-1 flex items-center gap-2 min-w-0">
+        <div className="flex items-center justify-between h-14 px-4 border-b border-slate-100 shrink-0">
+          <Link
+            href={homeHref}
+            className="flex items-center gap-2.5"
+            onClick={() => setMobileOpen(false)}
+          >
             <Image
               src="/icon.png" alt="" width={28} height={28}
-              className="rounded-md shrink-0" style={{ objectFit: "contain" }}
+              className="rounded-lg" style={{ objectFit: "contain" }}
             />
-            <span className="text-[15px] font-semibold leading-none tracking-tight text-[var(--ink)] truncate">
+            <span className="text-sm font-semibold text-slate-800">
               Deva <span className="font-normal text-slate-500">Construction</span>
             </span>
           </Link>
-        )}
-      </div>
+          <button
+            onClick={() => setMobileOpen(false)}
+            className="flex items-center justify-center h-8 w-8 rounded-lg text-slate-400 hover:bg-slate-50 hover:text-slate-600"
+          >
+            <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18M6 6l12 12" /></svg>
+          </button>
+        </div>
 
-      <nav className="flex-1 overflow-y-auto no-scrollbar px-2 pb-3">
-        {expanded
-          ? groups.map((g, i) => (
-              <ExpandedGroup key={i} group={g} showDivider={i > 0} />
-            ))
-          : rail.map((item) => <RailRow key={item.href} item={item} />)}
-      </nav>
-
-      <div className="border-t border-[var(--line)] px-2 py-2 shrink-0">
-        {expanded ? (
-          <>
-            <ExpandedAction icon="signout" label="Sign out" action={signOut} />
-            <ExpandedDelete />
-            <div className="px-3 pt-3 pb-1">
-              <span className={roleBadgeCls}>
-                {role}
-              </span>
-              <p className="truncate text-xs text-slate-600 mt-1">{email}</p>
+        <nav className="flex-1 overflow-y-auto px-3 py-3">
+          {groups.map((g, gi) => (
+            <div key={gi} className={gi > 0 ? "border-t border-slate-100 mt-2 pt-2" : ""}>
+              {g.title && (
+                <h3 className="px-3 mb-1 text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+                  {g.title}
+                </h3>
+              )}
+              {g.items.map((item) => {
+                const active = isItemActive(pathname, item.href);
+                return (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    onClick={() => setMobileOpen(false)}
+                    className={
+                      "flex items-center gap-3 px-3 h-10 rounded-xl text-sm transition-colors " +
+                      (active
+                        ? "bg-brand/10 text-brand-700 font-medium"
+                        : "text-slate-600 hover:bg-slate-50")
+                    }
+                  >
+                    <Icon name={item.icon} size={20} />
+                    <span>{item.label}</span>
+                  </Link>
+                );
+              })}
             </div>
-          </>
-        ) : (
-          <>
-            <RailAction icon="signout" label="Sign out" action={signOut} />
-            <RailDelete />
-          </>
-        )}
-      </div>
+          ))}
+        </nav>
+
+        <div className="border-t border-slate-100 px-3 py-3 shrink-0">
+          <form action={signOut}>
+            <button
+              type="submit"
+              className="flex w-full items-center gap-3 px-3 h-10 rounded-xl text-sm text-slate-600 hover:bg-red-50 hover:text-red-500"
+            >
+              <Icon name="signout" size={20} />
+              <span>Sign out</span>
+            </button>
+          </form>
+        </div>
       </aside>
     </>
   );
 }
 
-/* ---------- Expanded mode ---------- */
-
-function ExpandedGroup({ group, showDivider }: { group: NavGroup; showDivider: boolean }) {
-  return (
-    <div className={showDivider ? "border-t border-[var(--line)] pt-3 mt-3" : "mt-2"}>
-      {group.title && (
-        <h3 className="px-3 mb-1 text-[11px] font-semibold uppercase tracking-wide text-slate-400">
-          {group.title}
-        </h3>
-      )}
-      {group.items.map((item) => (
-        <ExpandedRow key={item.href} item={item} />
-      ))}
-    </div>
-  );
-}
-
-function ExpandedRow({ item }: { item: NavItem }) {
-  const pathname = usePathname();
-  const isActive = isItemActive(pathname, item.href);
-  return (
-    <Link
-      href={item.href}
-      className={
-        "flex items-center gap-6 px-3 h-10 rounded-lg text-sm transition-colors " +
-        (isActive ? "bg-brand/10 text-brand-700 font-medium" : "text-slate-600 hover:bg-[var(--bg)]")
-      }
-    >
-      <Icon name={item.icon} size={22} />
-      <span className="truncate">{item.label}</span>
-    </Link>
-  );
-}
-
-function ExpandedAction({
-  icon, label, action,
-}: { icon: IconName; label: string; action: (fd: FormData) => Promise<void> }) {
-  return (
-    <form action={action}>
-      <button
-        type="submit"
-        className="w-full flex items-center gap-6 px-3 h-10 rounded-lg text-sm text-slate-600 hover:bg-[var(--bg)]"
-      >
-        <Icon name={icon} size={22} />
-        <span>{label}</span>
-      </button>
-    </form>
-  );
-}
-
-function ExpandedDelete() {
-  const [show, setShow] = useState(false);
-  const [confirm, setConfirm] = useState("");
-  const [pending, start] = useTransition();
-  return (
-    <>
-      <button
-        onClick={() => setShow(true)}
-        className="w-full flex items-center gap-6 px-3 h-10 rounded-lg text-sm text-red-600 hover:bg-red-50 hover:text-red-700"
-      >
-        <Icon name="trash" size={22} />
-        <span>Delete account</span>
-      </button>
-      <DeleteDialog show={show} setShow={setShow} confirm={confirm} setConfirm={setConfirm} pending={pending} start={start} />
-    </>
-  );
-}
-
-/* ---------- Rail (collapsed) mode ---------- */
-
-function RailRow({ item }: { item: NavItem }) {
-  const pathname = usePathname();
-  const isActive = isItemActive(pathname, item.href);
-  return (
-    <Link
-      href={item.href}
-      title={item.label}
-      className={
-        "flex flex-col items-center justify-center py-3 my-0.5 rounded-lg transition-colors " +
-        (isActive ? "bg-brand/10 text-brand-700" : "text-slate-500 hover:bg-[var(--bg)] hover:text-[var(--ink)]")
-      }
-    >
-      <Icon name={item.icon} size={24} />
-      <span className={"mt-1.5 text-[10px] leading-none " + (isActive ? "font-medium" : "")}>
-        {item.label}
-      </span>
-    </Link>
-  );
-}
-
-function RailAction({
-  icon, label, action,
-}: { icon: IconName; label: string; action: (fd: FormData) => Promise<void> }) {
-  return (
-    <form action={action}>
-      <button
-        type="submit"
-        title={label}
-        className="w-full flex flex-col items-center justify-center py-3 my-0.5 rounded-lg text-slate-500 hover:bg-[var(--bg)] hover:text-[var(--ink)]"
-      >
-        <Icon name={icon} size={24} />
-        <span className="mt-1.5 text-[10px] leading-none">{label}</span>
-      </button>
-    </form>
-  );
-}
-
-function RailDelete() {
-  const [show, setShow] = useState(false);
-  const [confirm, setConfirm] = useState("");
-  const [pending, start] = useTransition();
-  return (
-    <>
-      <button
-        onClick={() => setShow(true)}
-        title="Delete account"
-        className="w-full flex flex-col items-center justify-center py-3 my-0.5 rounded-lg text-red-500 hover:bg-red-50 hover:text-red-600"
-      >
-        <Icon name="trash" size={24} />
-        <span className="mt-1.5 text-[10px] leading-none">Delete</span>
-      </button>
-      <DeleteDialog show={show} setShow={setShow} confirm={confirm} setConfirm={setConfirm} pending={pending} start={start} />
-    </>
-  );
-}
-
-function DeleteDialog({
-  show, setShow, confirm, setConfirm, pending, start,
-}: {
-  show: boolean; setShow: (v: boolean) => void;
-  confirm: string; setConfirm: (v: string) => void;
-  pending: boolean; start: (cb: () => void) => void;
-}) {
-  if (!show) return null;
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
-      <div className="w-full max-w-md rounded-xl bg-white p-6 shadow-lg text-slate-900">
-        <h2 className="text-lg font-semibold">Delete your account?</h2>
-        <p className="mt-2 text-sm text-slate-600">
-          This is permanent. Your login is deleted and you are signed out.
-          Business records stay with the company but are unlinked from you.
-        </p>
-        <p className="mt-3 text-sm">
-          Type <code className="rounded bg-slate-100 px-1">DELETE</code> to confirm:
-        </p>
-        <input
-          value={confirm}
-          onChange={(e) => setConfirm(e.target.value)}
-          className="mt-2 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:border-brand focus:ring-2 focus:ring-brand/20"
-          autoFocus
-        />
-        <div className="mt-5 flex justify-end gap-2">
-          <button
-            onClick={() => { setShow(false); setConfirm(""); }}
-            className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm hover:bg-slate-100"
-          >
-            Cancel
-          </button>
-          <button
-            disabled={confirm !== "DELETE" || pending}
-            onClick={() => start(() => deleteAccount())}
-            className="rounded-lg bg-red-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-50"
-          >
-            {pending ? "Deleting…" : "Delete account"}
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-/* ---------- Helpers ---------- */
-
 function isItemActive(pathname: string | null, href: string) {
   if (!pathname) return false;
   if (pathname === href) return true;
-  // Only treat as active for deeper paths when href has segments past role root.
   const roleRoots = ["/admin", "/client", "/supplier", "/labour"];
   if (roleRoots.includes(href)) return false;
   return pathname.startsWith(href);
 }
-
-
-/* ---------- Icons ---------- */
 
 function Icon({ name, size = 18 }: { name: IconName; size?: number }) {
   const props = {

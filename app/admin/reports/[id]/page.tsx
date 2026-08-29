@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { AdminPage, AdminPageHeader, DataTable } from "@/components/admin/Page";
+import { AdminPage, AdminPageHeader, AdminContent, DataTable } from "@/components/admin/Page";
 import { PieChart, PieLegend } from "@/components/admin/PieChart";
 import { DownloadSitePdfButton } from "@/components/admin/ReportPdf";
 import { DownloadSiteCsvButton } from "@/components/admin/ReportCsv";
@@ -184,6 +184,7 @@ export default async function SiteReportPage(
           <DownloadSitePdfButton site={pdfSite} />
         </div>
       </div>
+      <AdminContent>
 
       <div className="grid gap-6 sm:grid-cols-2">
         <div className="rounded-xl border border-[var(--line)] bg-white p-5">
@@ -323,6 +324,7 @@ export default async function SiteReportPage(
           Total outflow {from} to {to}: ₹{cashFlow.total.toLocaleString()}
         </p>
       </div>
+      </AdminContent>
     </AdminPage>
   );
 }

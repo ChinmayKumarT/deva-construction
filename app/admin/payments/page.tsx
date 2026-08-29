@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { AdminPage, AdminPageHeader, CostBox } from "@/components/admin/Page";
+import { AdminPage, AdminPageHeader, AdminContent, CostBox } from "@/components/admin/Page";
 import { CashFlowBarChart } from "@/components/admin/CashFlowBarChart";
 import { CashFlowTrendChart } from "@/components/admin/CashFlowTrendChart";
 import { PieChart, PieLegend } from "@/components/admin/PieChart";
@@ -95,6 +95,7 @@ export default async function PaymentsIndexPage(
             : "Pick a site to see its bills and wages. Pending → approved → paid."
         }
       />
+      <AdminContent>
 
       {!showArchived && archivedCount ? (
         <div className="mb-6">
@@ -234,6 +235,7 @@ export default async function PaymentsIndexPage(
           )}
         </div>
       )}
+      </AdminContent>
     </AdminPage>
   );
 }

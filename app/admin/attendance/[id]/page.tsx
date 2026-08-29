@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { AdminPage, AdminPageHeader } from "@/components/admin/Page";
+import { AdminPage, AdminPageHeader, AdminContent } from "@/components/admin/Page";
 import { AttendanceMarkForm } from "@/components/admin/AttendanceMarkForm";
 import { AttendanceDateNav } from "@/components/admin/AttendanceDateNav";
 
@@ -54,6 +54,7 @@ export default async function ProjectAttendancePage(
         ← All sites
       </Link>
       <AdminPageHeader title={project.name} subtitle="Mark attendance for this site." />
+      <AdminContent>
 
       <AttendanceDateNav projectId={params.id} date={date} />
 
@@ -122,6 +123,7 @@ export default async function ProjectAttendancePage(
           </tbody>
         </table>
       </div>
+      </AdminContent>
     </AdminPage>
   );
 }

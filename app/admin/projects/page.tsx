@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { createSupabaseServerClient, getSessionAndRole } from "@/lib/supabase/server";
-import { AdminPage, AdminPageHeader, CostBox, Field, Select, SubmitButton } from "@/components/admin/Page";
+import { AdminPage, AdminPageHeader, AdminContent, CostBox, Field, Select, SubmitButton } from "@/components/admin/Page";
 import { DeleteForeverButton } from "@/components/admin/RowActions";
 import { createProject, unarchiveProject, deleteProject } from "../actions";
 
@@ -45,6 +45,7 @@ export default async function ProjectsPage(
             : "Create and track construction projects/sites."
         }
       />
+      <AdminContent>
 
       <div className="mb-6">
         {showArchived ? (
@@ -169,6 +170,7 @@ export default async function ProjectsPage(
           </section>
         )
       )}
+      </AdminContent>
     </AdminPage>
   );
 }

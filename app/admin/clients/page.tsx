@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { createSupabaseServerClient, getSessionAndRole } from "@/lib/supabase/server";
-import { AdminPage, AdminPageHeader } from "@/components/admin/Page";
+import { AdminPage, AdminPageHeader, AdminContent } from "@/components/admin/Page";
 import { ArchivedToggle, DeleteForeverButton, ManageCard, ManageSection, RestoreAction } from "@/components/admin/RowActions";
 import { CreateClientForm } from "@/components/admin/CreateClientForm";
 import { createClient as createClientAction, unarchiveClient, deleteClient } from "../actions";
@@ -36,6 +36,7 @@ export default async function ClientsPage(
         title={showArchived ? "Archived clients" : "Clients"}
         subtitle={showArchived ? "Hidden from lists. Their projects are unaffected." : "People paying for a project."}
       />
+      <AdminContent>
 
       <div className="mb-6">
         <ArchivedToggle basePath="/admin/clients" showArchived={showArchived} archivedCount={archivedCount ?? 0} label="clients" />
@@ -86,6 +87,7 @@ export default async function ClientsPage(
           </ManageSection>
         )
       )}
+      </AdminContent>
     </AdminPage>
   );
 }

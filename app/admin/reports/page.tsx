@@ -2,7 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { requireRole } from "@/lib/guard";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { AdminPage, AdminPageHeader, DataTable } from "@/components/admin/Page";
+import { AdminPage, AdminPageHeader, AdminContent, DataTable } from "@/components/admin/Page";
 import { DownloadSummaryPdfButton } from "@/components/admin/ReportPdf";
 import { DownloadSummaryCsvButton } from "@/components/admin/ReportCsv";
 import { WAGE_FACTOR, wageForStatus } from "@/lib/wages";
@@ -90,6 +90,7 @@ export default async function ReportsPage() {
           <DownloadSummaryPdfButton data={pdfData} />
         </div>
       </div>
+      <AdminContent>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {(projects ?? []).length === 0 && (
@@ -131,6 +132,7 @@ export default async function ReportsPage() {
         rows={attendanceRows}
         empty="No attendance recorded in the last 7 days."
       />
+      </AdminContent>
     </AdminPage>
   );
 }

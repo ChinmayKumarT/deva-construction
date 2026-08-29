@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { AdminPage, AdminPageHeader, Field, SubmitButton } from "@/components/admin/Page";
+import { AdminPage, AdminPageHeader, AdminContent, Field, SubmitButton } from "@/components/admin/Page";
 import { CategoryField } from "@/components/admin/CategoryField";
 import { updateLabourer } from "../../../actions";
 
@@ -19,6 +19,7 @@ export default async function EditLabourerPage(props: { params: Promise<{ id: st
     <AdminPage>
       <Link href="/admin/labourers" className="text-sm text-slate-600 hover:underline">← Labourers</Link>
       <AdminPageHeader title={`Edit ${labourer.name}`} subtitle="Update this labourer's details." />
+      <AdminContent>
       <form action={updateLabourer} className="grid gap-4 rounded-xl border border-slate-200 bg-white p-6 sm:grid-cols-2 lg:grid-cols-3">
         <input type="hidden" name="id" value={labourer.id} />
         <Field label="Name" name="name" required defaultValue={labourer.name} />
@@ -38,6 +39,7 @@ export default async function EditLabourerPage(props: { params: Promise<{ id: st
         Unticking “Active” keeps them in lists but excludes them from attendance and assignment.
         Archiving hides them entirely — their attendance history is kept either way.
       </p>
+      </AdminContent>
     </AdminPage>
   );
 }

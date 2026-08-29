@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { AdminPage, AdminPageHeader } from "@/components/admin/Page";
+import { AdminPage, AdminPageHeader, AdminContent } from "@/components/admin/Page";
 import { EditPaymentForm } from "@/components/admin/PaymentForm";
 import { computeWagesDue } from "@/lib/wages";
 import { updatePayment } from "../../../actions";
@@ -54,6 +54,7 @@ export default async function EditPaymentPage(props: { params: Promise<{ id: str
         title="Edit payment"
         subtitle={`Currently ${payment.status}. Status is changed with the approve / pay buttons, not here.`}
       />
+      <AdminContent>
       <EditPaymentForm
         action={updatePayment}
         projects={projects ?? []}
@@ -78,6 +79,7 @@ export default async function EditPaymentPage(props: { params: Promise<{ id: str
         Pick the payee that matches the payee type — the database requires exactly one, so the
         other is cleared automatically on save.
       </p>
+      </AdminContent>
     </AdminPage>
   );
 }

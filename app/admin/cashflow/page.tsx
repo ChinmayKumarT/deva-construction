@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { requireRole } from "@/lib/guard";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { AdminPage, AdminPageHeader, DataTable, Field, SubmitButton } from "@/components/admin/Page";
+import { AdminPage, AdminPageHeader, AdminContent, DataTable, Field, SubmitButton } from "@/components/admin/Page";
 import { CashFlowBarChart } from "@/components/admin/CashFlowBarChart";
 import { CashFlowTrendChart } from "@/components/admin/CashFlowTrendChart";
 import { DownloadCashFlowPdfButton } from "@/components/admin/ReportPdf";
@@ -72,6 +72,7 @@ export default async function CashFlowPage(
         title="Cash flow"
         subtitle="Money going out over a date range: materials (including supplier payments) and wages from attendance."
       />
+      <AdminContent>
 
       <form method="get" className="mb-8 flex flex-wrap items-end gap-4 rounded-xl border border-slate-200 bg-white p-6">
         <Field label="From" name="from" type="date" defaultValue={from} />
@@ -110,6 +111,7 @@ export default async function CashFlowPage(
         rows={rows}
         empty="No outflow recorded in this date range."
       />
+      </AdminContent>
     </AdminPage>
   );
 }

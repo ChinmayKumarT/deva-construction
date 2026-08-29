@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { createSupabaseServerClient, getSessionAndRole } from "@/lib/supabase/server";
-import { AdminPage, AdminPageHeader } from "@/components/admin/Page";
+import { AdminPage, AdminPageHeader, AdminContent } from "@/components/admin/Page";
 import { ArchivedToggle, DeleteForeverButton, ManageCard, ManageSection, RestoreAction } from "@/components/admin/RowActions";
 import { CreateSupplierForm } from "@/components/admin/CreateSupplierForm";
 import { createSupplier, unarchiveSupplier, deleteSupplier } from "../actions";
@@ -59,6 +59,7 @@ export default async function SuppliersPage(
             : "Vendors who deliver materials."
         }
       />
+      <AdminContent>
 
       <div className="mb-6">
         <ArchivedToggle basePath="/admin/suppliers" showArchived={showArchived} archivedCount={archivedCount ?? 0} label="suppliers" />
@@ -123,6 +124,7 @@ export default async function SuppliersPage(
           </ManageSection>
         )
       )}
+      </AdminContent>
     </AdminPage>
   );
 }

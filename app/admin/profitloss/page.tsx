@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { requireRole } from "@/lib/guard";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { AdminPage, AdminPageHeader, DataTable } from "@/components/admin/Page";
+import { AdminPage, AdminPageHeader, AdminContent, DataTable } from "@/components/admin/Page";
 import { wageForStatus } from "@/lib/wages";
 import { lineTotal } from "@/lib/money";
 
@@ -85,6 +85,7 @@ export default async function ProfitLossPage() {
   return (
     <AdminPage>
       <AdminPageHeader title="Profit & Loss" subtitle="Revenue collected vs costs incurred per project." />
+      <AdminContent>
 
       <section className="mb-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <Stat label="Total budget" value={`₹${totalBudget.toLocaleString()}`} />
@@ -119,6 +120,7 @@ export default async function ProfitLossPage() {
         <strong>Spent</strong> = materials + wages accrued from attendance.{" "}
         <strong>Collected %</strong> = what percentage of the budget has been collected from the client.
       </p>
+      </AdminContent>
     </AdminPage>
   );
 }

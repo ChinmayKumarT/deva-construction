@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { requireRole } from "@/lib/guard";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { AdminPage, AdminPageHeader } from "@/components/admin/Page";
+import { AdminPage, AdminPageHeader, AdminContent } from "@/components/admin/Page";
 import { TeamAccessClient } from "@/components/admin/TeamAccessClient";
 
 export default async function TeamAccessPage() {
@@ -20,7 +20,9 @@ export default async function TeamAccessPage() {
         title="Team access"
         subtitle="Only you can grant admin or manager access. Everyone else signs up as client or supplier."
       />
+      <AdminContent>
       <TeamAccessClient profiles={profiles ?? []} reservations={reservations ?? []} />
+      </AdminContent>
     </AdminPage>
   );
 }

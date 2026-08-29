@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createSupabaseServerClient, getSessionAndRole } from "@/lib/supabase/server";
-import { AdminPage, AdminPageHeader } from "@/components/admin/Page";
+import { AdminPage, AdminPageHeader, AdminContent } from "@/components/admin/Page";
 import { DeleteForeverButton, MarkPaidButton } from "@/components/admin/RowActions";
 import {
   archiveSupplier, deleteSupplier, unarchiveSupplier, archiveMaterial, archivePayment,
@@ -74,6 +74,7 @@ export default async function ManageSupplierPage(props: { params: Promise<{ id: 
           `${supplier.email ?? "No email"} · ${supplier.phone ?? "No phone"} · ${supplier.profile_id ? "linked to a login" : "no login"}`
         }
       />
+      <AdminContent>
 
       <div className="mb-6 flex flex-wrap gap-2">
         <StatBox label="Deliveries" value={String(deliveredCount)} />
@@ -223,6 +224,7 @@ export default async function ManageSupplierPage(props: { params: Promise<{ id: 
           </tbody>
         </table>
       </div>
+      </AdminContent>
     </AdminPage>
   );
 }

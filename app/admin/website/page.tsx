@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { AdminPage, AdminPageHeader, Field, Select, SubmitButton } from "@/components/admin/Page";
+import { AdminPage, AdminPageHeader, AdminContent, Field, Select, SubmitButton } from "@/components/admin/Page";
 import { createShowcaseProject, setShowcasePublished, unarchiveShowcaseProject } from "./actions";
 
 /**
@@ -47,6 +47,7 @@ export default async function WebsitePage() {
           </>
         }
       />
+      <AdminContent>
 
       <div className="mb-8 overflow-x-auto rounded-xl border border-[var(--line)] bg-white">
         <table className="w-full text-sm">
@@ -179,6 +180,7 @@ export default async function WebsitePage() {
           <SubmitButton>Add project</SubmitButton>
         </div>
       </form>
+      </AdminContent>
     </AdminPage>
   );
 }

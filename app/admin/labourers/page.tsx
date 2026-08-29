@@ -1,5 +1,5 @@
 import { createSupabaseServerClient, getSessionAndRole } from "@/lib/supabase/server";
-import { AdminPage, AdminPageHeader, DataTable, Field, SubmitButton } from "@/components/admin/Page";
+import { AdminPage, AdminPageHeader, AdminContent, DataTable, Field, SubmitButton } from "@/components/admin/Page";
 import { ArchivedToggle, DeleteForeverButton, ManageCard, ManageSection, RestoreAction, RowActions } from "@/components/admin/RowActions";
 import { AssignLabourerForm } from "@/components/admin/AssignLabourerForm";
 import { CategoryField } from "@/components/admin/CategoryField";
@@ -85,6 +85,7 @@ export default async function LabourersPage(
             : "Workers on site."
         }
       />
+      <AdminContent>
 
       <div className="mb-6">
         <ArchivedToggle basePath="/admin/labourers" showArchived={showArchived} archivedCount={archivedCount ?? 0} label="labourers" />
@@ -180,6 +181,7 @@ export default async function LabourersPage(
           </div>
         </section>
       )}
+      </AdminContent>
     </AdminPage>
   );
 }

@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { AdminPage, AdminPageHeader, Field, Select, SubmitButton } from "@/components/admin/Page";
+import { AdminPage, AdminPageHeader, AdminContent, Field, Select, SubmitButton } from "@/components/admin/Page";
 import { CategoryField } from "@/components/admin/CategoryField";
 import { updateMaterial } from "../../../actions";
 
@@ -23,6 +23,7 @@ export default async function EditMaterialPage(props: { params: Promise<{ id: st
     <AdminPage>
       <Link href="/admin/materials" className="text-sm text-slate-600 hover:underline">← Materials</Link>
       <AdminPageHeader title={`Edit ${material.name}`} subtitle="Update this material entry." />
+      <AdminContent>
       <form action={updateMaterial} className="grid gap-4 rounded-xl border border-slate-200 bg-white p-6 sm:grid-cols-2 lg:grid-cols-3">
         <input type="hidden" name="id" value={material.id} />
         <Field label="Material name" name="name" required defaultValue={material.name} />
@@ -52,6 +53,7 @@ export default async function EditMaterialPage(props: { params: Promise<{ id: st
         Materials marked <strong>returned</strong> are already excluded from cost totals.
         Archive instead if the entry was created by mistake.
       </p>
+      </AdminContent>
     </AdminPage>
   );
 }

@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { AdminPage, AdminPageHeader, CostBox, Field, Select, SubmitButton } from "@/components/admin/Page";
+import { AdminPage, AdminPageHeader, AdminContent, CostBox, Field, Select, SubmitButton } from "@/components/admin/Page";
 import { ArchivedToggle } from "@/components/admin/RowActions";
 import { CategoryField } from "@/components/admin/CategoryField";
 import { ResettableForm, FormError } from "@/components/ResettableForm";
@@ -59,6 +59,7 @@ export default async function ProjectMaterialsPage(
             : "Track what's ordered, delivered, and how much it costs."
         }
       />
+      <AdminContent>
 
       <div className="mb-6">
         <ArchivedToggle basePath={basePath} showArchived={showArchived} archivedCount={archivedCount ?? 0} label="materials" />
@@ -104,6 +105,7 @@ export default async function ProjectMaterialsPage(
           </Link>
         ))}
       </div>
+      </AdminContent>
     </AdminPage>
   );
 }

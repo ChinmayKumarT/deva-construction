@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { AdminPage, AdminPageHeader, Field, Select, SubmitButton } from "@/components/admin/Page";
+import { AdminPage, AdminPageHeader, AdminContent, Field, Select, SubmitButton } from "@/components/admin/Page";
 import { updateClient } from "../../../actions";
 
 export default async function EditClientPage(props: { params: Promise<{ id: string }> }) {
@@ -24,6 +24,7 @@ export default async function EditClientPage(props: { params: Promise<{ id: stri
     <AdminPage>
       <Link href="/admin/clients" className="text-sm text-slate-600 hover:underline">← Clients</Link>
       <AdminPageHeader title={`Edit ${client.name}`} subtitle="Update this client's details." />
+      <AdminContent>
       <form action={updateClient} className="grid gap-4 rounded-xl border border-slate-200 bg-white p-6 sm:grid-cols-2 lg:grid-cols-3">
         <input type="hidden" name="id" value={client.id} />
         <Field label="Name" name="name" required defaultValue={client.name} />
@@ -41,6 +42,7 @@ export default async function EditClientPage(props: { params: Promise<{ id: stri
           <Link href="/admin/clients" className="text-sm text-slate-600 hover:underline">Cancel</Link>
         </div>
       </form>
+      </AdminContent>
     </AdminPage>
   );
 }

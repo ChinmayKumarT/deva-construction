@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { AdminPage, AdminPageHeader, CostBox, Field, Select, SubmitButton } from "@/components/admin/Page";
+import { AdminPage, AdminPageHeader, AdminContent, CostBox, Field, Select, SubmitButton } from "@/components/admin/Page";
 import { CategoryField } from "@/components/admin/CategoryField";
 import { ResettableForm, FormError } from "@/components/ResettableForm";
 import { createMaterial, type CreateMaterialState } from "../actions";
@@ -57,6 +57,7 @@ export default async function MaterialsIndexPage(
             : "Pick a site to see what's ordered, delivered, and how much it costs."
         }
       />
+      <AdminContent>
 
       {!showArchived && archivedCount ? (
         <div className="mb-6">
@@ -167,6 +168,7 @@ export default async function MaterialsIndexPage(
           )}
         </div>
       )}
+      </AdminContent>
     </AdminPage>
   );
 }

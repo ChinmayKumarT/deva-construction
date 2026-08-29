@@ -2,7 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { requireRole } from "@/lib/guard";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { AdminPage, AdminPageHeader, DataTable, BudgetAlert } from "@/components/admin/Page";
+import { AdminPage, AdminPageHeader, AdminContent, DataTable, BudgetAlert } from "@/components/admin/Page";
 import { wageForStatus } from "@/lib/wages";
 import { lineTotal } from "@/lib/money";
 
@@ -92,6 +92,7 @@ export default async function CostsPage() {
   return (
     <AdminPage>
       <AdminPageHeader title="Cost tracking" subtitle="Budget vs spend across all projects." />
+      <AdminContent>
 
       <BudgetAlert budget={totalBudget} spent={totalSpent} />
 
@@ -167,6 +168,7 @@ export default async function CostsPage() {
           </div>
         </section>
       )}
+      </AdminContent>
     </AdminPage>
   );
 }

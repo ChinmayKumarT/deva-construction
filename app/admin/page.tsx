@@ -3,7 +3,7 @@ import { requireRole } from "@/lib/guard";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 export const revalidate = 60;
-import { AdminPage, AdminPageHeader } from "@/components/admin/Page";
+import { AdminPage, AdminPageHeader, AdminContent } from "@/components/admin/Page";
 import { wageForStatus } from "@/lib/wages";
 import { lineTotal } from "@/lib/money";
 
@@ -145,29 +145,36 @@ export default async function AdminOverview() {
   return (
     <AdminPage>
       <AdminPageHeader title="Overview" subtitle="Live metrics across all projects." />
+      <AdminContent>
       <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        {metrics.map((m) => (
-          <div
-            key={m.label}
-            className={`rounded-lg border bg-white p-5 transition hover:shadow-sm ${
-              m.danger ? "border-red-200" : m.warn ? "border-amber-200" : "border-[var(--line)] hover:border-brand/30"
-            }`}
-          >
-            <div className="text-[11px] uppercase tracking-[0.12em] text-slate-500">{m.label}</div>
-            <div className={`mt-2 text-2xl font-semibold tabular-nums ${
-              m.danger ? "text-red-600" : m.warn ? "text-amber-600" : m.accent ? "text-brand-600" : "text-ink"
-            }`}>
-              {m.value}
-            </div>
-            {m.trend && (
-              <div className={`mt-1.5 text-xs font-medium ${
-                m.trend.delta > 0 ? "text-emerald-600" : m.trend.delta < 0 ? "text-red-500" : "text-slate-400"
-              }`}>
-                {m.trend.delta > 0 ? "↑" : m.trend.delta < 0 ? "↓" : "→"} {m.trend.label}
+        {metrics.map((m) => {
+          const borderCls = m.danger ? "border-red-200" : m.warn ? "border-amber-200" : m.accent ? "border-emerald-200" : "border-slate-200";
+          const valueCls = m.danger ? "text-red-600" : m.warn ? "text-amber-600" : m.accent ? "text-emerald-700" : "text-slate-800";
+          const iconCls = m.danger ? "text-red-400" : m.warn ? "text-amber-400" : m.accent ? "text-emerald-400" : "text-slate-300";
+          return (
+            <div
+              key={m.label}
+              className={`rounded-xl border ${borderCls} bg-white p-4 shadow-sm transition hover:shadow-md`}
+            >
+              <div className="flex items-center justify-between">
+                <div className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">{m.label}</div>
+                <div className={iconCls}>
+                  <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.5"><path strokeLinecap="round" strokeLinejoin="round" d="M3 3v18h18"/><path strokeLinecap="round" strokeLinejoin="round" d="M7 16l4-4 3 3 6-7"/></svg>
+                </div>
               </div>
-            )}
-          </div>
-        ))}
+              <div className={`mt-1.5 text-lg font-bold tabular-nums ${valueCls}`}>
+                {m.value}
+              </div>
+              {m.trend && (
+                <div className={`mt-1 text-xs font-medium ${
+                  m.trend.delta > 0 ? "text-emerald-600" : m.trend.delta < 0 ? "text-red-500" : "text-slate-400"
+                }`}>
+                  {m.trend.delta > 0 ? "↑" : m.trend.delta < 0 ? "↓" : "→"} {m.trend.label}
+                </div>
+              )}
+            </div>
+          );
+        })}
       </section>
 
       {/* Budget-performance banners: "Site A — 105% spent". Same reasoning as
@@ -175,10 +182,13 @@ export default async function AdminOverview() {
       {!isManager && (overBudget.length > 0 || nearBudget.length > 0) && (
         <section className="mt-6 space-y-3">
           {overBudget.length > 0 && (
-            <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
-              <div className="font-semibold mb-1">Over budget</div>
+            <div className="rounded-xl border border-red-200 bg-red-50 px-5 py-4 text-sm text-red-800">
+              <div className="flex items-center gap-2 font-semibold mb-2">
+                <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126Z" /></svg>
+                Over budget
+              </div>
               {overBudget.map((p) => (
-                <div key={p.id}>
+                <div key={p.id} className="ml-6">
                   <Link href={`/admin/projects/${p.id}`} className="font-medium hover:underline">{p.name}</Link>
                   {" — "}{p.pct.toFixed(0)}% spent
                 </div>
@@ -186,10 +196,13 @@ export default async function AdminOverview() {
             </div>
           )}
           {nearBudget.length > 0 && (
-            <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-              <div className="font-semibold mb-1">Approaching budget</div>
+            <div className="rounded-xl border border-amber-200 bg-amber-50 px-5 py-4 text-sm text-amber-800">
+              <div className="flex items-center gap-2 font-semibold mb-2">
+                <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" /></svg>
+                Approaching budget
+              </div>
               {nearBudget.map((p) => (
-                <div key={p.id}>
+                <div key={p.id} className="ml-6">
                   <Link href={`/admin/projects/${p.id}`} className="font-medium hover:underline">{p.name}</Link>
                   {" — "}{p.pct.toFixed(0)}% spent
                 </div>
@@ -198,6 +211,7 @@ export default async function AdminOverview() {
           )}
         </section>
       )}
+      </AdminContent>
     </AdminPage>
   );
 }

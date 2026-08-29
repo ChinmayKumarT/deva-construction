@@ -1,7 +1,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import { createSupabaseServerClient, getSessionAndRole } from "@/lib/supabase/server";
-import { AdminPage, AdminPageHeader, Field, Select, SubmitButton } from "@/components/admin/Page";
+import { AdminPage, AdminPageHeader, AdminContent, Field, Select, SubmitButton } from "@/components/admin/Page";
 import { ArchivedToggle, DeleteForeverButton, RestoreAction } from "@/components/admin/RowActions";
 import { postProjectUpdate, archiveProjectUpdate, unarchiveProjectUpdate, deleteProjectUpdate } from "../actions";
 
@@ -37,6 +37,7 @@ export default async function UpdatesPage(
             : "Post progress notes and site photos visible to the client."
         }
       />
+      <AdminContent>
 
       <div className="mb-6">
         <ArchivedToggle basePath="/admin/updates" showArchived={showArchived} archivedCount={archivedCount ?? 0} label="updates" />
@@ -131,6 +132,7 @@ export default async function UpdatesPage(
           );
         })}
       </ul>
+      </AdminContent>
     </AdminPage>
   );
 }

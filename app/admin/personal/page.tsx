@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { requireRole } from "@/lib/guard";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { AdminPage, AdminPageHeader, CostBox, DataTable, Field, Select, SubmitButton } from "@/components/admin/Page";
+import { AdminPage, AdminPageHeader, AdminContent, CostBox, DataTable, Field, Select, SubmitButton } from "@/components/admin/Page";
 import { ArchivedToggle, DeleteForeverButton, ManageCard, ManageSection, RestoreAction, RowActions } from "@/components/admin/RowActions";
 import {
   createPersonalTransaction,
@@ -63,6 +63,7 @@ export default async function PersonalTransactionsPage(
             : "Your own income and expenses — separate from every project, never shown to clients or suppliers, never counted in cost/cash-flow reports."
         }
       />
+      <AdminContent>
 
       {!showArchived && (
         <div className="mb-6 max-w-xs">
@@ -119,6 +120,7 @@ export default async function PersonalTransactionsPage(
           ))}
         </ManageSection>
       )}
+      </AdminContent>
     </AdminPage>
   );
 }

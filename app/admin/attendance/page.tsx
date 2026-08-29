@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { AdminPage, AdminPageHeader, DataTable, Field, SubmitButton } from "@/components/admin/Page";
+import { AdminPage, AdminPageHeader, AdminContent, DataTable, Field, SubmitButton } from "@/components/admin/Page";
 import { DownloadAttendancePdfButton } from "@/components/admin/ReportPdf";
 import { DownloadAttendanceCsvButton } from "@/components/admin/ReportCsv";
 import { reduceAttendance, defaultAttendanceRange } from "@/lib/attendance";
@@ -60,6 +60,7 @@ export default async function AttendanceIndexPage(
         title="Attendance"
         subtitle="Pick a site to mark today's attendance. A labourer can be marked at more than one site on the same day."
       />
+      <AdminContent>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {(projects ?? []).length === 0 && (
@@ -102,6 +103,7 @@ export default async function AttendanceIndexPage(
         rows={summaryRows}
         empty="No attendance recorded in this date range."
       />
+      </AdminContent>
     </AdminPage>
   );
 }

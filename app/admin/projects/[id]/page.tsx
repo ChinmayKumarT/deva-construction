@@ -191,6 +191,7 @@ export default async function ManageProjectPage(
 
   return (
     <AdminPage>
+      <div className="px-4 pt-14 pb-6 sm:px-6 sm:pb-8 lg:px-8 lg:pt-6 lg:pb-10 mx-auto max-w-6xl">
       {/* ── Top bar ── */}
       <div className="mb-6 flex items-center justify-between">
         <Link href="/admin/projects" className="text-sm text-slate-500 hover:text-slate-700 transition">
@@ -645,6 +646,7 @@ export default async function ManageProjectPage(
             )}
           </Card>
         </div>
+      </div>
       </div>
     </AdminPage>
   );
