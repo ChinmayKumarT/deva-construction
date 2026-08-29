@@ -8,7 +8,8 @@ import { CreatePaymentForm } from "@/components/admin/PaymentForm";
 import { byProjectTotals, payeeTypeSplitByProject, dailyPaymentTotals } from "@/lib/paymentsChart";
 import { toCumulative } from "@/lib/cashflow";
 import { computeWagesDueFromAccrued } from "@/lib/wages";
-import { createPayment } from "../actions";
+import { SupplierAdvanceForm } from "@/components/admin/SupplierAdvanceForm";
+import { createPayment, giveSupplierAdvance } from "../actions";
 
 export const dynamic = "force-dynamic";
 export const fetchCache = "force-no-store";
@@ -114,6 +115,13 @@ export default async function PaymentsIndexPage(
           materials={materials ?? []}
           assignments={assignments ?? []}
           wageDue={wageDue}
+        />
+      )}
+
+      {!showArchived && (
+        <SupplierAdvanceForm
+          action={giveSupplierAdvance}
+          suppliers={suppliers ?? []}
         />
       )}
 
