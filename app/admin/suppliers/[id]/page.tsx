@@ -5,7 +5,7 @@ import { AdminPage, AdminPageHeader, AdminContent } from "@/components/admin/Pag
 import { DeleteForeverButton, MarkPaidButton } from "@/components/admin/RowActions";
 import {
   archiveSupplier, deleteSupplier, unarchiveSupplier, archiveMaterial, archivePayment,
-  markPaymentPaid,
+  markPaymentPaid, giveSupplierAdvance,
 } from "../../actions";
 import { lineTotal } from "@/lib/money";
 import { formatDateTime } from "@/lib/dateFormat";
@@ -40,7 +40,7 @@ export default async function ManageSupplierPage(props: { params: Promise<{ id: 
   const supabase = await createSupabaseServerClient();
   const { isOwner } = await getSessionAndRole();
 
-  const [{ data: supplier }, { data: materials }, { data: payments }] = await Promise.all([
+  const [{ data: supplier }, { data: materials }, { data: payments }, { data: advances }] = await Promise.all([
     supabase.from("suppliers").select("id, name, email, phone, profile_id, archived_at").eq("id", params.id).single(),
     supabase
       .from("materials")
@@ -55,6 +55,11 @@ export default async function ManageSupplierPage(props: { params: Promise<{ id: 
       .eq("payee_type", "supplier")
       .is("archived_at", null)
       .order("created_at", { ascending: false }),
+    supabase
+      .from("supplier_advances")
+      .select("id, amount, description, material_id, created_at")
+      .eq("supplier_id", params.id)
+      .order("created_at", { ascending: false }),
   ]);
   if (!supplier) notFound();
 
@@ -62,6 +67,7 @@ export default async function ManageSupplierPage(props: { params: Promise<{ id: 
   const deliveredCount = (materials ?? []).filter((m) => m.status === "delivered").length;
   const pending = (payments ?? []).filter((p) => p.status === "pending" || p.status === "approved").reduce((a, p) => a + Number(p.amount), 0);
   const received = (payments ?? []).filter((p) => p.status === "paid").reduce((a, p) => a + Number(p.amount), 0);
+  const advanceBalance = (advances ?? []).reduce((s, r) => s + Number(r.amount), 0);
 
   return (
     <AdminPage>
@@ -80,6 +86,11 @@ export default async function ManageSupplierPage(props: { params: Promise<{ id: 
         <StatBox label="Deliveries" value={String(deliveredCount)} />
         <StatBox label="Remaining" value={`₹${pending.toLocaleString()}`} className="border-amber-200 bg-amber-50 text-amber-700" />
         <StatBox label="Total paid" value={`₹${received.toLocaleString()}`} className="border-emerald-200 bg-emerald-50 text-emerald-700" />
+        <StatBox
+          label="Advance balance"
+          value={`₹${advanceBalance.toLocaleString()}`}
+          className={advanceBalance > 0 ? "border-blue-200 bg-blue-50 text-blue-700" : "border-slate-200 bg-white"}
+        />
       </div>
 
       <div className="max-w-xl rounded-xl border border-slate-200 bg-white p-6">
@@ -221,6 +232,80 @@ export default async function ManageSupplierPage(props: { params: Promise<{ id: 
                 </td>
               </tr>
             ))}
+          </tbody>
+        </table>
+      </div>
+      <h2 className="mt-10 mb-3 text-sm font-semibold uppercase tracking-wide text-slate-500">Advance Account</h2>
+
+      {!archived && (
+        <form
+          action={giveSupplierAdvance}
+          className="mb-4 flex flex-wrap items-end gap-3 rounded-xl border border-slate-200 bg-white p-4"
+        >
+          <input type="hidden" name="supplier_id" value={supplier.id} />
+          <label className="block text-sm">
+            <span className="mb-1 block text-[10px] font-semibold uppercase tracking-wider text-slate-500">Amount</span>
+            <input
+              name="amount"
+              type="number"
+              min="1"
+              step="1"
+              required
+              placeholder="₹"
+              className="w-40 rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none focus:border-brand focus:ring-2 focus:ring-brand/20"
+            />
+          </label>
+          <label className="block text-sm flex-1 min-w-[160px]">
+            <span className="mb-1 block text-[10px] font-semibold uppercase tracking-wider text-slate-500">Note (optional)</span>
+            <input
+              name="description"
+              type="text"
+              placeholder="e.g. Advance for cement order"
+              className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none focus:border-brand focus:ring-2 focus:ring-brand/20"
+            />
+          </label>
+          <button
+            type="submit"
+            className="rounded-lg bg-brand px-4 py-2 text-sm font-medium text-white hover:bg-brand-700 transition"
+          >
+            Give advance
+          </button>
+        </form>
+      )}
+
+      <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white">
+        <table className="w-full text-sm">
+          <thead className="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
+            <tr>
+              <th className="px-4 py-2 font-medium">Date</th>
+              <th className="px-4 py-2 font-medium">Description</th>
+              <th className="px-4 py-2 font-medium text-right">Amount</th>
+            </tr>
+          </thead>
+          <tbody>
+            {(advances ?? []).length === 0 && (
+              <tr><td colSpan={3} className="px-4 py-6 text-center text-slate-500">No advance payments yet.</td></tr>
+            )}
+            {advances?.map((a) => {
+              const amt = Number(a.amount);
+              return (
+                <tr key={a.id} className="border-t border-slate-100">
+                  <td className="px-4 py-2 text-slate-600">{formatDateTime(a.created_at)}</td>
+                  <td className="px-4 py-2 text-slate-600">{a.description ?? "—"}</td>
+                  <td className={`px-4 py-2 text-right font-medium ${amt >= 0 ? "text-blue-700" : "text-red-600"}`}>
+                    {amt >= 0 ? "+" : ""}₹{Math.abs(amt).toLocaleString()}
+                  </td>
+                </tr>
+              );
+            })}
+            {(advances ?? []).length > 0 && (
+              <tr className="border-t-2 border-slate-200 bg-slate-50">
+                <td colSpan={2} className="px-4 py-2 font-semibold text-slate-700">Balance</td>
+                <td className={`px-4 py-2 text-right font-bold ${advanceBalance > 0 ? "text-blue-700" : advanceBalance < 0 ? "text-red-600" : "text-slate-700"}`}>
+                  ₹{advanceBalance.toLocaleString()}
+                </td>
+              </tr>
+            )}
           </tbody>
         </table>
       </div>

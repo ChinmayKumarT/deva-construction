@@ -97,6 +97,24 @@ export async function recordDelivery(
       if (error) throw new Error(error.message);
 
       if (bills && material) {
+        const cost = lineTotal(quantity, unit_cost);
+
+        // Auto-deduct from advance balance if one exists.
+        const { data: advRows } = await supabase
+          .from("supplier_advances")
+          .select("amount")
+          .eq("supplier_id", supplier.id);
+        const advBalance = (advRows ?? []).reduce((s: number, r: { amount: number }) => s + Number(r.amount), 0);
+        if (advBalance > 0) {
+          const deduction = Math.min(advBalance, cost);
+          await supabase.from("supplier_advances").insert({
+            supplier_id: supplier.id,
+            amount: -deduction,
+            description: `Auto-deducted for ${name} delivery`,
+            material_id: material.id,
+          });
+        }
+
         // Suppliers are trusted -- skip the manual approval review step, but
         // "Mark paid" stays a separate admin-only action for the actual
         // payment event (see 26_supplier_bills_auto_approved.sql, whose
@@ -109,7 +127,7 @@ export async function recordDelivery(
           project_id,
           payee_type: "supplier",
           supplier_id: supplier.id,
-          amount: lineTotal(quantity, unit_cost),
+          amount: cost,
           // Same description shape the admin's own purchase-billing flow
           // produces (components/admin/PaymentForm.tsx), so bills from the
           // two paths read identically in the payments list.

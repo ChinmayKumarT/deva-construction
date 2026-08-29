@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createSupabaseServerClient, getSessionAndRole } from "@/lib/supabase/server";
 import { WAGE_FACTOR } from "@/lib/wages";
+import { lineTotal } from "@/lib/money";
 
 function str(fd: FormData, k: string) {
   const v = fd.get(k);
@@ -258,6 +259,46 @@ export async function updateSupplier(fd: FormData) {
 export async function archiveSupplier(fd: FormData) { await setArchived("suppliers", str(fd, "id"), true); }
 export async function unarchiveSupplier(fd: FormData) { await setArchived("suppliers", str(fd, "id"), false); }
 
+// ---------- Supplier advances ----------
+export async function giveSupplierAdvance(fd: FormData) {
+  const supabase = await createSupabaseServerClient();
+  const supplier_id = str(fd, "supplier_id");
+  if (!supplier_id) throw new Error("supplier required");
+  const amount = nonNegNum(fd, "amount", "Amount");
+  if (!amount || amount <= 0) throw new Error("Amount must be greater than zero");
+  const { error } = await supabase.from("supplier_advances").insert({
+    supplier_id,
+    amount,
+    description: str(fd, "description") || "Advance payment",
+  });
+  if (error) throw new Error(error.message);
+  revalidatePath(`/admin/suppliers/${supplier_id}`);
+  revalidatePath("/admin/suppliers");
+}
+
+async function deductFromSupplierAdvance(
+  supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>,
+  supplierId: string,
+  materialId: string,
+  materialCost: number,
+) {
+  if (materialCost <= 0) return;
+  const { data: advances } = await supabase
+    .from("supplier_advances")
+    .select("amount")
+    .eq("supplier_id", supplierId);
+  const balance = (advances ?? []).reduce((s, r) => s + Number(r.amount), 0);
+  if (balance <= 0) return;
+  const deduction = Math.min(balance, materialCost);
+  await supabase.from("supplier_advances").insert({
+    supplier_id: supplierId,
+    amount: -deduction,
+    description: `Auto-deducted for material delivery`,
+    material_id: materialId,
+  });
+  revalidatePath(`/admin/suppliers/${supplierId}`);
+}
+
 // ---------- Labourers ----------
 export async function updateLabourer(fd: FormData) {
   // profile_id is deliberately not written: labourers don't sign in (the site
@@ -382,8 +423,12 @@ export async function createMaterial(
       unit_cost: row.unit_cost,
     });
     if (!duplicate) {
-      const { error } = await supabase.from("materials").insert(row);
+      const { data: inserted, error } = await supabase.from("materials").insert(row).select("id").single();
       if (error) throw new Error(error.message);
+      if (status === "delivered" && row.supplier_id && inserted) {
+        const cost = lineTotal(row.quantity, row.unit_cost);
+        await deductFromSupplierAdvance(supabase, row.supplier_id, inserted.id, cost);
+      }
     }
     revalidatePath("/admin/materials");
     revalidatePath("/admin/costs");
@@ -398,11 +443,20 @@ export async function markMaterialDelivered(fd: FormData) {
   const supabase = await createSupabaseServerClient();
   const id = str(fd, "id");
   if (!id) return;
+  const { data: material } = await supabase
+    .from("materials")
+    .select("supplier_id, quantity, unit_cost")
+    .eq("id", id)
+    .single();
   const { error } = await supabase
     .from("materials")
     .update({ status: "delivered", delivered_at: new Date().toISOString() })
     .eq("id", id);
   if (error) throw new Error(error.message);
+  if (material?.supplier_id) {
+    const cost = lineTotal(material.quantity, material.unit_cost);
+    await deductFromSupplierAdvance(supabase, material.supplier_id, id, cost);
+  }
   revalidatePath("/admin/materials");
   revalidatePath("/admin/costs");
   revalidatePath("/admin");
