@@ -25,6 +25,7 @@ export function Sidebar({
   homeHref?: string;
 }) {
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [expanded, setExpanded] = useState(false);
   const pathname = usePathname();
 
   return (
@@ -47,34 +48,76 @@ export function Sidebar({
         </button>
       )}
 
-      {/* Desktop: slim icon rail */}
-      <aside className="hidden lg:flex w-[56px] h-screen sticky top-0 z-40 flex-col items-center bg-white/80 backdrop-blur-md border-r border-slate-200/60 py-3 shrink-0">
-        <Link href={homeHref} className="mb-3 flex items-center justify-center rounded-xl transition hover:scale-105">
-          <Image
-            src="/icon.png" alt="Deva" width={30} height={30}
-            className="rounded-lg" style={{ objectFit: "contain" }}
-          />
-        </Link>
+      {/* Desktop: expandable sidebar */}
+      <aside
+        className={
+          "hidden lg:flex h-screen sticky top-0 z-40 flex-col bg-white/80 backdrop-blur-md border-r border-slate-200/60 py-3 shrink-0 transition-all duration-200 " +
+          (expanded ? "w-[220px]" : "w-[56px] items-center")
+        }
+      >
+        <div className={"flex items-center mb-3 " + (expanded ? "px-4 justify-between" : "justify-center")}>
+          <Link href={homeHref} className="flex items-center gap-2.5 rounded-xl transition hover:scale-105">
+            <Image
+              src="/icon.png" alt="Deva" width={30} height={30}
+              className="rounded-lg shrink-0" style={{ objectFit: "contain" }}
+            />
+            {expanded && (
+              <span className="text-sm font-semibold text-slate-800 whitespace-nowrap">
+                Deva <span className="font-normal text-slate-500">Construction</span>
+              </span>
+            )}
+          </Link>
+          {expanded && (
+            <button
+              onClick={() => setExpanded(false)}
+              className="flex items-center justify-center h-7 w-7 rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-600"
+            >
+              <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+            </button>
+          )}
+        </div>
 
-        <nav className="flex-1 flex flex-col items-center gap-0.5 overflow-y-auto no-scrollbar w-full px-1.5">
+        {!expanded && (
+          <button
+            onClick={() => setExpanded(true)}
+            title="Expand sidebar"
+            className="flex items-center justify-center h-9 w-9 rounded-xl text-slate-400 transition-all hover:bg-slate-100 hover:text-slate-700 mb-2"
+          >
+            <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"><path d="M9 6l6 6-6 6"/></svg>
+          </button>
+        )}
+
+        <nav className={"flex-1 flex flex-col gap-0.5 overflow-y-auto no-scrollbar w-full " + (expanded ? "px-3" : "items-center px-1.5")}>
           {groups.map((g, gi) => (
             <Fragment key={gi}>
-              {gi > 0 && <div className="w-6 h-px bg-slate-200/80 my-2" />}
+              {gi > 0 && (expanded
+                ? <div className="h-px bg-slate-200/80 my-2" />
+                : <div className="w-6 h-px bg-slate-200/80 my-2" />
+              )}
+              {expanded && g.title && (
+                <h3 className="px-3 mb-1 mt-1 text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+                  {g.title}
+                </h3>
+              )}
               {g.items.map((item) => {
                 const active = isItemActive(pathname, item.href);
                 return (
                   <Link
                     key={item.href}
                     href={item.href}
-                    title={item.label}
+                    title={expanded ? undefined : item.label}
                     className={
-                      "flex items-center justify-center h-9 w-9 rounded-xl transition-all duration-150 " +
+                      (expanded
+                        ? "flex items-center gap-3 px-3 h-10 rounded-xl text-sm transition-colors "
+                        : "flex items-center justify-center h-9 w-9 rounded-xl transition-all duration-150 "
+                      ) +
                       (active
-                        ? "bg-brand/10 text-brand-700 shadow-sm shadow-brand/10"
+                        ? "bg-brand/10 text-brand-700 shadow-sm shadow-brand/10" + (expanded ? " font-medium" : "")
                         : "text-slate-400 hover:bg-slate-100 hover:text-slate-700")
                     }
                   >
                     <Icon name={item.icon} size={20} />
+                    {expanded && <span>{item.label}</span>}
                   </Link>
                 );
               })}
@@ -82,13 +125,20 @@ export function Sidebar({
           ))}
         </nav>
 
-        <form action={signOut} className="mt-2">
+        <form action={signOut} className={"mt-2 " + (expanded ? "px-3" : "")}>
           <button
             type="submit"
             title="Sign out"
-            className="flex items-center justify-center h-9 w-9 rounded-xl text-slate-400 transition-all hover:bg-red-50 hover:text-red-500"
+            className={
+              (expanded
+                ? "flex w-full items-center gap-3 px-3 h-10 rounded-xl text-sm "
+                : "flex items-center justify-center h-9 w-9 rounded-xl "
+              ) +
+              "text-slate-400 transition-all hover:bg-red-50 hover:text-red-500"
+            }
           >
             <Icon name="signout" size={20} />
+            {expanded && <span>Sign out</span>}
           </button>
         </form>
       </aside>
