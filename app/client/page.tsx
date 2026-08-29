@@ -1,8 +1,8 @@
 import Image from "next/image";
-import Link from "next/link";
 import { requireRole } from "@/lib/guard";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { formatDateOnly } from "@/lib/dateFormat";
+import { lineTotal } from "@/lib/money";
 import { PieChart } from "@/components/admin/PieChart";
 import { ProfileMenu } from "@/components/ProfileMenu";
 
@@ -59,7 +59,7 @@ export default async function ClientDashboard() {
 
   const projectIds = (projects ?? []).map((p) => p.id);
 
-  const [{ data: updates }, { data: clientPayments }, { data: projectLabourers }, { data: changeOrders }] = projectIds.length
+  const [{ data: updates }, { data: clientPayments }, { data: projectLabourers }, { data: changeOrders }, { data: materials }] = projectIds.length
     ? await Promise.all([
         supabase
           .from("project_updates")
@@ -81,8 +81,13 @@ export default async function ClientDashboard() {
           .in("project_id", projectIds)
           .is("archived_at", null)
           .order("created_at", { ascending: false }),
+        supabase
+          .from("materials")
+          .select("project_id, quantity, unit_cost, status")
+          .in("project_id", projectIds)
+          .is("archived_at", null),
       ])
-    : [{ data: [] }, { data: [] }, { data: [] }, { data: [] }];
+    : [{ data: [] }, { data: [] }, { data: [] }, { data: [] }, { data: [] }];
 
   const receivedByProject = new Map<string, number>();
   const paymentsByProject = new Map<string, { date: string; amount: number }[]>();
@@ -111,6 +116,12 @@ export default async function ClientDashboard() {
     const list = changeOrdersByProject.get(co.project_id) ?? [];
     list.push(co);
     changeOrdersByProject.set(co.project_id, list);
+  }
+
+  const spentByProject = new Map<string, number>();
+  for (const m of (materials ?? []) as { project_id: string; quantity: number; unit_cost: number; status: string }[]) {
+    if (m.status === "returned" || !m.project_id) continue;
+    spentByProject.set(m.project_id, (spentByProject.get(m.project_id) ?? 0) + lineTotal(m.quantity, m.unit_cost));
   }
 
   const totalBudget = (projects ?? []).reduce((s, p) => s + Number(p.total_cost), 0);
@@ -454,15 +465,77 @@ export default async function ClientDashboard() {
               )}
             </div>
 
-            {/* ── Footer link ── */}
-            <div className="mt-12 mb-8 text-center">
-              <Link
-                href="/client/reports"
-                className="inline-flex items-center gap-2 rounded-xl bg-brand px-6 py-3 text-sm font-semibold text-white shadow-md shadow-brand/25 transition hover:bg-brand-700 hover:shadow-lg"
-              >
-                View detailed reports
-                <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5 21 12m0 0-7.5 7.5M21 12H3" /></svg>
-              </Link>
+            {/* ── Project Reports ── */}
+            <div id="reports">
+              <SectionHeader title="Project Reports" count={(projects ?? []).length} className="mt-8" />
+              <div className="space-y-4 mb-8">
+                {projects!.map((p) => {
+                  const pctR = Number(p.completion_pct);
+                  const budgetR = Number(p.total_cost);
+                  const spent = spentByProject.get(p.id) ?? 0;
+
+                  return (
+                    <div key={p.id} className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+                      <div className="border-b border-slate-100 px-5 py-3 sm:px-6">
+                        <div className="flex items-center gap-2.5">
+                          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-brand/10 text-sm font-bold text-brand-700">
+                            {p.name.charAt(0).toUpperCase()}
+                          </div>
+                          <h3 className="font-semibold text-slate-900">{p.name}</h3>
+                        </div>
+                      </div>
+
+                      <div className="px-5 py-4 sm:px-6">
+                        <div className="grid gap-3 sm:grid-cols-3">
+                          <div className="rounded-xl border border-slate-100 bg-slate-50/50 p-4">
+                            <div className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">Completion</div>
+                            <div className="mt-1.5 text-lg font-bold text-brand-700">{pctR.toFixed(0)}%</div>
+                            <div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-slate-100">
+                              <div
+                                className="h-full rounded-full bg-gradient-to-r from-brand to-emerald-500"
+                                style={{ width: `${Math.max(0, Math.min(100, pctR))}%` }}
+                              />
+                            </div>
+                          </div>
+                          <div className="rounded-xl border border-slate-100 bg-slate-50/50 p-4">
+                            <div className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">Budget</div>
+                            <div className="mt-1.5 text-lg font-bold text-slate-800">₹{budgetR.toLocaleString()}</div>
+                            {spent > 0 && (
+                              <div className="mt-1 text-xs text-slate-500">₹{spent.toLocaleString()} material cost</div>
+                            )}
+                          </div>
+                          <div className="rounded-xl border border-slate-100 bg-slate-50/50 p-4">
+                            <div className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">Timeline</div>
+                            <div className="mt-1.5 text-sm font-medium text-slate-700">
+                              {p.start_date ?? "—"} → {p.end_date ?? "—"}
+                            </div>
+                            {p.current_stage && (
+                              <div className="mt-1 text-xs text-slate-500">Stage: {p.current_stage}</div>
+                            )}
+                          </div>
+                        </div>
+
+                        {p.agreement_image_url && (
+                          <div className="mt-4 rounded-xl border border-slate-100 bg-slate-50/50 p-4">
+                            <div className="mb-3 text-[10px] font-semibold uppercase tracking-wider text-slate-400">Agreement</div>
+                            <Image
+                              src={p.agreement_image_url} alt="" width={640} height={480} loading="lazy"
+                              className="max-h-72 w-auto rounded-xl border border-slate-100 object-cover"
+                            />
+                            <a
+                              href={`${p.agreement_image_url}?download`}
+                              className="mt-3 inline-flex items-center gap-1.5 text-sm font-semibold text-brand-700 hover:underline"
+                            >
+                              <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12M12 16.5V3" /></svg>
+                              Download agreement
+                            </a>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
             </div>
           </>
         )}
