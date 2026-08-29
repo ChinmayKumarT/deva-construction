@@ -151,23 +151,6 @@ export default async function LoginPage(
                 {isSignUp ? "Create account" : "Sign in"}
               </button>
 
-              {!isSignUp && (
-                <div className="mt-4 flex flex-col gap-3">
-                  <div className="flex items-center gap-2" style={{ fontSize: 14, color: "#3F4654" }}>
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#5F57F5" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                      <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
-                      <path d="M7 11V7a5 5 0 0 1 10 0v4" />
-                    </svg>
-                    <span>Encrypted with 256-bit TLS — your data never leaves our secure servers</span>
-                  </div>
-                  <div className="flex items-center gap-2" style={{ fontSize: 14, color: "#3F4654" }}>
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#5F57F5" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                      <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
-                    </svg>
-                    <span>Trusted daily by the Deva Construction owner, managers, clients and suppliers</span>
-                  </div>
-                </div>
-              )}
             </form>
           )}
 
@@ -177,9 +160,6 @@ export default async function LoginPage(
             <span className="h-px flex-1 bg-[var(--line)]" />
           </div>
 
-          <p className="mt-4 mb-3 text-center" style={{ fontSize: 14, color: "#7A8396" }}>
-            Prefer a different way in? Both options are secondary — most owners use email + password above.
-          </p>
 
           <form action={signInWithGoogle}>
             <button
