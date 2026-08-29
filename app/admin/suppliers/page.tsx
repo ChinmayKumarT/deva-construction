@@ -85,7 +85,7 @@ export default async function SuppliersPage(
               <p className="mt-2 text-sm text-slate-600">
                 {s.email ?? "No email"} · {s.phone ?? "No phone"}
               </p>
-              <div className="mt-3 flex gap-2">
+              <div className="mt-3 flex flex-wrap gap-2">
                 <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
                   <div className="text-[10px] font-medium uppercase tracking-wide text-slate-500">Deliveries</div>
                   <div className="text-sm font-semibold">{deliveriesBySupplier.get(s.id) ?? 0}</div>

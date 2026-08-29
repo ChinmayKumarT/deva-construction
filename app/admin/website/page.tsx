@@ -48,7 +48,7 @@ export default async function WebsitePage() {
         }
       />
 
-      <div className="mb-8 overflow-hidden rounded-xl border border-[var(--line)] bg-white">
+      <div className="mb-8 overflow-x-auto rounded-xl border border-[var(--line)] bg-white">
         <table className="w-full text-sm">
           <thead className="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
             <tr>
