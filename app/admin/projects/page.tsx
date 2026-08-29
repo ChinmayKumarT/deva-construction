@@ -2,6 +2,7 @@ import Link from "next/link";
 import { createSupabaseServerClient, getSessionAndRole } from "@/lib/supabase/server";
 import { AdminPage, AdminPageHeader, AdminContent, CostBox, Field, Select, SubmitButton } from "@/components/admin/Page";
 import { DeleteForeverButton } from "@/components/admin/RowActions";
+import { CollapsibleForm } from "@/components/admin/CollapsibleForm";
 import { createProject, unarchiveProject, deleteProject } from "../actions";
 
 export default async function ProjectsPage(
@@ -93,7 +94,8 @@ export default async function ProjectsPage(
       )}
 
       {!showArchived && (
-        <form action={createProject} className="mb-8 grid gap-4 rounded-xl border border-slate-200 bg-white p-6 sm:grid-cols-2 lg:grid-cols-3">
+        <CollapsibleForm label="Create project" icon="project">
+        <form action={createProject} className="grid gap-4 rounded-xl border border-slate-200 bg-white p-6 sm:grid-cols-2 lg:grid-cols-3">
           <Field label="Name" name="name" required />
           <Select label="Client" name="client_id" defaultValue="none">
             <option value="none">— none —</option>
@@ -110,10 +112,6 @@ export default async function ProjectsPage(
             <option value="cancelled">Cancelled</option>
           </Select>
           <Field label="Current stage" name="current_stage" />
-          {/* Omitted for managers. total_cost defaults to 0 in the schema and
-              createProject already coalesces a missing value, so a project a
-              manager creates simply starts with no budget for an admin to
-              fill in. */}
           {!isManager && (
             <Field label="Total cost (₹)" name="total_cost" type="number" step="0.01" min="0" />
           )}
@@ -124,6 +122,7 @@ export default async function ProjectsPage(
             <SubmitButton>Create project</SubmitButton>
           </div>
         </form>
+        </CollapsibleForm>
       )}
 
       {!showArchived && (projects ?? []).length === 0 && (

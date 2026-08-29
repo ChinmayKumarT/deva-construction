@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { createSupabaseServerClient, getSessionAndRole } from "@/lib/supabase/server";
 import { AdminPage, AdminPageHeader, AdminContent, Field, SubmitButton } from "@/components/admin/Page";
 import { ArchivedToggle, DeleteForeverButton, RestoreAction } from "@/components/admin/RowActions";
+import { CollapsibleForm } from "@/components/admin/CollapsibleForm";
 import { CreatePaymentForm } from "@/components/admin/PaymentForm";
 import { CashFlowBarChart } from "@/components/admin/CashFlowBarChart";
 import { byCategoryTotals } from "@/lib/paymentsChart";
@@ -227,7 +228,8 @@ export default async function ProjectPaymentsPage(
           </h2>
 
           {!showArchived && (
-            <form action={createClientPayment} className="mb-6 grid gap-4 rounded-xl border border-slate-200 bg-white p-6 sm:grid-cols-2 lg:grid-cols-4">
+            <CollapsibleForm label="Record client payment" icon="money">
+            <form action={createClientPayment} className="grid gap-4 rounded-xl border border-slate-200 bg-white p-6 sm:grid-cols-2 lg:grid-cols-4">
               <input type="hidden" name="project_id" value={project!.id} />
               <Field label="Date" name="paid_on" type="date" defaultValue={new Date().toISOString().slice(0, 10)} required />
               <Field label="Amount" name="amount" type="number" step="0.01" min={0} required />
@@ -236,6 +238,7 @@ export default async function ProjectPaymentsPage(
                 <SubmitButton>Record payment</SubmitButton>
               </div>
             </form>
+            </CollapsibleForm>
           )}
 
           <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white">

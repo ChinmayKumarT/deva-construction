@@ -3,6 +3,7 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { AdminPage, AdminPageHeader, AdminContent, CostBox, Field, Select, SubmitButton } from "@/components/admin/Page";
 import { CategoryField } from "@/components/admin/CategoryField";
 import { ResettableForm, FormError } from "@/components/ResettableForm";
+import { CollapsibleForm } from "@/components/admin/CollapsibleForm";
 import { createMaterial, type CreateMaterialState } from "../actions";
 import { lineTotal } from "@/lib/money";
 
@@ -74,10 +75,11 @@ export default async function MaterialsIndexPage(
       ) : null}
 
       {!showArchived && (
+        <CollapsibleForm label="Add material" icon="supplier">
         <ResettableForm<CreateMaterialState>
           action={createMaterial}
           initialState={{ error: null, success: false }}
-          className="mb-8 grid gap-4 rounded-xl border border-slate-200 bg-white p-6 sm:grid-cols-2 lg:grid-cols-3"
+          className="grid gap-4 rounded-xl border border-slate-200 bg-white p-6 sm:grid-cols-2 lg:grid-cols-3"
         >
           <Field label="Material name" name="name" required />
           <Select label="Project" name="project_id" defaultValue="none">
@@ -102,6 +104,7 @@ export default async function MaterialsIndexPage(
             <SubmitButton>Add material</SubmitButton>
           </div>
         </ResettableForm>
+        </CollapsibleForm>
       )}
 
       {!showArchived && (

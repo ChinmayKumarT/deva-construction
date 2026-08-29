@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Field } from "@/components/admin/FormFields";
 import { SubmitButton } from "@/components/admin/SubmitButton";
+import { CollapsibleForm } from "@/components/admin/CollapsibleForm";
 
 export function CreateClientForm({
   action,
@@ -16,7 +17,8 @@ export function CreateClientForm({
   const [phone, setPhone] = useState("");
 
   return (
-    <form action={action} className="mb-8 grid gap-4 rounded-xl border border-slate-200 bg-white p-6 sm:grid-cols-2 lg:grid-cols-3">
+    <CollapsibleForm label="Add client" icon="client">
+    <form action={action} className="grid gap-4 rounded-xl border border-slate-200 bg-white p-6 sm:grid-cols-2 lg:grid-cols-3">
       <label className="block text-sm">
         <span className="mb-1 block font-medium text-slate-700">Name</span>
         <input
@@ -74,5 +76,6 @@ export function CreateClientForm({
         <SubmitButton>Add client</SubmitButton>
       </div>
     </form>
+    </CollapsibleForm>
   );
 }

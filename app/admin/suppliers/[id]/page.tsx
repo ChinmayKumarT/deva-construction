@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { createSupabaseServerClient, getSessionAndRole } from "@/lib/supabase/server";
 import { AdminPage, AdminPageHeader, AdminContent } from "@/components/admin/Page";
 import { DeleteForeverButton, MarkPaidButton } from "@/components/admin/RowActions";
+import { CollapsibleForm } from "@/components/admin/CollapsibleForm";
 import {
   archiveSupplier, deleteSupplier, unarchiveSupplier, archiveMaterial, archivePayment,
   markPaymentPaid, giveSupplierAdvance,
@@ -238,9 +239,10 @@ export default async function ManageSupplierPage(props: { params: Promise<{ id: 
       <h2 className="mt-10 mb-3 text-sm font-semibold uppercase tracking-wide text-slate-500">Advance Account</h2>
 
       {!archived && (
+        <CollapsibleForm label="Give advance" icon="money">
         <form
           action={giveSupplierAdvance}
-          className="mb-4 flex flex-wrap items-end gap-3 rounded-xl border border-slate-200 bg-white p-4"
+          className="flex flex-wrap items-end gap-3 rounded-xl border border-slate-200 bg-white p-4"
         >
           <input type="hidden" name="supplier_id" value={supplier.id} />
           <label className="block text-sm">
@@ -271,6 +273,7 @@ export default async function ManageSupplierPage(props: { params: Promise<{ id: 
             Give advance
           </button>
         </form>
+        </CollapsibleForm>
       )}
 
       <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white">

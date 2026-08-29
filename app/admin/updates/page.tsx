@@ -3,6 +3,7 @@ import Image from "next/image";
 import { createSupabaseServerClient, getSessionAndRole } from "@/lib/supabase/server";
 import { AdminPage, AdminPageHeader, AdminContent, Field, Select, SubmitButton } from "@/components/admin/Page";
 import { ArchivedToggle, DeleteForeverButton, RestoreAction } from "@/components/admin/RowActions";
+import { CollapsibleForm } from "@/components/admin/CollapsibleForm";
 import { postProjectUpdate, archiveProjectUpdate, unarchiveProjectUpdate, deleteProjectUpdate } from "../actions";
 
 export default async function UpdatesPage(
@@ -44,7 +45,8 @@ export default async function UpdatesPage(
       </div>
 
       {!showArchived && (
-        <form action={postProjectUpdate} encType="multipart/form-data" className="mb-8 grid gap-4 rounded-xl border border-slate-200 bg-white p-6 sm:grid-cols-2 lg:grid-cols-3">
+        <CollapsibleForm label="Post update" icon="update">
+        <form action={postProjectUpdate} encType="multipart/form-data" className="grid gap-4 rounded-xl border border-slate-200 bg-white p-6 sm:grid-cols-2 lg:grid-cols-3">
           <Select label="Project" name="project_id" defaultValue="none">
             <option value="none" disabled>— choose —</option>
             {projects?.map((p) => (<option key={p.id} value={p.id}>{p.name}</option>))}
@@ -74,6 +76,7 @@ export default async function UpdatesPage(
             <SubmitButton>Post update</SubmitButton>
           </div>
         </form>
+        </CollapsibleForm>
       )}
 
       <ul className="space-y-4">

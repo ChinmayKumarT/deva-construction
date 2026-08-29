@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { SubmitButton } from "@/components/admin/SubmitButton";
+import { CollapsibleForm } from "@/components/admin/CollapsibleForm";
 
 export function CreateSupplierForm({
   action,
@@ -15,7 +16,8 @@ export function CreateSupplierForm({
   const [phone, setPhone] = useState("");
 
   return (
-    <form action={action} className="mb-8 grid gap-4 rounded-xl border border-slate-200 bg-white p-6 sm:grid-cols-2 lg:grid-cols-3">
+    <CollapsibleForm label="Add supplier" icon="supplier">
+    <form action={action} className="grid gap-4 rounded-xl border border-slate-200 bg-white p-6 sm:grid-cols-2 lg:grid-cols-3">
       <label className="block text-sm">
         <span className="mb-1 block font-medium text-slate-700">Name</span>
         <input
@@ -72,5 +74,6 @@ export function CreateSupplierForm({
         <SubmitButton>Add supplier</SubmitButton>
       </div>
     </form>
+    </CollapsibleForm>
   );
 }

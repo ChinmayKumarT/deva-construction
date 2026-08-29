@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { AdminPage, AdminPageHeader, AdminContent, Field, Select, SubmitButton } from "@/components/admin/Page";
+import { CollapsibleForm } from "@/components/admin/CollapsibleForm";
 import { createShowcaseProject, setShowcasePublished, unarchiveShowcaseProject } from "./actions";
 
 /**
@@ -156,16 +157,11 @@ export default async function WebsitePage() {
         </details>
       )}
 
+      <CollapsibleForm label="Add project to website" icon="website">
       <form
         action={createShowcaseProject}
         className="grid gap-4 rounded-xl border border-[var(--line)] bg-white p-6 sm:grid-cols-2 lg:grid-cols-3"
       >
-        <div className="sm:col-span-2 lg:col-span-3">
-          <h2 className="text-base font-semibold text-ink">Add a project to the website</h2>
-          <p className="mt-1 text-sm text-slate-500">
-            It is saved as a draft. Add photos, check it over, then publish.
-          </p>
-        </div>
         <Field label="Project name" name="name" required />
         <Field label="Location" name="location" required />
         <Field label="Year" name="year" required maxLength={4} />
@@ -180,6 +176,7 @@ export default async function WebsitePage() {
           <SubmitButton>Add project</SubmitButton>
         </div>
       </form>
+      </CollapsibleForm>
       </AdminContent>
     </AdminPage>
   );

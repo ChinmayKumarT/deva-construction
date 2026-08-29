@@ -7,6 +7,7 @@ import { useFormState } from "react-dom";
 import { SubmitButton } from "@/components/admin/SubmitButton";
 import { OTHER_CATEGORY } from "@/components/admin/CategoryField";
 import { ConfirmPopup } from "@/components/admin/ConfirmPopup";
+import { CollapsibleForm } from "@/components/admin/CollapsibleForm";
 import { WORK_CATEGORIES } from "@/lib/workCategories";
 import { wageDueKey } from "@/lib/wages";
 import { lineTotal } from "@/lib/money";
@@ -530,7 +531,7 @@ export function CreatePaymentForm({
   }, [state, router]);
 
   return (
-    <>
+    <CollapsibleForm label="Create payment" icon="payment">
       {state.error && <p className="mb-4 text-sm text-red-600">{state.error}</p>}
       <PaymentFormFields
         key={formKey}
@@ -555,7 +556,7 @@ export function CreatePaymentForm({
         allowMulti
       />
       <ConfirmPopup open={showConfirm} message="Payment(s) created." onClose={() => setShowConfirm(false)} />
-    </>
+    </CollapsibleForm>
   );
 }
 

@@ -3,6 +3,7 @@ import { requireRole } from "@/lib/guard";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { AdminPage, AdminPageHeader, AdminContent, CostBox, DataTable, Field, Select, SubmitButton } from "@/components/admin/Page";
 import { ArchivedToggle, DeleteForeverButton, ManageCard, ManageSection, RestoreAction, RowActions } from "@/components/admin/RowActions";
+import { CollapsibleForm } from "@/components/admin/CollapsibleForm";
 import {
   createPersonalTransaction,
   archivePersonalTransaction,
@@ -76,7 +77,8 @@ export default async function PersonalTransactionsPage(
       </div>
 
       {!showArchived && (
-        <form action={createPersonalTransaction} className="mb-8 grid gap-4 rounded-xl border border-slate-200 bg-white p-6 sm:grid-cols-2 lg:grid-cols-4">
+        <CollapsibleForm label="Add transaction" icon="transaction">
+        <form action={createPersonalTransaction} className="grid gap-4 rounded-xl border border-slate-200 bg-white p-6 sm:grid-cols-2 lg:grid-cols-4">
           <Select label="Type" name="type" defaultValue="income">
             <option value="income">Income</option>
             <option value="expense">Expense</option>
@@ -88,6 +90,7 @@ export default async function PersonalTransactionsPage(
             <SubmitButton>Add transaction</SubmitButton>
           </div>
         </form>
+        </CollapsibleForm>
       )}
 
       <DataTable

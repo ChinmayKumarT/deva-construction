@@ -4,6 +4,7 @@ import { ArchivedToggle, DeleteForeverButton, ManageCard, ManageSection, Restore
 import { AssignLabourerForm } from "@/components/admin/AssignLabourerForm";
 import { CategoryField } from "@/components/admin/CategoryField";
 import { LinkFamilyForm, FamilyBadge } from "@/components/admin/FamilyLink";
+import { CollapsibleForm } from "@/components/admin/CollapsibleForm";
 import { assignLabourer, createLabourer, archiveLabourer, unarchiveLabourer, deleteLabourer, linkFamily, unlinkFamily } from "../actions";
 
 export default async function LabourersPage(
@@ -92,7 +93,8 @@ export default async function LabourersPage(
       </div>
 
       {!showArchived && (
-        <form action={createLabourer} className="mb-8 grid gap-4 rounded-xl border border-slate-200 bg-white p-6 sm:grid-cols-2 lg:grid-cols-3">
+        <CollapsibleForm label="Add labourer" icon="labourer">
+        <form action={createLabourer} className="grid gap-4 rounded-xl border border-slate-200 bg-white p-6 sm:grid-cols-2 lg:grid-cols-3">
           <Field label="Name" name="name" required />
           <CategoryField label="Category" name="category" />
           <Field label="Phone" name="phone" type="tel" maxLength={10} />
@@ -105,6 +107,7 @@ export default async function LabourersPage(
             <SubmitButton>Add labourer</SubmitButton>
           </div>
         </form>
+        </CollapsibleForm>
       )}
 
       <DataTable
