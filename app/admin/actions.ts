@@ -279,23 +279,25 @@ export async function giveSupplierAdvance(fd: FormData) {
 async function deductFromSupplierAdvance(
   supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>,
   supplierId: string,
-  materialId: string,
-  materialCost: number,
+  materialId: string | null,
+  cost: number,
+  description = "Auto-deducted for material delivery",
 ) {
-  if (materialCost <= 0) return;
+  if (cost <= 0) return;
   const { data: advances } = await supabase
     .from("supplier_advances")
     .select("amount")
     .eq("supplier_id", supplierId);
   const balance = (advances ?? []).reduce((s, r) => s + Number(r.amount), 0);
   if (balance <= 0) return;
-  const deduction = Math.min(balance, materialCost);
-  await supabase.from("supplier_advances").insert({
+  const deduction = Math.min(balance, cost);
+  const row: Record<string, unknown> = {
     supplier_id: supplierId,
     amount: -deduction,
-    description: `Auto-deducted for material delivery`,
-    material_id: materialId,
-  });
+    description,
+  };
+  if (materialId) row.material_id = materialId;
+  await supabase.from("supplier_advances").insert(row);
   revalidatePath(`/admin/suppliers/${supplierId}`);
 }
 
@@ -640,8 +642,13 @@ export async function createPayment(
       description: row.description as string | null,
     });
     if (!duplicate) {
-      const { error } = await supabase.from("payments").insert(row);
+      const { data: inserted, error } = await supabase.from("payments").insert(row).select("id").single();
       if (error) throw new Error(error.message);
+
+      if (payee_type === "supplier" && resolvedSupplierId && inserted) {
+        const amount = row.amount as number;
+        await deductFromSupplierAdvance(supabase, resolvedSupplierId, null, amount, `Auto-deducted for supplier payment`);
+      }
     }
 
     // Mark the picked purchase as billed so it drops out of the "Purchase
@@ -684,18 +691,25 @@ export async function markPaymentPaid(fd: FormData) {
   const supabase = await createSupabaseServerClient();
   const id = str(fd, "id");
   if (!id) return;
+  const { data: payment } = await supabase
+    .from("payments")
+    .select("amount, supplier_id, payee_type")
+    .eq("id", id)
+    .single();
   const { error } = await supabase
     .from("payments")
     .update({ status: "paid", paid_at: new Date().toISOString() })
     .eq("id", id);
   if (error) throw new Error(error.message);
+  if (payment?.payee_type === "supplier" && payment.supplier_id) {
+    await deductFromSupplierAdvance(
+      supabase, payment.supplier_id, null, Number(payment.amount),
+      "Auto-deducted for supplier bill payment",
+    );
+  }
   revalidatePath("/admin/payments");
   revalidatePath("/admin/costs");
   revalidatePath("/admin");
-  // The supplier page can trigger this too (MarkPaidButton on
-  // /admin/suppliers/[id]), and its Remaining/Received figures come straight
-  // off payment status -- without these it would redirect back showing the
-  // pre-payment totals. Optional because the payments screen doesn't send it.
   revalidatePath("/admin/suppliers");
   const supplierId = str(fd, "supplier_id");
   if (supplierId) revalidatePath(`/admin/suppliers/${supplierId}`);
