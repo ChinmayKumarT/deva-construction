@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect, useTransition } from "react";
 import { signOut, deleteAccount } from "@/app/actions/auth";
 
-export function ProfileMenu({ name, email }: { name: string; email: string }) {
+export function ProfileMenu({ name, email, role = "Supplier" }: { name: string; email: string; role?: string }) {
   const [open, setOpen] = useState(false);
   const [showDelete, setShowDelete] = useState(false);
   const [confirm, setConfirm] = useState("");
@@ -48,7 +48,7 @@ export function ProfileMenu({ name, email }: { name: string; email: string }) {
             </div>
             <div className="mt-2">
               <span className="inline-flex items-center rounded-md bg-brand/10 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-brand-700">
-                Supplier
+                {role}
               </span>
             </div>
           </div>

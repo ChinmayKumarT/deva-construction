@@ -7,6 +7,7 @@ import { PieChart } from "@/components/admin/PieChart";
 import { dailyTotalsFromDatedAmounts } from "@/lib/paymentsChart";
 import { toCumulative } from "@/lib/cashflow";
 import { CashFlowTrendChart } from "@/components/admin/CashFlowTrendChart";
+import { ProfileMenu } from "@/components/ProfileMenu";
 
 export const revalidate = 60;
 
@@ -124,9 +125,12 @@ export default async function ClientDashboard() {
     <main className="min-h-screen">
       {/* ── Hero ── */}
       <div className="bg-gradient-to-br from-[var(--brand)] via-[var(--brand-deep)] to-slate-900 px-4 pb-16 pt-6 sm:px-6 lg:px-8">
-        <div className="mx-auto max-w-6xl">
-          <p className="text-sm font-medium text-white/60">{greeting()},</p>
-          <h1 className="mt-0.5 text-xl font-bold text-white sm:text-2xl">{client.name}</h1>
+        <div className="mx-auto max-w-6xl flex items-start justify-between">
+          <div>
+            <p className="text-sm font-medium text-white/60">{greeting()},</p>
+            <h1 className="mt-0.5 text-xl font-bold text-white sm:text-2xl">{client.name}</h1>
+          </div>
+          <ProfileMenu name={client.name} email={user.email ?? ""} role="Client" />
         </div>
       </div>
 
