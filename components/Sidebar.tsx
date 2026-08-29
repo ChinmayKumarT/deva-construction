@@ -104,26 +104,22 @@ export function Sidebar({
                 const cls =
                   (expanded
                     ? "flex items-center gap-3 px-3 h-10 rounded-xl text-sm transition-colors "
-                    : "flex items-center justify-center h-9 w-9 rounded-xl transition-all duration-150 cursor-pointer "
+                    : "flex items-center justify-center h-9 w-9 rounded-xl transition-all duration-150 "
                   ) +
                   (active
                     ? "bg-brand/10 text-brand-700 shadow-sm shadow-brand/10" + (expanded ? " font-medium" : "")
                     : "text-slate-400 hover:bg-slate-100 hover:text-slate-700");
-                return expanded ? (
-                  <Link key={item.href} href={item.href} className={cls}>
-                    <Icon name={item.icon} size={20} />
-                    <span>{item.label}</span>
-                  </Link>
-                ) : (
-                  <button
+                return (
+                  <Link
                     key={item.href}
-                    type="button"
-                    title={item.label}
-                    onClick={() => setExpanded(true)}
+                    href={item.href}
+                    title={expanded ? undefined : item.label}
+                    onClick={expanded ? undefined : () => setExpanded(true)}
                     className={cls}
                   >
                     <Icon name={item.icon} size={20} />
-                  </button>
+                    {expanded && <span>{item.label}</span>}
+                  </Link>
                 );
               })}
             </Fragment>
