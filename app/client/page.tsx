@@ -4,9 +4,6 @@ import { requireRole } from "@/lib/guard";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { formatDateOnly } from "@/lib/dateFormat";
 import { PieChart } from "@/components/admin/PieChart";
-import { dailyTotalsFromDatedAmounts } from "@/lib/paymentsChart";
-import { toCumulative } from "@/lib/cashflow";
-import { CashFlowTrendChart } from "@/components/admin/CashFlowTrendChart";
 import { ProfileMenu } from "@/components/ProfileMenu";
 
 export const revalidate = 60;
@@ -181,7 +178,6 @@ export default async function ClientDashboard() {
                 const labourCounts = labourCategoryCountsByProject.get(p.id);
                 const projectChangeOrders = changeOrdersByProject.get(p.id) ?? [];
                 const projectPayments = paymentsByProject.get(p.id) ?? [];
-                const projectTrend = toCumulative(dailyTotalsFromDatedAmounts(projectPayments));
                 const statusCls = STATUS_STYLE[p.status] ?? "bg-slate-50 text-slate-600 ring-slate-200";
 
                 return (
@@ -263,10 +259,48 @@ export default async function ClientDashboard() {
                         </div>
                       </div>
 
-                      {/* Payment trend mini chart */}
-                      {projectTrend.length > 0 && (
-                        <div className="mt-3 rounded-lg border border-slate-100 bg-slate-50/50 px-3 py-2">
-                          <CashFlowTrendChart daily={projectTrend} width={400} height={50} />
+                      {/* Payment timeline */}
+                      {projectPayments.length > 0 && (
+                        <div className="mt-3 rounded-lg border border-slate-100 bg-slate-50/50 px-3 py-3">
+                          <div className="mb-2 flex items-center justify-between">
+                            <span className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">Payment timeline</span>
+                            <span className="text-[10px] text-slate-400">{projectPayments.length} payment{projectPayments.length > 1 ? "s" : ""}</span>
+                          </div>
+                          <div className="space-y-1.5">
+                            {projectPayments.slice(0, 5).map((pay, idx) => {
+                              const payPct = budget > 0 ? (pay.amount / budget) * 100 : 0;
+                              return (
+                                <div key={idx} className="flex items-center gap-2">
+                                  <span className="w-16 shrink-0 text-[11px] tabular-nums text-slate-400">{pay.date.slice(5)}</span>
+                                  <div className="flex-1 h-5 rounded-md bg-slate-100 overflow-hidden">
+                                    <div
+                                      className="h-full rounded-md bg-gradient-to-r from-brand/80 to-brand flex items-center justify-end px-1.5"
+                                      style={{ width: `${Math.max(payPct, 8)}%` }}
+                                    >
+                                      <span className="text-[10px] font-semibold text-white drop-shadow-sm">₹{pay.amount.toLocaleString()}</span>
+                                    </div>
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                          {budget > 0 && (
+                            <div className="mt-2 flex items-center gap-2">
+                              <span className="w-16 shrink-0" />
+                              <div className="flex-1">
+                                <div className="h-1.5 rounded-full bg-slate-100 overflow-hidden">
+                                  <div
+                                    className="h-full rounded-full bg-emerald-500 transition-all"
+                                    style={{ width: `${Math.min((received / budget) * 100, 100)}%` }}
+                                  />
+                                </div>
+                                <div className="mt-1 flex justify-between text-[10px] text-slate-400">
+                                  <span>{((received / budget) * 100).toFixed(0)}% paid</span>
+                                  <span>₹{budget.toLocaleString()} budget</span>
+                                </div>
+                              </div>
+                            </div>
+                          )}
                         </div>
                       )}
 
