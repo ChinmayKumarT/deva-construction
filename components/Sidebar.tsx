@@ -101,24 +101,29 @@ export function Sidebar({
               )}
               {g.items.map((item) => {
                 const active = isItemActive(pathname, item.href);
-                return (
-                  <Link
+                const cls =
+                  (expanded
+                    ? "flex items-center gap-3 px-3 h-10 rounded-xl text-sm transition-colors "
+                    : "flex items-center justify-center h-9 w-9 rounded-xl transition-all duration-150 cursor-pointer "
+                  ) +
+                  (active
+                    ? "bg-brand/10 text-brand-700 shadow-sm shadow-brand/10" + (expanded ? " font-medium" : "")
+                    : "text-slate-400 hover:bg-slate-100 hover:text-slate-700");
+                return expanded ? (
+                  <Link key={item.href} href={item.href} className={cls}>
+                    <Icon name={item.icon} size={20} />
+                    <span>{item.label}</span>
+                  </Link>
+                ) : (
+                  <button
                     key={item.href}
-                    href={item.href}
-                    title={expanded ? undefined : item.label}
-                    className={
-                      (expanded
-                        ? "flex items-center gap-3 px-3 h-10 rounded-xl text-sm transition-colors "
-                        : "flex items-center justify-center h-9 w-9 rounded-xl transition-all duration-150 "
-                      ) +
-                      (active
-                        ? "bg-brand/10 text-brand-700 shadow-sm shadow-brand/10" + (expanded ? " font-medium" : "")
-                        : "text-slate-400 hover:bg-slate-100 hover:text-slate-700")
-                    }
+                    type="button"
+                    title={item.label}
+                    onClick={() => setExpanded(true)}
+                    className={cls}
                   >
                     <Icon name={item.icon} size={20} />
-                    {expanded && <span>{item.label}</span>}
-                  </Link>
+                  </button>
                 );
               })}
             </Fragment>
