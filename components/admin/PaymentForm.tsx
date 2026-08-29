@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { useFormState } from "react-dom";
-import { SubmitButton } from "@/components/admin/Page";
+import { SubmitButton } from "@/components/admin/SubmitButton";
 import { OTHER_CATEGORY } from "@/components/admin/CategoryField";
 import { ConfirmPopup } from "@/components/admin/ConfirmPopup";
 import { WORK_CATEGORIES } from "@/lib/workCategories";

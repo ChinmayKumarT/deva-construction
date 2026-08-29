@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { SubmitButton } from "@/components/admin/Page";
+import { SubmitButton } from "@/components/admin/SubmitButton";
 
 export function CreateSupplierForm({
   action,

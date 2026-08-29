@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { Field, SubmitButton } from "@/components/admin/Page";
+import { Field } from "@/components/admin/FormFields";
+import { SubmitButton } from "@/components/admin/SubmitButton";
 
 export function CreateClientForm({
   action,
