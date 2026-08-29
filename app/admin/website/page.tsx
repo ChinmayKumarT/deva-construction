@@ -73,16 +73,16 @@ export default async function WebsitePage() {
                       {p.location} · {p.year} · {p.area}
                     </div>
                   </td>
-                  <td className="px-4 py-3 text-slate-600">{p.kind}</td>
-                  <td className="px-4 py-3">
+                  <td className="px-4 py-3 text-slate-600 whitespace-nowrap">{p.kind}</td>
+                  <td className="px-4 py-3 whitespace-nowrap">
                     {photos === 0 ? (
                       <span className="text-amber-600">None yet</span>
                     ) : (
                       <span className="text-slate-600">{photos}</span>
                     )}
                   </td>
-                  <td className="px-4 py-3 text-slate-600">{p.featured ? "Featured" : "—"}</td>
-                  <td className="px-4 py-3">
+                  <td className="px-4 py-3 text-slate-600 whitespace-nowrap">{p.featured ? "Featured" : "—"}</td>
+                  <td className="px-4 py-3 whitespace-nowrap">
                     {p.published ? (
                       <span className="rounded-full bg-emerald-50 px-2 py-1 text-xs font-medium text-emerald-700">
                         Live
@@ -93,7 +93,7 @@ export default async function WebsitePage() {
                       </span>
                     )}
                   </td>
-                  <td className="px-4 py-3">
+                  <td className="px-4 py-3 whitespace-nowrap">
                     <div className="flex justify-end gap-2">
                       <Link
                         href={`/admin/website/${p.id}`}

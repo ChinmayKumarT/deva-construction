@@ -38,7 +38,7 @@ export function AssignLabourerForm({
   }
 
   return (
-    <div className="flex items-end gap-2 rounded-lg border border-slate-200 bg-white p-3">
+    <div className="flex flex-wrap items-end gap-2 rounded-lg border border-slate-200 bg-white p-3">
       <div className="flex-1">
         <div className="text-sm font-medium text-slate-800">{labourerName}</div>
         <div className="text-xs text-slate-500">currently: {currentSite}</div>

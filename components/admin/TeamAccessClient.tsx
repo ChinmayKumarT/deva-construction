@@ -33,7 +33,7 @@ export function TeamAccessClient({ profiles, reservations }: { profiles: Profile
             type="email"
             required
             placeholder="user@example.com"
-            className="w-64 rounded-lg border border-slate-200 bg-slate-50/50 px-3 py-2 text-sm outline-none focus:border-brand focus:ring-1 focus:ring-brand/20"
+            className="w-full sm:w-64 rounded-lg border border-slate-200 bg-slate-50/50 px-3 py-2 text-sm outline-none focus:border-brand focus:ring-1 focus:ring-brand/20"
           />
         </div>
         <div>

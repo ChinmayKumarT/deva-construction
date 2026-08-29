@@ -148,7 +148,7 @@ export function DataTable({
           {rows.map((r, i) => (
             <tr key={i} className="border-t border-[var(--line)] hover:bg-forest-50/50">
               {r.map((cell, j) => (
-                <td key={j} className="px-4 py-3 text-slate-700">{cell ?? "—"}</td>
+                <td key={j} className="px-4 py-3 text-slate-700 whitespace-nowrap">{cell ?? "—"}</td>
               ))}
             </tr>
           ))}
