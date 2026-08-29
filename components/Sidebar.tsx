@@ -42,12 +42,24 @@ export function Sidebar({
           className="fixed inset-0 z-40 bg-black/40 lg:hidden"
         />
       )}
+
+      {/* Mobile-only floating hamburger when sidebar is collapsed */}
+      {!expanded && (
+        <button
+          onClick={() => setExpanded(true)}
+          aria-label="Open menu"
+          className="fixed top-3 left-3 z-50 flex lg:hidden items-center justify-center h-10 w-10 rounded-full bg-white shadow-md border border-[var(--line)] text-slate-500"
+        >
+          <Icon name="menu" size={22} />
+        </button>
+      )}
+
       <aside
         className={
           "h-screen bg-white text-[var(--ink)] border-r border-[var(--line)] flex flex-col transition-[width] duration-150 " +
           (expanded
             ? "w-[240px] fixed inset-y-0 left-0 z-50 lg:sticky lg:top-0 lg:z-40"
-            : "w-[72px] sticky top-0 z-40")
+            : "w-[72px] sticky top-0 z-40 hidden lg:flex")
         }
       >
       {/* Header */}

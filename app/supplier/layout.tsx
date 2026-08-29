@@ -19,7 +19,7 @@ export default async function SupplierLayout({ children }: { children: React.Rea
   return (
     <div className="min-h-screen flex bg-[var(--bg)]">
       <Sidebar role="supplier" email={user.email ?? ""} groups={GROUPS} homeHref="/supplier" />
-      <section className="flex-1 min-h-screen">{children}</section>
+      <section className="flex-1 min-w-0 min-h-screen overflow-x-hidden">{children}</section>
     </div>
   );
 }

@@ -23,7 +23,7 @@ export default async function ClientLayout({ children }: { children: React.React
   return (
     <div className="min-h-screen flex bg-[var(--bg)]">
       <Sidebar role="client" email={user.email ?? ""} groups={GROUPS} homeHref="/client" />
-      <section className="flex-1 min-h-screen">{children}</section>
+      <section className="flex-1 min-w-0 min-h-screen overflow-x-hidden">{children}</section>
     </div>
   );
 }

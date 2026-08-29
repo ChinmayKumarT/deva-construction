@@ -85,7 +85,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
         groups={buildGroups(canTeamAccess, role === "manager")}
         homeHref="/admin"
       />
-      <section className="flex-1 min-h-screen">{children}</section>
+      <section className="flex-1 min-w-0 min-h-screen overflow-x-hidden">{children}</section>
     </div>
   );
 }
