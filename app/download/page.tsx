@@ -20,7 +20,18 @@ export default function DownloadPage() {
           Install the app on your phone or desktop — no app store needed, always up to date.
         </p>
 
-        <div className="mt-8 rounded-2xl border border-[var(--line)] bg-white p-6 text-left">
+        <a
+          href="https://deva-demo.vercel.app"
+          target="_blank"
+          rel="noreferrer"
+          className="mt-8 inline-flex w-full items-center justify-center gap-2 rounded-lg bg-brand px-6 py-3 font-medium text-white hover:bg-brand-700 active:bg-brand-800 transition"
+        >
+          Open Deva Construction
+          <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M13.5 6H5.25A2.25 2.25 0 0 0 3 8.25v10.5A2.25 2.25 0 0 0 5.25 21h10.5A2.25 2.25 0 0 0 18 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25" /></svg>
+        </a>
+        <p className="mt-2 text-xs text-slate-400">Open the link above, then follow the steps below to install it as an app.</p>
+
+        <div className="mt-6 rounded-2xl border border-[var(--line)] bg-white p-6 text-left">
           <h2 className="text-sm font-semibold text-ink">Android (Chrome)</h2>
           <ol className="mt-3 space-y-2 text-sm text-slate-600 list-decimal list-inside">
             <li>Open <span className="font-medium text-brand-700">deva-demo.vercel.app</span> in Chrome.</li>
