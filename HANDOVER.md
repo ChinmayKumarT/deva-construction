@@ -19,15 +19,20 @@ act on it, particularly hosting prices and terms, which change.
 
 ### Vercel projects
 
-| Account | Project | What it is | State (verified) |
+| Account | Project | What it is | State (verified 30 Aug 2026) |
 |---|---|---|---|
-| client | `deva-construction-mjlt` | Admin app | **Stale.** Missing `/admin/website` and `/admin/backup`. Owns `app.devaconstructions.in`. |
-| developer | `deva-demo` | Admin app **(duplicate)** | Current. Everything shipped lands here. |
+| **client** | **`deva-construction-mjlt`** | **Admin app — the live one** | **Current.** Connected to `thedevaconstructions/deva-construction`; every push to `main` builds and succeeds. Owns `deva-demo.vercel.app`. |
+| developer | `deva-demo` | Admin app **(abandoned copy)** | **Dead.** Last deployment 28 days ago, not connected to the repo. **Delete it.** |
 | developer | `deva-construction-website` | Marketing site | Current. Serves `devaconstructions.in`. |
 
-> The admin app is deployed **twice, in two accounts**. That is why the
-> client's own URL has been serving a build from weeks ago while everything
-> looked fine to the developer. Resolve this before handover — see §3.
+> **`deva-demo.vercel.app` belongs to the CLIENT's project**, not to the
+> developer's project of the same name. That single fact was misread for most
+> of a day: because that hostname served current code, the developer's
+> `deva-demo` project looked like the healthy one, and `app.devaconstructions.in`
+> was moved onto it. It is the dead one. The domain now serves a 28-day-old
+> build as a result, and needs moving back — see §3.
+>
+> The client's project was healthy and auto-deploying the whole time.
 
 ### Domains (verified)
 
@@ -35,7 +40,7 @@ act on it, particularly hosting prices and terms, which change.
 |---|---|---|---|
 | `devaconstructions.in` | 216.198.79.1 | Marketing site | yes |
 | `www.devaconstructions.in` | 64.29.17.1 | Marketing site | yes |
-| `app.devaconstructions.in` | 64.29.17.1 | Admin app — **stale build** | no |
+| `app.devaconstructions.in` | 64.29.17.1 | Admin app — **28-day-old build**, because it is attached to the abandoned `deva-demo` project | no — move it to `deva-construction-mjlt` |
 | `devaconstrucions.in` | — | nothing | typo: missing the `t` |
 | `www.devaconstrucions.in` | — | nothing | same typo |
 
@@ -90,13 +95,16 @@ migration to a free-tier-friendly host instead.
 
 Do not transfer a broken arrangement — these get harder to explain later.
 
-- [ ] **Consolidate the duplicate admin app.** Keep ONE. Either connect
-      `deva-construction-mjlt` (client's account, correct home) to
-      `thedevaconstructions/deva-construction` on `main` and let it deploy, or
-      move the domain to `deva-demo` and delete `mjlt`. **Delete the loser** —
-      leaving both is what caused this.
-- [ ] **Point `app.devaconstructions.in` at the current build.** Verify by
+- [ ] **Move `app.devaconstructions.in` back to `deva-construction-mjlt`.**
+      It is currently on the developer's abandoned `deva-demo` project, which
+      last deployed 28 days ago — that is why it serves an old build. Remove
+      it from `deva-demo`, add it to `deva-construction-mjlt` in the client's
+      account. DNS needs no change; it already points at Vercel. Verify by
       loading `/admin/website`: it should redirect to login, not 404.
+- [ ] **Delete the developer's `deva-demo` project.** A 28-day-old copy of the
+      admin app, disconnected from the repo. It is what made the healthy
+      client project look broken. One admin app, in the client's account, is
+      the state to hand over.
 - [ ] **Remove the typo domains** from every Vercel project. Decide separately
       whether `devaconstrucions.in` is worth renewing as a defensive
       registration or was bought by mistake.
