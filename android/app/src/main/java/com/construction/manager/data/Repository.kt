@@ -525,7 +525,7 @@ object Repo {
     // --------------- Budget extensions ---------------
     suspend fun fetchBudgetExtensions(projectId: String): List<BudgetExtensionRow> =
         supabase.from("budget_extensions").select {
-            filter { eq("project_id", projectId); isExact("archived_at", null) }
+            filter { eq("project_id", projectId); filter("archived_at", FilterOperator.IS, "null") }
             order("created_at", io.github.jan.supabase.postgrest.query.Order.DESCENDING)
         }.decodeList()
 
@@ -875,19 +875,32 @@ object Repo {
 
         if (!bills) return
 
-        // Suppliers are trusted -- skip the manual approval review step, but
-        // "Mark paid" stays a separate admin-only action for the actual
-        // payment event. 26_supplier_bills_auto_approved.sql *requires*
-        // status = 'approved' on a supplier-context insert. The admin's
-        // Pending Payments metric counts pending + approved, so this lands
-        // there immediately.
+        val cost = lineTotal(quantity, unitCost)
+
+        // The full cost always comes off the advance ledger, even when that
+        // drives the balance negative -- a negative balance is exactly the
+        // "what we still owe this supplier" figure. Mirrors the web's
+        // recordDelivery (app/supplier/actions.ts); without it a delivery
+        // recorded here would settle its bill without touching the ledger.
+        supabase.from("supplier_advances").insert(buildJsonObject {
+            put("supplier_id", supplierId)
+            put("amount", -cost)
+            put("description", "Auto-deducted for $name delivery")
+            put("material_id", material.id)
+        })
+
+        // Recording the delivery IS the payment event: the cost is settled
+        // against the advance above, so the bill goes straight to "paid".
+        // 48_supplier_bills_auto_paid.sql *requires* status = 'paid' on a
+        // supplier-context insert.
         supabase.from("payments").insert(buildJsonObject {
             put("project_id", projectId)
             put("payee_type", "supplier")
             put("supplier_id", supplierId)
-            put("amount", lineTotal(quantity, unitCost))
+            put("amount", cost)
             put("description", "$name ($quantity $unit)")
-            put("status", "approved")
+            put("status", "paid")
+            put("paid_at", java.time.Instant.now().toString())
             put("created_by_supplier", true)
             put("material_id", material.id)
         })

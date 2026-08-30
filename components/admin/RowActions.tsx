@@ -77,52 +77,6 @@ export function DeleteForeverButton({
   );
 }
 
-/**
- * Settles a bill from wherever it is listed, rather than making the admin go
- * and find the same row on /admin/payments/[project].
- *
- * pending -> approved -> paid is a one-way chain with no "unmark" anywhere in
- * the UI, and this is the step that asserts money physically left the account,
- * so it gets a confirm() naming the amount. Same speed-bump pattern as
- * DeleteForeverButton above; the server action is the real boundary.
- *
- * supplierId is passed through so markPaymentPaid can revalidate the supplier
- * page it was clicked from -- without it the Remaining figure above the table
- * would still show the old total after the redirect.
- */
-export function MarkPaidButton({
-  id,
-  amount,
-  action,
-  supplierId,
-}: {
-  id: string;
-  amount: number;
-  action: (fd: FormData) => Promise<void>;
-  supplierId?: string;
-}) {
-  return (
-    <form
-      action={action}
-      onSubmit={(e) => {
-        const msg =
-          `Mark ₹${amount.toLocaleString()} as paid? ` +
-          `This records that the money has gone out and cannot be undone here.`;
-        if (!window.confirm(msg)) e.preventDefault();
-      }}
-    >
-      <input type="hidden" name="id" value={id} />
-      {supplierId && <input type="hidden" name="supplier_id" value={supplierId} />}
-      <button
-        type="submit"
-        className="rounded-md border border-slate-900 bg-slate-900 px-2 py-0.5 text-xs font-medium text-white hover:bg-slate-800 transition"
-      >
-        Mark paid
-      </button>
-    </form>
-  );
-}
-
 export function RestoreAction({
   id,
   action,

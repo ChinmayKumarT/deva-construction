@@ -99,30 +99,21 @@ export async function recordDelivery(
       if (bills && material) {
         const cost = lineTotal(quantity, unit_cost);
 
-        // Auto-deduct from advance balance if one exists.
-        const { data: advRows } = await supabase
-          .from("supplier_advances")
-          .select("amount")
-          .eq("supplier_id", supplier.id);
-        const advBalance = (advRows ?? []).reduce((s: number, r: { amount: number }) => s + Number(r.amount), 0);
-        if (advBalance > 0) {
-          const deduction = Math.min(advBalance, cost);
-          await supabase.from("supplier_advances").insert({
-            supplier_id: supplier.id,
-            amount: -deduction,
-            description: `Auto-deducted for ${name} delivery`,
-            material_id: material.id,
-          });
-        }
+        // The full cost always comes off the advance ledger, even when that
+        // drives the balance negative -- a negative balance is exactly the
+        // "what we still owe this supplier" figure, and it is what lets the
+        // bill below settle itself with nothing left for an admin to confirm.
+        await supabase.from("supplier_advances").insert({
+          supplier_id: supplier.id,
+          amount: -cost,
+          description: `Auto-deducted for ${name} delivery`,
+          material_id: material.id,
+        });
 
-        // Suppliers are trusted -- skip the manual approval review step, but
-        // "Mark paid" stays a separate admin-only action for the actual
-        // payment event (see 26_supplier_bills_auto_approved.sql, whose
-        // insert policy *requires* status = 'approved' here).
-        //
-        // The admin's Pending Payments metric counts pending + approved, so
-        // an approved bill lands there immediately -- which is the point of
-        // recording the delivery in the first place.
+        // Recording the delivery IS the payment event: the cost is settled
+        // against the advance above, so the bill goes straight to "paid".
+        // 48_supplier_bills_auto_paid.sql's insert policy *requires*
+        // status = 'paid' here.
         const { error: billError } = await supabase.from("payments").insert({
           project_id,
           payee_type: "supplier",
@@ -132,7 +123,8 @@ export async function recordDelivery(
           // produces (components/admin/PaymentForm.tsx), so bills from the
           // two paths read identically in the payments list.
           description: `${name} (${quantity} ${unit})`,
-          status: "approved",
+          status: "paid",
+          paid_at: new Date().toISOString(),
           created_by_supplier: true,
           material_id: material.id,
         });

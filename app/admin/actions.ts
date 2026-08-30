@@ -284,16 +284,12 @@ async function deductFromSupplierAdvance(
   description = "Auto-deducted for material delivery",
 ) {
   if (cost <= 0) return;
-  const { data: advances } = await supabase
-    .from("supplier_advances")
-    .select("amount")
-    .eq("supplier_id", supplierId);
-  const balance = (advances ?? []).reduce((s, r) => s + Number(r.amount), 0);
-  if (balance <= 0) return;
-  const deduction = Math.min(balance, cost);
+  // The full cost always comes off, even past zero. A negative balance is the
+  // running "what we still owe this supplier" figure; clamping the deduction
+  // at zero used to hide that debt instead of recording it.
   const row: Record<string, unknown> = {
     supplier_id: supplierId,
-    amount: -deduction,
+    amount: -cost,
     description,
   };
   if (materialId) row.material_id = materialId;
@@ -685,34 +681,6 @@ export async function approvePayment(fd: FormData) {
   if (error) throw new Error(error.message);
   revalidatePath("/admin/payments");
   revalidatePath("/admin");
-}
-
-export async function markPaymentPaid(fd: FormData) {
-  const supabase = await createSupabaseServerClient();
-  const id = str(fd, "id");
-  if (!id) return;
-  const { data: payment } = await supabase
-    .from("payments")
-    .select("amount, supplier_id, payee_type")
-    .eq("id", id)
-    .single();
-  const { error } = await supabase
-    .from("payments")
-    .update({ status: "paid", paid_at: new Date().toISOString() })
-    .eq("id", id);
-  if (error) throw new Error(error.message);
-  if (payment?.payee_type === "supplier" && payment.supplier_id) {
-    await deductFromSupplierAdvance(
-      supabase, payment.supplier_id, null, Number(payment.amount),
-      "Auto-deducted for supplier bill payment",
-    );
-  }
-  revalidatePath("/admin/payments");
-  revalidatePath("/admin/costs");
-  revalidatePath("/admin");
-  revalidatePath("/admin/suppliers");
-  const supplierId = str(fd, "supplier_id");
-  if (supplierId) revalidatePath(`/admin/suppliers/${supplierId}`);
 }
 
 export async function rejectPayment(fd: FormData) {
