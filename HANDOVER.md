@@ -22,17 +22,18 @@ act on it, particularly hosting prices and terms, which change.
 | Account | Project | What it is | State (verified 30 Aug 2026) |
 |---|---|---|---|
 | **client** | **`deva-construction-mjlt`** | **Admin app — the live one** | **Current.** Connected to `thedevaconstructions/deva-construction`; every push to `main` builds and succeeds. Owns `deva-demo.vercel.app`. |
-| developer | `deva-demo` | Admin app **(abandoned copy)** | **Dead.** Last deployment 28 days ago, not connected to the repo. **Delete it.** |
+| developer | `deva-demo` | Admin app — **backup copy, deliberately not deployed** | Last deployment 28 days ago, by design. It exists as a spare, not as a running site. Nothing should point at it. |
 | developer | `deva-construction-website` | Marketing site | Current. Serves `devaconstructions.in`. |
 
 > **`deva-demo.vercel.app` belongs to the CLIENT's project**, not to the
 > developer's project of the same name. That single fact was misread for most
 > of a day: because that hostname served current code, the developer's
 > `deva-demo` project looked like the healthy one, and `app.devaconstructions.in`
-> was moved onto it. It is the dead one. The domain now serves a 28-day-old
-> build as a result, and needs moving back — see §3.
+> was moved onto it. That project is a deliberately undeployed backup, so the
+> domain now serves a 28-day-old build and needs moving back — see §3.
 >
-> The client's project was healthy and auto-deploying the whole time.
+> The client's project was healthy and auto-deploying the whole time. Only one
+> admin app is meant to be live: `deva-construction-mjlt`.
 
 ### Domains (verified)
 
@@ -53,7 +54,7 @@ don't. It would mean recreating every record including mail, for no gain.
 | Service | What it holds | Why it matters |
 |---|---|---|
 | **Supabase** | Every project, client, payment, material, attendance and photo | **The only irreplaceable asset here.** Code can be rebuilt; this cannot. |
-| **GitHub** | `thedevaconstructions/deva-construction` (origin), `ChinmayKumarT/deva-construction` (backup mirror), `thedevaconstructions/deva-construction-website` | Source of truth for both apps |
+| **GitHub** | `thedevaconstructions/deva-construction` (origin) + `ChinmayKumarT/deva-construction` (backup mirror, pushed on every commit); `thedevaconstructions/deva-construction-website` (**no mirror — single copy**) | Source of truth for both apps |
 | **Formcarry** | Contact-form submissions | Enquiries are retained here, not only emailed |
 | **Google Play** | `com.construction.manager` | Package name is permanent once published |
 
@@ -101,10 +102,11 @@ Do not transfer a broken arrangement — these get harder to explain later.
       it from `deva-demo`, add it to `deva-construction-mjlt` in the client's
       account. DNS needs no change; it already points at Vercel. Verify by
       loading `/admin/website`: it should redirect to login, not 404.
-- [ ] **Delete the developer's `deva-demo` project.** A 28-day-old copy of the
-      admin app, disconnected from the repo. It is what made the healthy
-      client project look broken. One admin app, in the client's account, is
-      the state to hand over.
+- [ ] **Take `app.devaconstructions.in` off the developer's `deva-demo`
+      project.** That project is an intentional backup and is not meant to
+      serve anything — leaving a live domain pointed at an undeployed spare is
+      what made the healthy client project look broken. The project itself can
+      stay; nothing should point at it.
 - [ ] **Remove the typo domains** from every Vercel project. Decide separately
       whether `devaconstrucions.in` is worth renewing as a defensive
       registration or was bought by mistake.
