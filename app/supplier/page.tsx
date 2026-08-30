@@ -9,6 +9,7 @@ import {
 import { FormSubmitButton } from "@/components/FormSubmitButton";
 import { ResettableForm, FormError } from "@/components/ResettableForm";
 import { ProfileMenu } from "@/components/ProfileMenu";
+import { AccountDetailsPopover } from "@/components/AccountDetailsPopover";
 
 export const revalidate = 60;
 
@@ -39,12 +40,20 @@ export default async function SupplierDashboard() {
     .single();
 
   if (!supplier) {
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("full_name")
+      .eq("id", user.id)
+      .single();
+
     return (
       <main className="mx-auto max-w-2xl p-10">
         <div className="rounded-2xl border border-slate-200 bg-white p-8 text-center">
-          <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-brand/10">
-            <svg width="28" height="28" fill="none" viewBox="0 0 24 24" stroke="var(--brand)" strokeWidth="1.5"><path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0ZM4.501 20.118a7.5 7.5 0 0 1 14.998 0" /></svg>
-          </div>
+          <AccountDetailsPopover
+            name={profile?.full_name || "Your account"}
+            email={user.email ?? ""}
+            phone={user.phone}
+          />
           <h1 className="text-xl font-semibold">Welcome to Deva Construction</h1>
           <p className="mt-2 text-sm text-slate-500">
             Your account isn&apos;t linked to a supplier record yet. Please contact the admin to get started.
