@@ -54,7 +54,7 @@ don't. It would mean recreating every record including mail, for no gain.
 | Service | What it holds | Why it matters |
 |---|---|---|
 | **Supabase** | Every project, client, payment, material, attendance and photo | **The only irreplaceable asset here.** Code can be rebuilt; this cannot. |
-| **GitHub** | `thedevaconstructions/deva-construction` (origin) + `ChinmayKumarT/deva-construction` (backup mirror, pushed on every commit); `thedevaconstructions/deva-construction-website` (**no mirror — single copy**) | Source of truth for both apps |
+| **GitHub** | Admin app: `thedevaconstructions/deva-construction` (origin) + `ChinmayKumarT/deva-construction` (mirror). Website: `thedevaconstructions/deva-construction-website` (origin) + `ChinmayKumarT/Deva-Constructions-website` (mirror, added 30 Aug 2026). Both push to origin and backup on every commit. | Source of truth for both apps |
 | **Formcarry** | Contact-form submissions | Enquiries are retained here, not only emailed |
 | **Google Play** | `com.construction.manager` | Package name is permanent once published |
 
