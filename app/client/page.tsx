@@ -2,7 +2,6 @@ import Image from "next/image";
 import { requireRole } from "@/lib/guard";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { formatDateOnly } from "@/lib/dateFormat";
-import { lineTotal } from "@/lib/money";
 import { PieChart } from "@/components/admin/PieChart";
 import { ProfileMenu } from "@/components/ProfileMenu";
 
@@ -59,7 +58,7 @@ export default async function ClientDashboard() {
 
   const projectIds = (projects ?? []).map((p) => p.id);
 
-  const [{ data: updates }, { data: clientPayments }, { data: projectLabourers }, { data: changeOrders }, { data: materials }] = projectIds.length
+  const [{ data: updates }, { data: clientPayments }, { data: projectLabourers }, { data: changeOrders }] = projectIds.length
     ? await Promise.all([
         supabase
           .from("project_updates")
@@ -81,13 +80,8 @@ export default async function ClientDashboard() {
           .in("project_id", projectIds)
           .is("archived_at", null)
           .order("created_at", { ascending: false }),
-        supabase
-          .from("materials")
-          .select("project_id, quantity, unit_cost, status")
-          .in("project_id", projectIds)
-          .is("archived_at", null),
       ])
-    : [{ data: [] }, { data: [] }, { data: [] }, { data: [] }, { data: [] }];
+    : [{ data: [] }, { data: [] }, { data: [] }, { data: [] }];
 
   const receivedByProject = new Map<string, number>();
   const paymentsByProject = new Map<string, { date: string; amount: number }[]>();
@@ -116,12 +110,6 @@ export default async function ClientDashboard() {
     const list = changeOrdersByProject.get(co.project_id) ?? [];
     list.push(co);
     changeOrdersByProject.set(co.project_id, list);
-  }
-
-  const spentByProject = new Map<string, number>();
-  for (const m of (materials ?? []) as { project_id: string; quantity: number; unit_cost: number; status: string }[]) {
-    if (m.status === "returned" || !m.project_id) continue;
-    spentByProject.set(m.project_id, (spentByProject.get(m.project_id) ?? 0) + lineTotal(m.quantity, m.unit_cost));
   }
 
   const totalBudget = (projects ?? []).reduce((s, p) => s + Number(p.total_cost), 0);
@@ -472,7 +460,6 @@ export default async function ClientDashboard() {
                 {projects!.map((p) => {
                   const pctR = Number(p.completion_pct);
                   const budgetR = Number(p.total_cost);
-                  const spent = spentByProject.get(p.id) ?? 0;
 
                   return (
                     <div key={p.id} className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
@@ -500,9 +487,6 @@ export default async function ClientDashboard() {
                           <div className="rounded-xl border border-slate-100 bg-slate-50/50 p-4">
                             <div className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">Budget</div>
                             <div className="mt-1.5 text-lg font-bold text-slate-800">₹{budgetR.toLocaleString()}</div>
-                            {spent > 0 && (
-                              <div className="mt-1 text-xs text-slate-500">₹{spent.toLocaleString()} material cost</div>
-                            )}
                           </div>
                           <div className="rounded-xl border border-slate-100 bg-slate-50/50 p-4">
                             <div className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">Timeline</div>
