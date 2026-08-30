@@ -35,6 +35,30 @@ Run these in the Supabase SQL editor **in order**:
     and bills they entered themselves, not admin-entered/approved ones for the same supplier.
     Run AFTER `32_supplier_archive.sql`.
 
+## Clear all data
+
+Run this in the Supabase SQL Editor to wipe all records. Order respects foreign key constraints — child tables first, then parents.
+
+```sql
+DELETE FROM public.supplier_advances;
+DELETE FROM public.project_updates;
+DELETE FROM public.attendance;
+DELETE FROM public.client_payments;
+DELETE FROM public.payments;
+DELETE FROM public.materials;
+DELETE FROM public.project_labourers;
+DELETE FROM public.projects;
+DELETE FROM public.labourers;
+DELETE FROM public.suppliers;
+DELETE FROM public.clients;
+```
+
+## Seed test data
+
+After clearing, run `test_data.sql` in the SQL Editor to insert 12 projects, 8 clients, 6 suppliers, 24 labourers, and a full month of attendance, materials, payments, and updates.
+
+> Run `47_supplier_advances.sql` first if the `supplier_advances` table doesn't exist yet.
+
 ## Entity map (matches the diagram)
 
 | Diagram label                  | Table(s)                                  |

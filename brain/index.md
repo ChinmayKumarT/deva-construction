@@ -1,6 +1,6 @@
 # Brain Index
 
-_Auto-generated. Last updated 2026-08-26T17:21:29.694Z._
+_Auto-generated. Last updated 2026-08-29T19:56:15.426Z._
 
 - [budget-extensions](pages/budget-extensions.md) — category: decision | <current best understanding — replace this with the real content>
 - [client-payments-tracking](pages/client-payments-tracking.md) — category: decision | <current best understanding — replace this with the real content>
@@ -12,4 +12,5 @@ _Auto-generated. Last updated 2026-08-26T17:21:29.694Z._
 - [role-reservations](pages/role-reservations.md) — category: decision | <current best understanding — replace this with the real content>
 - [sheetjs-to-exceljs](pages/sheetjs-to-exceljs.md) — category: decision | SheetJS (the `xlsx` npm package) had unfixable CVEs that npm audit flagged. Swapped to `exceljs` which covers the same use case (backup Exce
 - [superadmin-role](pages/superadmin-role.md) — category: decision | <current best understanding — replace this with the real content>
+- [supplier-advance-ledger](pages/supplier-advance-ledger.md) — category: decision | Supplier advances are tracked via a single ledger table (supplier_advances).
 - [supplier-auto-billing](pages/supplier-auto-billing.md) — category: decision | Before Aug 2026, recording a delivery and billing for it were two separate forms. Suppliers often skipped the second form, leaving goods on
