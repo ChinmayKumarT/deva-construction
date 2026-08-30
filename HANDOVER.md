@@ -115,6 +115,20 @@ Do not transfer a broken arrangement — these get harder to explain later.
       is abandoned — it currently declares a different app id
       (`com.deva.construction`) from the one that ships, which will mislead
       whoever reads it next.
+- [ ] **Set up email on the domain.** `devaconstructions.in` has **no MX
+      records** — verified 30 Aug 2026, the DNS returns an SOA rather than an
+      answer, and there is no SPF record either. `hello@devaconstructions.in`
+      therefore bounces. The site now shows `thedeva.co@gmail.com` instead,
+      which works but reads as a personal address on a company site. Zoho Mail
+      has a free tier that covers this; Google Workspace is the paid option.
+      Once MX records exist, switch the site back — the address appears in
+      `app/contact/actions.ts` (the form's failure fallback),
+      `app/contact/page.tsx`, `site-header.tsx` and `site-footer.tsx`.
+- [ ] **Confirm the figures on the site.** The home and about pages claim
+      "40+ projects delivered", "1.2M sq. ft. built", "80+ on-site team" and
+      "Founded in Bangalore in 2018". These were written before the owner
+      supplied copy and have never been confirmed. They are specific, checkable
+      numbers on a business site.
 - [ ] **Add real project photography.** Showcase projects currently fall back
       to an animated placeholder. Upload via Admin → Website.
 
