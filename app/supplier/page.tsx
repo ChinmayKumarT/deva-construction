@@ -10,6 +10,7 @@ import { FormSubmitButton } from "@/components/FormSubmitButton";
 import { ResettableForm, FormError } from "@/components/ResettableForm";
 import { ProfileMenu } from "@/components/ProfileMenu";
 import { AccountDetailsPopover } from "@/components/AccountDetailsPopover";
+import { signOut } from "@/app/actions/auth";
 
 export const revalidate = 60;
 
@@ -58,6 +59,14 @@ export default async function SupplierDashboard() {
           <p className="mt-2 text-sm text-slate-500">
             Your account isn&apos;t linked to a supplier record yet. Please contact the admin to get started.
           </p>
+          <form action={signOut} className="mt-5">
+            <button
+              type="submit"
+              className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand/40"
+            >
+              Sign out
+            </button>
+          </form>
         </div>
       </main>
     );
