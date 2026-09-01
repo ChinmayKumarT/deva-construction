@@ -1,11 +1,18 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { signOut } from "@/app/actions/auth";
 
 /**
  * The person icon on the "not linked yet" screens. Hovering or clicking it
  * reveals whatever we hold about the signed-in account, so someone waiting to
  * be linked can read back their own details to the admin.
+ *
+ * It also carries Sign out, and that is load-bearing rather than a
+ * convenience: those screens are a dead end otherwise. `/` redirects a signed
+ * in user to their own dashboard and requireRole() bounces them back here
+ * from everywhere else, so without this control the only way out of an
+ * unlinked account is to clear cookies.
  */
 export function AccountDetailsPopover({
   name,
@@ -81,6 +88,16 @@ export function AccountDetailsPopover({
                 </dd>
               </div>
             </dl>
+
+            <form action={signOut} className="mt-3 border-t border-slate-100 pt-3">
+              <button
+                type="submit"
+                className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-sm text-slate-600 transition hover:bg-slate-50"
+              >
+                <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M15 4h3a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-3"/><path d="M10 17l-5-5 5-5"/><path d="M15 12H5"/></svg>
+                Sign out
+              </button>
+            </form>
           </div>
         </div>
       )}
