@@ -283,10 +283,25 @@ async function deductFromSupplierAdvance(
   cost: number,
   description = "Auto-deducted for material delivery",
 ) {
-  if (cost <= 0) return;
-  // The full cost always comes off, even past zero. A negative balance is the
-  // running "what we still owe this supplier" figure; clamping the deduction
-  // at zero used to hide that debt instead of recording it.
+  if (cost <= 0) return false;
+
+  // The advance ledger holds money actually handed over, and nothing else --
+  // it never goes below zero. What we still owe is carried by the bill's own
+  // status instead (see recordDelivery), so a debt is stated once rather than
+  // as both an unpaid bill AND a negative balance.
+  const { data: advances } = await supabase
+    .from("supplier_advances")
+    .select("amount")
+    .eq("supplier_id", supplierId);
+  const balance = (advances ?? []).reduce((s, r) => s + Number(r.amount), 0);
+
+  // Consume the advance only when it covers the whole delivery. A partial
+  // deduction would double-count: the advance would be spent while the bill
+  // still showed its full amount outstanding. Left alone, the balance stays
+  // as credit the supplier is holding, and the net position is simply
+  // (outstanding bills - advance balance).
+  if (balance < cost) return false;
+
   const row: Record<string, unknown> = {
     supplier_id: supplierId,
     amount: -cost,
@@ -295,6 +310,7 @@ async function deductFromSupplierAdvance(
   if (materialId) row.material_id = materialId;
   await supabase.from("supplier_advances").insert(row);
   revalidatePath(`/admin/suppliers/${supplierId}`);
+  return true;
 }
 
 // ---------- Labourers ----------

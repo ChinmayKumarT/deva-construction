@@ -93,6 +93,14 @@ data class ProjectRow(
         get() = originalEndDate != null && endDate != null && endDate > originalEndDate
 }
 
+// Only the amount is needed: the balance is the sum of the ledger, where a
+// positive row is an advance handed over and a negative row is one consumed
+// by a delivery. The ledger never goes below zero -- see recordDelivery.
+@Serializable
+data class SupplierAdvanceRow(
+    val amount: Double = 0.0,
+)
+
 @Serializable
 data class MaterialRow(
     val id: String,

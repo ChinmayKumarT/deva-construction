@@ -99,21 +99,37 @@ export async function recordDelivery(
       if (bills && material) {
         const cost = lineTotal(quantity, unit_cost);
 
-        // The full cost always comes off the advance ledger, even when that
-        // drives the balance negative -- a negative balance is exactly the
-        // "what we still owe this supplier" figure, and it is what lets the
-        // bill below settle itself with nothing left for an admin to confirm.
-        await supabase.from("supplier_advances").insert({
-          supplier_id: supplier.id,
-          amount: -cost,
-          description: `Auto-deducted for ${name} delivery`,
-          material_id: material.id,
-        });
+        // The advance ledger holds money actually handed over and nothing
+        // else, so it never goes below zero. What we still owe is carried by
+        // the bill's status below instead -- stating a debt once, rather than
+        // as an unpaid bill AND a negative balance at the same time.
+        const { data: advRows } = await supabase
+          .from("supplier_advances")
+          .select("amount")
+          .eq("supplier_id", supplier.id);
+        const advBalance = (advRows ?? []).reduce((s: number, r: { amount: number }) => s + Number(r.amount), 0);
 
-        // Recording the delivery IS the payment event: the cost is settled
-        // against the advance above, so the bill goes straight to "paid".
-        // 48_supplier_bills_auto_paid.sql's insert policy *requires*
-        // status = 'paid' here.
+        // Consume the advance only when it covers the whole delivery. A
+        // partial deduction would double-count: the advance would be spent
+        // while the bill still showed its full amount outstanding. Left alone
+        // it stays as credit the supplier holds, and the true position is
+        // simply (outstanding bills - advance balance).
+        const settledFromAdvance = advBalance >= cost;
+        if (settledFromAdvance) {
+          await supabase.from("supplier_advances").insert({
+            supplier_id: supplier.id,
+            amount: -cost,
+            description: `Auto-deducted for ${name} delivery`,
+            material_id: material.id,
+          });
+        }
+
+        // Still no approval step and no button -- the status is computed
+        // rather than clicked. "paid" only when the advance covered it, since
+        // that is the case where the money genuinely did leave already. Any
+        // other delivery is a real debt and shows up in Remaining.
+        // 49_supplier_bill_status_from_advance.sql's insert policy allows
+        // exactly these two values.
         const { error: billError } = await supabase.from("payments").insert({
           project_id,
           payee_type: "supplier",
@@ -123,8 +139,8 @@ export async function recordDelivery(
           // produces (components/admin/PaymentForm.tsx), so bills from the
           // two paths read identically in the payments list.
           description: `${name} (${quantity} ${unit})`,
-          status: "paid",
-          paid_at: new Date().toISOString(),
+          status: settledFromAdvance ? "paid" : "approved",
+          paid_at: settledFromAdvance ? new Date().toISOString() : null,
           created_by_supplier: true,
           material_id: material.id,
         });

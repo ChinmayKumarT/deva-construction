@@ -877,30 +877,40 @@ object Repo {
 
         val cost = lineTotal(quantity, unitCost)
 
-        // The full cost always comes off the advance ledger, even when that
-        // drives the balance negative -- a negative balance is exactly the
-        // "what we still owe this supplier" figure. Mirrors the web's
-        // recordDelivery (app/supplier/actions.ts); without it a delivery
-        // recorded here would settle its bill without touching the ledger.
-        supabase.from("supplier_advances").insert(buildJsonObject {
-            put("supplier_id", supplierId)
-            put("amount", -cost)
-            put("description", "Auto-deducted for $name delivery")
-            put("material_id", material.id)
-        })
+        // The advance ledger holds money actually handed over and nothing
+        // else, so it never goes below zero. What we still owe is carried by
+        // the bill's status instead. Mirrors the web's recordDelivery
+        // (app/supplier/actions.ts) -- the two must agree or the balance means
+        // different things depending on which app recorded the delivery.
+        val advBalance = supabase.from("supplier_advances").select {
+            filter { eq("supplier_id", supplierId) }
+        }.decodeList<SupplierAdvanceRow>().sumOf { it.amount }
 
-        // Recording the delivery IS the payment event: the cost is settled
-        // against the advance above, so the bill goes straight to "paid".
-        // 48_supplier_bills_auto_paid.sql *requires* status = 'paid' on a
-        // supplier-context insert.
+        // Consume the advance only when it covers the whole delivery; a
+        // partial deduction would spend the advance while the bill still
+        // showed its full amount outstanding.
+        val settledFromAdvance = advBalance >= cost
+        if (settledFromAdvance) {
+            supabase.from("supplier_advances").insert(buildJsonObject {
+                put("supplier_id", supplierId)
+                put("amount", -cost)
+                put("description", "Auto-deducted for $name delivery")
+                put("material_id", material.id)
+            })
+        }
+
+        // No approval step and no button -- the status is computed. "paid"
+        // only where the advance covered it, since that is the case where the
+        // money genuinely left already. 49_supplier_bill_status_from_advance
+        // .sql allows exactly these two values on a supplier-context insert.
         supabase.from("payments").insert(buildJsonObject {
             put("project_id", projectId)
             put("payee_type", "supplier")
             put("supplier_id", supplierId)
             put("amount", cost)
             put("description", "$name ($quantity $unit)")
-            put("status", "paid")
-            put("paid_at", java.time.Instant.now().toString())
+            put("status", if (settledFromAdvance) "paid" else "approved")
+            if (settledFromAdvance) put("paid_at", java.time.Instant.now().toString())
             put("created_by_supplier", true)
             put("material_id", material.id)
         })
