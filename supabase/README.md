@@ -35,6 +35,26 @@ Run these in the Supabase SQL editor **in order**:
     and bills they entered themselves, not admin-entered/approved ones for the same supplier.
     Run AFTER `32_supplier_archive.sql`.
 
+## Set up a fresh database (dev / test)
+
+`setup_all.sql` is every migration concatenated in order — `schema.sql` first,
+then `02` through `49`. Paste it into the SQL Editor of a **brand-new** Supabase
+project to stand one up in a single run instead of forty-nine.
+
+It deliberately leaves out `50_repair_negative_advances.sql` (a one-off repair
+for production data) and `test_data.sql` (the seed — run that afterwards).
+
+Regenerate it after adding a migration, or it goes stale:
+
+```bash
+bash supabase/build-setup-all.sh
+```
+
+Use this to keep a second, free Supabase project as your development database
+so `npm run dev` stops writing to live client and payment records. Point
+`.env.local` at it, and in Vercel scope the production Supabase credentials to
+the Production environment only.
+
 ## Clear all data
 
 Run this in the Supabase SQL Editor to wipe all records. Order respects foreign key constraints — child tables first, then parents.
