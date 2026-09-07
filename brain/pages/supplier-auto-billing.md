@@ -4,7 +4,7 @@ title: Supplier deliveries auto-create their bill
 category: decision
 status: active
 created: "2026-08-26T17:44:53"
-updated: "2026-08-30T18:33:16"
+updated: "2026-09-07T23:01:58"
 ---
 
 <!-- compiled_truth -->
@@ -46,4 +46,10 @@ Related: [[rls-is-the-authority]], [[supplier-advance-ledger]]
   kind: decision
   summary: "Supplier bills now settle themselves; the approved->paid step and Mark paid button are gone"
   source: "chat + commit 89bcb73"
+  affects: [supplier-auto-billing]
+
+- time: 2026-09-07T23:01:58
+  kind: reversal
+  summary: "Advance ledger no longer goes negative; bill status is computed from advance coverage"
+  source: "chat + commit c801fac"
   affects: [supplier-auto-billing]
