@@ -75,7 +75,12 @@ DELETE FROM public.clients;
 
 ## Seed test data
 
-After clearing, run `test_data.sql` in the SQL Editor to insert 12 projects, 8 clients, 6 suppliers, 24 labourers, and a full month of attendance, materials, payments, and updates.
+Run `test_data.sql` in the SQL Editor to insert 12 projects, 8 clients, 6 suppliers,
+24 labourers, and a full month of attendance, materials, payments, and updates.
+
+It is safe to re-run: it clears its own rows first (matched on the fixed id
+prefixes it assigns) and leaves everything else alone, so you do not need the
+clear-all block above just to reseed.
 
 > Run `47_supplier_advances.sql` first if the `supplier_advances` table doesn't exist yet.
 

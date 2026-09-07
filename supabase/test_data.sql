@@ -1,7 +1,37 @@
 -- ============================================================
 -- TEST DATA: 12 projects, 1 month (August 2026)
 -- Run in Supabase SQL Editor with service_role/superadmin.
+--
+-- SAFE TO RE-RUN. The block below clears this seed's own rows first, so a
+-- second run refreshes the data instead of failing on a duplicate key.
+--
+-- It removes ONLY rows belonging to this seed, matched on the fixed id
+-- prefixes it assigns (clients a0000001-, suppliers b0000001-, labourers
+-- c0000001-, projects d0000001-, materials e0000001-, payments fa000001-/
+-- fb000002-, client payments fc000001-). Real records use random UUIDs and
+-- are never matched. Attendance, project updates and supplier advances have
+-- no fixed ids of their own, so they are cleared via the seeded project or
+-- supplier they belong to.
+--
+-- Child rows go first, so the deletes do not trip a foreign key.
 -- ============================================================
+
+DELETE FROM public.supplier_advances
+ WHERE supplier_id IN (SELECT id FROM public.suppliers WHERE id::text LIKE 'b0000001-0000-0000-0000-%');
+DELETE FROM public.project_updates
+ WHERE project_id  IN (SELECT id FROM public.projects  WHERE id::text LIKE 'd0000001-0000-0000-0000-%');
+DELETE FROM public.attendance
+ WHERE project_id  IN (SELECT id FROM public.projects  WHERE id::text LIKE 'd0000001-0000-0000-0000-%');
+DELETE FROM public.client_payments   WHERE id::text LIKE 'fc000001-0000-0000-0000-%';
+DELETE FROM public.payments
+ WHERE id::text LIKE 'fa000001-0000-0000-0000-%' OR id::text LIKE 'fb000002-0000-0000-0000-%';
+DELETE FROM public.materials         WHERE id::text LIKE 'e0000001-0000-0000-0000-%';
+DELETE FROM public.project_labourers
+ WHERE project_id  IN (SELECT id FROM public.projects  WHERE id::text LIKE 'd0000001-0000-0000-0000-%');
+DELETE FROM public.projects          WHERE id::text LIKE 'd0000001-0000-0000-0000-%';
+DELETE FROM public.labourers         WHERE id::text LIKE 'c0000001-0000-0000-0000-%';
+DELETE FROM public.suppliers         WHERE id::text LIKE 'b0000001-0000-0000-0000-%';
+DELETE FROM public.clients           WHERE id::text LIKE 'a0000001-0000-0000-0000-%';
 
 -- ---------- Clients (8) ----------
 INSERT INTO public.clients (id, name, email, phone, address) VALUES
