@@ -11,6 +11,7 @@ import { ResettableForm, FormError } from "@/components/ResettableForm";
 import { ProfileMenu } from "@/components/ProfileMenu";
 import { AccountDetailsPopover } from "@/components/AccountDetailsPopover";
 import { signOut } from "@/app/actions/auth";
+import { supplierMoney } from "@/lib/supplierAccount";
 
 export const revalidate = 60;
 
@@ -94,14 +95,13 @@ export default async function SupplierDashboard() {
 
   const deliveredCount = (materials ?? []).filter((m) => m.status === "delivered").length;
   const orderedCount = (materials ?? []).filter((m) => m.status === "ordered").length;
-  const pendingPay = (payments ?? [])
-    .filter((p) => p.status === "pending" || p.status === "approved")
-    .reduce((s, p) => s + Number(p.amount), 0);
-  const paidTotal = (payments ?? [])
-    .filter((p) => p.status === "paid")
-    .reduce((s, p) => s + Number(p.amount), 0);
+  // Same derivation the admin screens use, so a supplier and the office never
+  // see different numbers for the same account. See lib/supplierAccount.ts.
+  const { advanceBalance, lifetimePayment, remaining } = supplierMoney({
+    payments: payments ?? [],
+    advances: advances ?? [],
+  });
   const totalMaterialValue = (materials ?? []).reduce((s, m) => s + lineTotal(m.quantity, m.unit_cost), 0);
-  const advanceBalance = (advances ?? []).reduce((s, r) => s + Number(r.amount), 0);
 
   return (
     <main className="min-h-screen">
@@ -132,16 +132,16 @@ export default async function SupplierDashboard() {
           />
           <SummaryCard
             label="Remaining"
-            value={`₹${pendingPay.toLocaleString()}`}
-            warn={pendingPay > 0}
-            sub={pendingPay > 0 ? "Pending / approved" : "All clear"}
+            value={`₹${remaining.toLocaleString()}`}
+            warn={remaining > 0}
+            sub={remaining > 0 ? "Awaiting payment" : remaining < 0 ? "Advance held" : "All clear"}
             icon={<svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.5"><path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>}
           />
           <SummaryCard
-            label="Total Paid"
-            value={`₹${paidTotal.toLocaleString()}`}
+            label="Lifetime Payment"
+            value={`₹${lifetimePayment.toLocaleString()}`}
             accent
-            sub={totalMaterialValue > 0 ? `${((paidTotal / totalMaterialValue) * 100).toFixed(0)}% of material value` : undefined}
+            sub={totalMaterialValue > 0 ? `${((lifetimePayment / totalMaterialValue) * 100).toFixed(0)}% of material value` : undefined}
             icon={<svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.5"><path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>}
           />
           {advanceBalance > 0 && (
@@ -337,7 +337,7 @@ export default async function SupplierDashboard() {
                 <tfoot>
                   <tr className="border-t-2 border-slate-200 bg-slate-50">
                     <td colSpan={4} className="px-5 py-3 text-sm font-semibold text-slate-700">Total paid</td>
-                    <td className="px-5 py-3 text-right text-sm font-bold tabular-nums text-emerald-700">₹{paidTotal.toLocaleString()}</td>
+                    <td className="px-5 py-3 text-right text-sm font-bold tabular-nums text-emerald-700">₹{lifetimePayment.toLocaleString()}</td>
                     <td></td>
                   </tr>
                 </tfoot>

@@ -9,6 +9,7 @@ import {
   giveSupplierAdvance,
 } from "../../actions";
 import { lineTotal } from "@/lib/money";
+import { supplierMoney } from "@/lib/supplierAccount";
 import { formatDateTime } from "@/lib/dateFormat";
 
 export const dynamic = "force-dynamic";
@@ -66,9 +67,12 @@ export default async function ManageSupplierPage(props: { params: Promise<{ id: 
 
   const archived = supplier.archived_at != null;
   const deliveredCount = (materials ?? []).filter((m) => m.status === "delivered").length;
-  const pending = (payments ?? []).filter((p) => p.status === "pending" || p.status === "approved").reduce((a, p) => a + Number(p.amount), 0);
-  const received = (payments ?? []).filter((p) => p.status === "paid").reduce((a, p) => a + Number(p.amount), 0);
-  const advanceBalance = (advances ?? []).reduce((s, r) => s + Number(r.amount), 0);
+  // One shared derivation, so this page, the supplier list and the supplier's
+  // own dashboard cannot disagree about what is owed. See lib/supplierAccount.
+  const { advanceBalance, lifetimePayment, remaining } = supplierMoney({
+    payments: payments ?? [],
+    advances: advances ?? [],
+  });
 
   return (
     <AdminPage>
@@ -83,10 +87,23 @@ export default async function ManageSupplierPage(props: { params: Promise<{ id: 
       />
       <AdminContent>
 
-      <div className="mb-6 flex flex-wrap gap-2">
+      {/* Fixed 2x2 rather than flex-wrap: with four boxes, wrapping left a
+          3-and-1 orphan on most widths. The max-width keeps the pair from
+          stretching across a wide screen. */}
+      <div className="mb-6 grid max-w-md grid-cols-2 gap-2">
         <StatBox label="Deliveries" value={String(deliveredCount)} />
-        <StatBox label="Remaining" value={`₹${pending.toLocaleString()}`} className="border-amber-200 bg-amber-50 text-amber-700" />
-        <StatBox label="Total paid" value={`₹${received.toLocaleString()}`} className="border-emerald-200 bg-emerald-50 text-emerald-700" />
+        <StatBox
+          label="Remaining"
+          value={`₹${remaining.toLocaleString()}`}
+          className={
+            remaining > 0
+              ? "border-amber-200 bg-amber-50 text-amber-700"
+              : remaining < 0
+                ? "border-blue-200 bg-blue-50 text-blue-700"
+                : "border-slate-200 bg-white"
+          }
+        />
+        <StatBox label="Lifetime payment" value={`₹${lifetimePayment.toLocaleString()}`} className="border-emerald-200 bg-emerald-50 text-emerald-700" />
         <StatBox
           label="Advance balance"
           value={`₹${advanceBalance.toLocaleString()}`}

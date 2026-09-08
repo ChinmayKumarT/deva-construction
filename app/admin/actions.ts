@@ -332,9 +332,65 @@ export async function giveSupplierAdvance(fd: FormData) {
     amount,
     description: str(fd, "description") || "Advance payment",
   });
-  if (error) throw new Error(error.message);
+  if (error) {
+    await setFlashError(`Could not record the advance: ${error.message}`);
+    return;
+  }
+
+  await settleOutstandingFromAdvance(supabase, supplier_id);
+
   revalidatePath(`/admin/suppliers/${supplier_id}`);
   revalidatePath("/admin/suppliers");
+  revalidatePath("/supplier");
+}
+
+/**
+ * Handing over an advance is handing over money, so it clears what is already
+ * owed rather than sitting beside it. Bills are settled oldest first, and only
+ * when the credit covers a bill in full -- a part-settled bill would spend the
+ * credit while still showing its whole amount outstanding, which is the
+ * double-count this ledger exists to avoid.
+ *
+ * Each settlement writes a matching negative ledger row. That row is what
+ * keeps `lifetimePayment` honest (see lib/supplierAccount.ts): the money is
+ * counted once, when it was handed over.
+ */
+async function settleOutstandingFromAdvance(
+  supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>,
+  supplierId: string,
+) {
+  const [{ data: advances }, { data: bills }] = await Promise.all([
+    supabase.from("supplier_advances").select("amount").eq("supplier_id", supplierId),
+    supabase
+      .from("payments")
+      .select("id, amount, description")
+      .eq("supplier_id", supplierId)
+      .eq("payee_type", "supplier")
+      .in("status", ["pending", "approved"])
+      .is("archived_at", null)
+      .order("created_at", { ascending: true }),
+  ]);
+
+  let credit = (advances ?? []).reduce((s, r) => s + Number(r.amount), 0);
+  const now = new Date().toISOString();
+
+  for (const bill of bills ?? []) {
+    const owed = Number(bill.amount);
+    if (owed <= 0 || credit < owed) continue;
+
+    const { error: payErr } = await supabase
+      .from("payments")
+      .update({ status: "paid", paid_at: now })
+      .eq("id", bill.id);
+    if (payErr) continue;
+
+    await supabase.from("supplier_advances").insert({
+      supplier_id: supplierId,
+      amount: -owed,
+      description: `Settled from advance: ${bill.description ?? "bill"}`,
+    });
+    credit -= owed;
+  }
 }
 
 async function deductFromSupplierAdvance(
@@ -372,6 +428,79 @@ async function deductFromSupplierAdvance(
   await supabase.from("supplier_advances").insert(row);
   revalidatePath(`/admin/suppliers/${supplierId}`);
   return true;
+}
+
+/**
+ * Raise the bill for a delivered material, the same way a supplier recording
+ * their own delivery does (recordDelivery in app/supplier/actions.ts).
+ *
+ * Until now only the supplier's path billed itself. A delivery entered here
+ * created the material and drew down the advance but never produced a payment,
+ * so the goods were on site and "Remaining" for that supplier stayed at zero --
+ * the exact trap 40_supplier_delivery_autobill.sql was written to close, just
+ * from the other side of the app.
+ *
+ * The advance decides the status, as everywhere else: covered in full means the
+ * money already left as the advance, so the bill is `paid`; otherwise it is a
+ * real outstanding debt and shows up in Remaining.
+ */
+async function billSupplierDelivery(
+  supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>,
+  m: {
+    materialId: string;
+    projectId: string | null;
+    supplierId: string;
+    name: string;
+    unit: string;
+    quantity: number;
+    unitCost: number;
+    workCategory?: string | null;
+  },
+) {
+  const cost = lineTotal(m.quantity, m.unitCost);
+  if (cost <= 0) return;
+
+  // payments.material_id carries a unique index (40_supplier_delivery_autobill),
+  // so a second bill for the same delivery would be rejected outright. Check
+  // first rather than surfacing a constraint violation -- markMaterialDelivered
+  // can run on a material that addMaterial already billed.
+  const { data: existing } = await supabase
+    .from("payments")
+    .select("id")
+    .eq("material_id", m.materialId)
+    .limit(1);
+  if (existing && existing.length > 0) return;
+
+  const settledFromAdvance = await deductFromSupplierAdvance(
+    supabase, m.supplierId, m.materialId, cost,
+  );
+
+  const { data: { user } } = await supabase.auth.getUser();
+  const now = new Date().toISOString();
+  const { error } = await supabase.from("payments").insert({
+    project_id: m.projectId,
+    payee_type: "supplier",
+    supplier_id: m.supplierId,
+    amount: cost,
+    // Same shape recordDelivery writes, so bills from either path read
+    // identically in the payments list.
+    description: `${m.name} (${m.quantity} ${m.unit})`,
+    work_category: m.workCategory ?? null,
+    status: settledFromAdvance ? "paid" : "approved",
+    approved_at: now,
+    approved_by: user?.id ?? null,
+    paid_at: settledFromAdvance ? now : null,
+    material_id: m.materialId,
+  });
+  if (error) throw new Error(error.message);
+
+  // Only now that the bill exists. lib/cashflow.ts skips a `billed` material
+  // because its cost is counted through the payment instead -- setting the flag
+  // before the insert succeeded would drop the cost out of cash flow entirely
+  // if that insert then failed.
+  await supabase.from("materials").update({ billed: true }).eq("id", m.materialId);
+  revalidatePath("/admin/payments");
+  revalidatePath(`/admin/suppliers/${m.supplierId}`);
 }
 
 // ---------- Labourers ----------
@@ -501,8 +630,18 @@ export async function createMaterial(
       const { data: inserted, error } = await supabase.from("materials").insert(row).select("id").single();
       if (error) throw new Error(error.message);
       if (status === "delivered" && row.supplier_id && inserted) {
-        const cost = lineTotal(row.quantity, row.unit_cost);
-        await deductFromSupplierAdvance(supabase, row.supplier_id, inserted.id, cost);
+        // Raises the bill and draws down the advance -- the delivery is one
+        // event, not a material to record now and a payment to remember later.
+        await billSupplierDelivery(supabase, {
+          materialId: inserted.id,
+          projectId: row.project_id,
+          supplierId: row.supplier_id,
+          name: row.name ?? "Material",
+          unit: row.unit,
+          quantity: row.quantity,
+          unitCost: row.unit_cost,
+          workCategory: row.work_category,
+        });
       }
     }
     revalidatePath("/admin/materials");
@@ -520,7 +659,7 @@ export async function markMaterialDelivered(fd: FormData) {
   if (!id) return;
   const { data: material } = await supabase
     .from("materials")
-    .select("supplier_id, quantity, unit_cost")
+    .select("supplier_id, project_id, name, unit, quantity, unit_cost, work_category")
     .eq("id", id)
     .single();
   const { error } = await supabase
@@ -529,8 +668,19 @@ export async function markMaterialDelivered(fd: FormData) {
     .eq("id", id);
   if (error) throw new Error(error.message);
   if (material?.supplier_id) {
-    const cost = lineTotal(material.quantity, material.unit_cost);
-    await deductFromSupplierAdvance(supabase, material.supplier_id, id, cost);
+    // Marking an ordered material as delivered is the same real-world event as
+    // entering it delivered in the first place, so it bills the same way.
+    // billSupplierDelivery skips anything already billed.
+    await billSupplierDelivery(supabase, {
+      materialId: id,
+      projectId: material.project_id,
+      supplierId: material.supplier_id,
+      name: material.name ?? "Material",
+      unit: material.unit ?? "unit",
+      quantity: material.quantity,
+      unitCost: material.unit_cost,
+      workCategory: material.work_category,
+    });
   }
   revalidatePath("/admin/materials");
   revalidatePath("/admin/costs");

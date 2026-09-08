@@ -4,6 +4,7 @@ import { AdminPage, AdminPageHeader, AdminContent } from "@/components/admin/Pag
 import { ArchivedToggle, DeleteForeverButton, ManageCard, ManageSection, RestoreAction } from "@/components/admin/RowActions";
 import { CreateSupplierForm } from "@/components/admin/CreateSupplierForm";
 import { createSupplier, unarchiveSupplier, deleteSupplier } from "../actions";
+import { supplierMoney } from "@/lib/supplierAccount";
 
 // Signups happen outside this app, so a newly created profile has to appear
 // in the "Link to login" list (and in Team access) without waiting for a
@@ -43,25 +44,27 @@ export default async function SuppliersPage(
     if (m.status !== "delivered" || !m.supplier_id) continue;
     deliveriesBySupplier.set(m.supplier_id, (deliveriesBySupplier.get(m.supplier_id) ?? 0) + 1);
   }
-  const pendingBySupplier = new Map<string, number>();
-  const paidBySupplier = new Map<string, number>();
+  // One shared derivation per supplier, so these cards agree with the detail
+  // page and the supplier's own dashboard. See lib/supplierAccount.ts.
+  const paymentsBySupplier = new Map<string, { amount: number; status: string }[]>();
   for (const p of payments ?? []) {
     if (!p.supplier_id) continue;
-    if (p.status === "pending" || p.status === "approved") {
-      pendingBySupplier.set(p.supplier_id, (pendingBySupplier.get(p.supplier_id) ?? 0) + Number(p.amount));
-    }
-    if (p.status === "paid") {
-      paidBySupplier.set(p.supplier_id, (paidBySupplier.get(p.supplier_id) ?? 0) + Number(p.amount));
-    }
+    const list = paymentsBySupplier.get(p.supplier_id) ?? [];
+    list.push({ amount: Number(p.amount), status: p.status });
+    paymentsBySupplier.set(p.supplier_id, list);
   }
-  // The ledger sums to the credit a supplier is still holding: positive rows
-  // are advances handed over, negative rows are deliveries that consumed them.
-  // It never goes below zero -- see recordDelivery in app/supplier/actions.ts.
-  const advanceBySupplier = new Map<string, number>();
+  const advancesBySupplier = new Map<string, { amount: number }[]>();
   for (const a of advances ?? []) {
     if (!a.supplier_id) continue;
-    advanceBySupplier.set(a.supplier_id, (advanceBySupplier.get(a.supplier_id) ?? 0) + Number(a.amount));
+    const list = advancesBySupplier.get(a.supplier_id) ?? [];
+    list.push({ amount: Number(a.amount) });
+    advancesBySupplier.set(a.supplier_id, list);
   }
+  const moneyFor = (id: string) =>
+    supplierMoney({
+      payments: paymentsBySupplier.get(id) ?? [],
+      advances: advancesBySupplier.get(id) ?? [],
+    });
 
   return (
     <AdminPage>
@@ -90,7 +93,9 @@ export default async function SuppliersPage(
               No suppliers yet. Add one above.
             </p>
           )}
-          {(suppliers ?? []).map((s) => (
+          {(suppliers ?? []).map((s) => {
+            const m = moneyFor(s.id);
+            return (
             <Link
               key={s.id}
               href={`/admin/suppliers/${s.id}`}
@@ -105,43 +110,52 @@ export default async function SuppliersPage(
                   <div className="text-[10px] font-medium uppercase tracking-wide text-slate-500">Deliveries</div>
                   <div className="text-sm font-semibold">{deliveriesBySupplier.get(s.id) ?? 0}</div>
                 </div>
-                <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2">
-                  <div className="text-[10px] font-medium uppercase tracking-wide text-amber-700">Remaining</div>
-                  <div className="text-sm font-semibold text-amber-700">₹{(pendingBySupplier.get(s.id) ?? 0).toLocaleString()}</div>
+                {/* Amber only while money is genuinely owed. A negative figure
+                    means the advance runs ahead of deliveries, which is credit,
+                    not a debt -- so it reads blue like the advance card. */}
+                <div className={`rounded-lg border px-3 py-2 ${
+                  m.remaining > 0 ? "border-amber-200 bg-amber-50"
+                  : m.remaining < 0 ? "border-blue-200 bg-blue-50"
+                  : "border-slate-200 bg-slate-50"}`}>
+                  <div className={`text-[10px] font-medium uppercase tracking-wide ${
+                    m.remaining > 0 ? "text-amber-700" : m.remaining < 0 ? "text-blue-700" : "text-slate-500"}`}>Remaining</div>
+                  <div className={`text-sm font-semibold ${
+                    m.remaining > 0 ? "text-amber-700" : m.remaining < 0 ? "text-blue-700" : ""}`}>₹{m.remaining.toLocaleString()}</div>
                 </div>
                 <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2">
-                  <div className="text-[10px] font-medium uppercase tracking-wide text-emerald-700">Total paid</div>
-                  <div className="text-sm font-semibold text-emerald-700">₹{(paidBySupplier.get(s.id) ?? 0).toLocaleString()}</div>
+                  <div className="text-[10px] font-medium uppercase tracking-wide text-emerald-700">Lifetime payment</div>
+                  <div className="text-sm font-semibold text-emerald-700">₹{m.lifetimePayment.toLocaleString()}</div>
                 </div>
                 {/* Blue only when they are actually holding credit, so a card
                     with no advance stays quiet instead of showing a coloured
                     zero. Same treatment as the supplier detail page. */}
                 <div
                   className={`rounded-lg border px-3 py-2 ${
-                    (advanceBySupplier.get(s.id) ?? 0) > 0
+                    m.advanceBalance > 0
                       ? "border-blue-200 bg-blue-50"
                       : "border-slate-200 bg-slate-50"
                   }`}
                 >
                   <div
                     className={`text-[10px] font-medium uppercase tracking-wide ${
-                      (advanceBySupplier.get(s.id) ?? 0) > 0 ? "text-blue-700" : "text-slate-500"
+                      m.advanceBalance > 0 ? "text-blue-700" : "text-slate-500"
                     }`}
                   >
                     Advance
                   </div>
                   <div
                     className={`text-sm font-semibold ${
-                      (advanceBySupplier.get(s.id) ?? 0) > 0 ? "text-blue-700" : ""
+                      m.advanceBalance > 0 ? "text-blue-700" : ""
                     }`}
                   >
-                    ₹{(advanceBySupplier.get(s.id) ?? 0).toLocaleString()}
+                    ₹{m.advanceBalance.toLocaleString()}
                   </div>
                 </div>
               </div>
               <p className="mt-3 text-sm font-medium text-brand-700">Manage →</p>
             </Link>
-          ))}
+            );
+          })}
         </div>
       )}
 
