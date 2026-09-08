@@ -1,9 +1,11 @@
 import { requireRole } from "@/lib/guard";
 import { ProfileMenu } from "@/components/ProfileMenu";
+import { readFlashError } from "@/lib/flash";
 
 export async function AdminPageHeader({ title, subtitle }: { title: string; subtitle?: React.ReactNode }) {
   const { user, role } = await requireRole(["superadmin", "admin", "manager"]);
   const displayRole = role === "manager" ? "Manager" : role === "superadmin" ? "Super Admin" : "Admin";
+  const error = await readFlashError();
   return (
     <div className="bg-gradient-to-br from-[var(--brand)] via-[var(--brand-deep)] to-slate-900 px-4 pb-16 pt-14 sm:px-6 lg:px-8 lg:pt-6">
       <div className="mx-auto max-w-6xl flex items-start justify-between">
@@ -13,6 +15,17 @@ export async function AdminPageHeader({ title, subtitle }: { title: string; subt
         </div>
         <ProfileMenu name={displayRole} email={user.email ?? ""} role={displayRole} />
       </div>
+      {error && (
+        // Shown once, on the render after a failed action. Without this the
+        // real message is redacted in production and the user sees only
+        // "Something went wrong". See lib/flash.ts.
+        <div
+          role="alert"
+          className="mx-auto mt-4 max-w-6xl rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800"
+        >
+          {error}
+        </div>
+      )}
     </div>
   );
 }

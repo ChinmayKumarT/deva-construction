@@ -4,6 +4,11 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { AdminPage, AdminPageHeader, AdminContent } from "@/components/admin/Page";
 import { TeamAccessClient } from "@/components/admin/TeamAccessClient";
 
+// Signups happen outside this app, so a newly created profile has to appear
+// in the "Link to login" list (and in Team access) without waiting for a
+// cache to expire. revalidatePath only covers writes made from in here.
+export const dynamic = "force-dynamic";
+
 export default async function TeamAccessPage() {
   const { role, isOwner } = await requireRole(["superadmin", "admin", "manager"]);
   if (role !== "superadmin" && !isOwner) redirect("/admin");

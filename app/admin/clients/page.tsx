@@ -5,6 +5,11 @@ import { ArchivedToggle, DeleteForeverButton, ManageCard, ManageSection, Restore
 import { CreateClientForm } from "@/components/admin/CreateClientForm";
 import { createClient as createClientAction, unarchiveClient, deleteClient } from "../actions";
 
+// Signups happen outside this app, so a newly created profile has to appear
+// in the "Link to login" list (and in Team access) without waiting for a
+// cache to expire. revalidatePath only covers writes made from in here.
+export const dynamic = "force-dynamic";
+
 export default async function ClientsPage(
   props: {
     searchParams: Promise<{ archived?: string }>;

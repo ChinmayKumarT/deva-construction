@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { createSupabaseServerClient, getSessionAndRole } from "@/lib/supabase/server";
 import { WAGE_FACTOR } from "@/lib/wages";
 import { lineTotal } from "@/lib/money";
+import { setFlashError } from "@/lib/flash";
 
 function str(fd: FormData, k: string) {
   const v = fd.get(k);
@@ -193,8 +194,41 @@ function revalidateAll() {
 async function ownerDeleteRow(table: string, id: string | null) {
   if (!id) throw new Error("id required");
   const supabase = await createSupabaseServerClient();
+
+  // payments.supplier_id / labourer_id are ON DELETE SET NULL, but the row
+  // also carries a CHECK saying a supplier payment must have a supplier and a
+  // labour payment must have a labourer (02_domain.sql). So deleting either
+  // party while a bill or wage payment still points at them nulls the column
+  // and trips that check -- Postgres raises, and in production the message is
+  // redacted to "Something went wrong".
+  //
+  // Say what is actually in the way instead, and leave the decision to the
+  // person: archiving keeps the history, which is almost always what they
+  // meant by "delete".
+  const blocker =
+    table === "suppliers" ? "supplier_id" : table === "labourers" ? "labourer_id" : null;
+  if (blocker) {
+    const { count } = await supabase
+      .from("payments")
+      .select("id", { count: "exact", head: true })
+      .eq(blocker, id);
+    if (count && count > 0) {
+      const noun = table === "suppliers" ? "bill" : "wage payment";
+      const many = count > 1;
+      await setFlashError(
+        `Cannot delete permanently: ${count} ${noun}${many ? "s" : ""} still ` +
+          `${many ? "refer" : "refers"} to this record. Archive it instead to keep the ` +
+          `history, or delete ${many ? "those" : "that"} ${noun}${many ? "s" : ""} first.`,
+      );
+      return;
+    }
+  }
+
   const { error } = await supabase.rpc("owner_delete_row", { target_table: table, target_id: id });
-  if (error) throw new Error(error.message);
+  if (error) {
+    await setFlashError(`Could not delete: ${error.message}`);
+    return;
+  }
   revalidateAll();
 }
 
@@ -219,7 +253,10 @@ async function setArchived(table: string, id: string | null, archived: boolean) 
     .from(table)
     .update({ archived_at: archived ? new Date().toISOString() : null })
     .eq("id", id);
-  if (error) throw new Error(error.message);
+  if (error) {
+    await setFlashError(`Could not ${archived ? "archive" : "restore"}: ${error.message}`);
+    return;
+  }
   revalidateAll();
 }
 
