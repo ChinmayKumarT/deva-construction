@@ -4,7 +4,6 @@ title: Supplier deliveries auto-create their bill
 category: decision
 status: active
 created: "2026-08-26T17:44:53"
-updated: "2026-09-07T23:01:58"
 updated: "2026-09-08T17:15:56"
 ---
 

@@ -50,27 +50,18 @@ object Repo {
      * spent on goods that are no longer on the books, and the balance
      * understates what the supplier is still holding for us.
      *
-     * Written as an offsetting row rather than by deleting the deduction: the
-     * supplier page renders the ledger as a statement, so a silent row removal
-     * would leave the balance moving with no line to explain it. Mirrors
-     * refundSupplierAdvanceForMaterial in app/admin/actions.ts -- the two must
-     * agree or the balance depends on which app deleted the delivery.
-     *
-     * Refunds the material's *net* ledger position, and only while that is
-     * still negative, so the money can only ever come back once.
+     * The rule itself lives in SQL (refund_supplier_advance_for_material,
+     * 51_supplier_advance_rpcs.sql) so the web and Android cannot drift: an
+     * offsetting row rather than a row deletion -- the supplier page renders
+     * the ledger as a statement, so a silent removal would move the balance
+     * with no line to explain it -- and it refunds the material's *net*
+     * position only while that is still negative, so the money comes back
+     * exactly once. Going through the RPC also makes this work for a supplier
+     * signed into the app: RLS gives them no write on supplier_advances.
      */
     private suspend fun refundSupplierAdvanceForMaterial(materialId: String) {
-        val rows = supabase.from("supplier_advances").select {
-            filter { eq("material_id", materialId) }
-        }.decodeList<SupplierAdvanceRow>()
-        val net = rows.sumOf { it.amount }
-        if (net >= 0) return
-        val supplierId = rows.firstOrNull()?.supplierId ?: return
-        supabase.from("supplier_advances").insert(buildJsonObject {
-            put("supplier_id", supplierId)
-            put("amount", -net)
-            put("description", "Returned to advance — delivery deleted")
-            put("material_id", materialId)
+        supabase.postgrest.rpc("refund_supplier_advance_for_material", buildJsonObject {
+            put("p_material_id", materialId)
         })
     }
 
@@ -918,27 +909,17 @@ object Repo {
 
         val cost = lineTotal(quantity, unitCost)
 
-        // The advance ledger holds money actually handed over and nothing
-        // else, so it never goes below zero. What we still owe is carried by
-        // the bill's status instead. Mirrors the web's recordDelivery
-        // (app/supplier/actions.ts) -- the two must agree or the balance means
-        // different things depending on which app recorded the delivery.
-        val advBalance = supabase.from("supplier_advances").select {
-            filter { eq("supplier_id", supplierId) }
-        }.decodeList<SupplierAdvanceRow>().sumOf { it.amount }
-
-        // Consume the advance only when it covers the whole delivery; a
-        // partial deduction would spend the advance while the bill still
-        // showed its full amount outstanding.
-        val settledFromAdvance = advBalance >= cost
-        if (settledFromAdvance) {
-            supabase.from("supplier_advances").insert(buildJsonObject {
-                put("supplier_id", supplierId)
-                put("amount", -cost)
-                put("description", "Auto-deducted for $name delivery")
-                put("material_id", material.id)
-            })
-        }
+        // Through the RPC, not a direct insert: a supplier signed into the app
+        // has SELECT and nothing more on supplier_advances, so the insert this
+        // used to do was silently rejected while the bill below was still
+        // marked paid. 51_supplier_advance_rpcs.sql holds the rule now, shared
+        // with the web's recordDelivery -- the advance is consumed only when it
+        // covers the whole delivery, since a partial deduction would spend the
+        // credit while the bill still showed its full amount outstanding.
+        val settledFromAdvance = supabase.postgrest.rpc(
+            "deduct_supplier_advance_for_material",
+            buildJsonObject { put("p_material_id", material.id) },
+        ).decodeAs<Boolean>()
 
         // No approval step and no button -- the status is computed. "paid"
         // only where the advance covered it, since that is the case where the

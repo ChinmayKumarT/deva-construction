@@ -576,15 +576,18 @@ async function billSupplierDelivery(
  * spent on goods that are no longer on the books, and the balance understates
  * what the supplier is still holding for us.
  *
- * Written as an offsetting row rather than by deleting the deduction: the
- * ledger is the record of what happened, and the supplier page renders it as
- * a statement, so a silent row removal would leave the balance moving with no
- * line to explain it.
+ * The rule lives in SQL -- refund_supplier_advance_for_material in
+ * 51_supplier_advance_rpcs.sql -- so this path, the supplier portal and
+ * Android all give back the same money. It writes an offsetting row rather
+ * than deleting the deduction (the ledger is the record of what happened, and
+ * the supplier page renders it as a statement, so a silent removal would leave
+ * the balance moving with no line to explain it), and it refunds the
+ * material's *net* position only while that is still negative. Deleting a
+ * delivery and then its bill -- two buttons for what was one event -- therefore
+ * returns the money once, in whichever order they are pressed.
  *
- * Idempotent by construction -- it refunds the material's *net* ledger
- * position, and only while that is still negative. Deleting a delivery and
- * then its bill (two buttons for what was one event) therefore returns the
- * money once, in whichever order they are pressed.
+ * The lookup here is only to know which supplier page to revalidate, and to
+ * skip a pointless round trip; the function re-checks everything itself.
  */
 async function refundSupplierAdvanceForMaterial(materialId: string) {
   const supabase = await createSupabaseServerClient();
@@ -597,14 +600,15 @@ async function refundSupplierAdvanceForMaterial(materialId: string) {
   const net = rows.reduce((s, r) => s + Number(r.amount), 0);
   if (net >= 0) return;
 
-  const supplierId = rows[0].supplier_id as string;
-  await supabase.from("supplier_advances").insert({
-    supplier_id: supplierId,
-    amount: -net,
-    description: "Returned to advance — delivery deleted",
-    material_id: materialId,
+  const { error } = await supabase.rpc("refund_supplier_advance_for_material", {
+    p_material_id: materialId,
   });
-  revalidatePath(`/admin/suppliers/${supplierId}`);
+  if (error) {
+    await setFlashError(`Could not return the advance: ${error.message}`);
+    return;
+  }
+
+  revalidatePath(`/admin/suppliers/${rows[0].supplier_id as string}`);
   revalidatePath("/admin/suppliers");
 }
 

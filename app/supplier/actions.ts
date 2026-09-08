@@ -99,30 +99,21 @@ export async function recordDelivery(
       if (bills && material) {
         const cost = lineTotal(quantity, unit_cost);
 
-        // The advance ledger holds money actually handed over and nothing
-        // else, so it never goes below zero. What we still owe is carried by
-        // the bill's status below instead -- stating a debt once, rather than
-        // as an unpaid bill AND a negative balance at the same time.
-        const { data: advRows } = await supabase
-          .from("supplier_advances")
-          .select("amount")
-          .eq("supplier_id", supplier.id);
-        const advBalance = (advRows ?? []).reduce((s: number, r: { amount: number }) => s + Number(r.amount), 0);
-
-        // Consume the advance only when it covers the whole delivery. A
-        // partial deduction would double-count: the advance would be spent
-        // while the bill still showed its full amount outstanding. Left alone
-        // it stays as credit the supplier holds, and the true position is
-        // simply (outstanding bills - advance balance).
-        const settledFromAdvance = advBalance >= cost;
-        if (settledFromAdvance) {
-          await supabase.from("supplier_advances").insert({
-            supplier_id: supplier.id,
-            amount: -cost,
-            description: `Auto-deducted for ${name} delivery`,
-            material_id: material.id,
-          });
-        }
+        // Through the RPC, not a direct insert: RLS gives a supplier SELECT on
+        // supplier_advances and nothing more (47_supplier_advances.sql), so the
+        // insert this code used to do was silently rejected -- while the bill
+        // below was still marked paid. See 51_supplier_advance_rpcs.sql.
+        //
+        // The function applies the same all-or-nothing rule as everywhere else
+        // and answers whether the advance covered the whole delivery. A partial
+        // deduction would double-count: the credit spent while the bill still
+        // showed its full amount outstanding.
+        const { data: deducted, error: advError } = await supabase.rpc(
+          "deduct_supplier_advance_for_material",
+          { p_material_id: material.id },
+        );
+        if (advError) throw new Error(advError.message);
+        const settledFromAdvance = deducted === true;
 
         // Still no approval step and no button -- the status is computed
         // rather than clicked. "paid" only when the advance covered it, since
@@ -207,6 +198,17 @@ export async function archiveDelivery(fd: FormData) {
     .eq("supplier_id", supplier.id)
     .eq("created_by_supplier", true);
   if (billError) throw new Error(billError.message);
+
+  // The delivery may have been settled out of an advance. That credit has to
+  // come back now the goods are off the books, or the balance understates what
+  // the supplier is still holding for us. Same offsetting-row, refund-the-net
+  // rule as refundSupplierAdvanceForMaterial in app/admin/actions.ts, so the
+  // balance does not depend on which side deleted the delivery.
+  const { error: refundError } = await supabase.rpc(
+    "refund_supplier_advance_for_material",
+    { p_material_id: id },
+  );
+  if (refundError) throw new Error(refundError.message);
 
   revalidatePath("/supplier");
   revalidatePath("/admin/materials");
