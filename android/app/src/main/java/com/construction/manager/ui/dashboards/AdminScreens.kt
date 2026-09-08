@@ -1785,7 +1785,11 @@ fun AdminMaterials(isOwner: Boolean = false, initialProjectFilter: ProjectRow? =
     var unit by remember { mutableStateOf("unit") }
     var qty by remember { mutableStateOf("") }
     var unitCost by remember { mutableStateOf("") }
-    var status by remember { mutableStateOf("ordered") }
+    // Recording a material means it arrived. "Ordered" read like a state
+    // someone had to approve, but nobody ever did -- it only suppressed the
+    // bill, so the material showed up nowhere on the supplier. The enum value
+    // stays in the database so existing ordered rows still render.
+    var status by remember { mutableStateOf("delivered") }
     var supplier by remember { mutableStateOf<SupplierRow?>(null) }
     var workCategory by remember { mutableStateOf("None") }
     var showCreate by remember { mutableStateOf(false) }
@@ -1796,7 +1800,7 @@ fun AdminMaterials(isOwner: Boolean = false, initialProjectFilter: ProjectRow? =
             TextField(unit, { unit = it }, "Unit (kg, bag…)")
             NumberField(qty, { qty = it }, "Quantity")
             NumberField(unitCost, { unitCost = it }, "Unit cost")
-            LabeledChipPicker("Status", listOf("ordered","delivered","returned"), status, { it }, { status = it })
+            LabeledChipPicker("Status", listOf("delivered","returned"), status, { it }, { status = it })
             Dropdown("Supplier", suppliers, supplier, { it.name }, { supplier = it })
             CategoryDropdown("Work category", workCategory, { workCategory = it })
             Button(onClick = {
@@ -1933,7 +1937,11 @@ private fun MaterialsProjectPicker(
     var unit by remember { mutableStateOf("unit") }
     var qty by remember { mutableStateOf("") }
     var unitCost by remember { mutableStateOf("") }
-    var status by remember { mutableStateOf("ordered") }
+    // Recording a material means it arrived. "Ordered" read like a state
+    // someone had to approve, but nobody ever did -- it only suppressed the
+    // bill, so the material showed up nowhere on the supplier. The enum value
+    // stays in the database so existing ordered rows still render.
+    var status by remember { mutableStateOf("delivered") }
     var project by remember { mutableStateOf<ProjectRow?>(null) }
     var supplier by remember { mutableStateOf<SupplierRow?>(null) }
     var workCategory by remember { mutableStateOf("None") }
@@ -1950,7 +1958,7 @@ private fun MaterialsProjectPicker(
             TextField(unit, { unit = it }, "Unit (kg, bag…)")
             NumberField(qty, { qty = it }, "Quantity")
             NumberField(unitCost, { unitCost = it }, "Unit cost")
-            LabeledChipPicker("Status", listOf("ordered","delivered","returned"), status, { it }, { status = it })
+            LabeledChipPicker("Status", listOf("delivered","returned"), status, { it }, { status = it })
             CategoryDropdown("Work category", workCategory, { workCategory = it })
             com.construction.manager.util.friendlyError(error)?.let { Text(it, color = MaterialTheme.colorScheme.error,
                 modifier = Modifier.padding(16.dp)) }
@@ -2045,7 +2053,7 @@ private fun EditMaterialDialog(material: MaterialRow, onDismiss: () -> Unit, onS
             onValueChange = { s -> if (s.isEmpty() || s.toDoubleOrNull() != null) unitCost = s },
             label = { Text("Unit cost") }, singleLine = true, modifier = Modifier.fillMaxWidth(),
         )
-        Dropdown("Status", listOf("ordered","delivered","returned"), status, { it }, { status = it })
+        Dropdown("Status", listOf("delivered","returned"), status, { it }, { status = it })
         CategoryDropdown("Work category", workCategory, { workCategory = it })
     }
 }

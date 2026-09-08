@@ -93,8 +93,14 @@ export default async function MaterialsIndexPage(
           <Field label="Quantity" name="quantity" type="number" step="0.01" min="0" required />
           <Field label="Unit (kg, bag, m³…)" name="unit" defaultValue="unit" />
           <Field label="Unit cost (₹)" name="unit_cost" type="number" step="0.01" min="0" required />
-          <Select label="Status" name="status" defaultValue="ordered">
-            <option value="ordered">Ordered</option>
+          {/* "Ordered" is gone from the picker. It read like a state someone
+              had to approve, but nobody ever did -- it only meant "not here
+              yet", and quietly suppressed the bill, so a material recorded
+              against a supplier showed up nowhere on their page. Recording a
+              material now means it arrived. The enum value stays in the
+              database so the few existing ordered rows still render and can be
+              marked delivered. */}
+          <Select label="Status" name="status" defaultValue="delivered">
             <option value="delivered">Delivered</option>
             <option value="returned">Returned</option>
           </Select>

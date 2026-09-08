@@ -38,8 +38,13 @@ export default async function EditMaterialPage(props: { params: Promise<{ id: st
         <Field label="Quantity" name="quantity" type="number" step="0.01" min="0" required defaultValue={material.quantity ?? 0} />
         <Field label="Unit (kg, bag, m³…)" name="unit" defaultValue={material.unit ?? "unit"} />
         <Field label="Unit cost (₹)" name="unit_cost" type="number" step="0.01" min="0" required defaultValue={material.unit_cost ?? 0} />
+        {/* "Ordered" is no longer offered for new materials, but this select
+            defaults to the row's own status -- so drop the option only when
+            this material is not already ordered. Without that guard, opening
+            one of the few remaining ordered rows would silently reselect the
+            first option and change its status on save. */}
         <Select label="Status" name="status" defaultValue={material.status}>
-          <option value="ordered">Ordered</option>
+          {material.status === "ordered" && <option value="ordered">Ordered</option>}
           <option value="delivered">Delivered</option>
           <option value="returned">Returned</option>
         </Select>

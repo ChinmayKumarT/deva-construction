@@ -80,8 +80,9 @@ export default async function ProjectMaterialsPage(
           <Field label="Quantity" name="quantity" type="number" step="0.01" min="0" required />
           <Field label="Unit (kg, bag, m³…)" name="unit" defaultValue="unit" />
           <Field label="Unit cost (₹)" name="unit_cost" type="number" step="0.01" min="0" required />
-          <Select label="Status" name="status" defaultValue="ordered">
-            <option value="ordered">Ordered</option>
+          {/* See the note on the Materials list page: recording a material
+              means it arrived, so there is no "Ordered" to choose. */}
+          <Select label="Status" name="status" defaultValue="delivered">
             <option value="delivered">Delivered</option>
             <option value="returned">Returned</option>
           </Select>

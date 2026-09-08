@@ -583,7 +583,10 @@ export async function unarchiveLabourer(fd: FormData) { await setArchived("labou
 
 // ---------- Materials ----------
 export async function updateMaterial(fd: FormData) {
-  const status = (str(fd, "status") ?? "ordered") as "ordered" | "delivered" | "returned";
+  // Falls back to delivered, not ordered: recording a material means it
+  // arrived. "Ordered" is no longer offered in the pickers -- see the note on
+  // the Materials list page.
+  const status = (str(fd, "status") ?? "delivered") as "ordered" | "delivered" | "returned";
   await updateRow("materials", str(fd, "id"), {
     project_id: uuidOrNull(fd, "project_id"),
     supplier_id: uuidOrNull(fd, "supplier_id"),
@@ -667,7 +670,10 @@ export async function createMaterial(
 ): Promise<CreateMaterialState> {
   const supabase = await createSupabaseServerClient();
   try {
-    const status = (str(fd, "status") ?? "ordered") as "ordered" | "delivered" | "returned";
+    // Falls back to delivered, not ordered: recording a material means it
+  // arrived. "Ordered" is no longer offered in the pickers -- see the note on
+  // the Materials list page.
+  const status = (str(fd, "status") ?? "delivered") as "ordered" | "delivered" | "returned";
     const row = {
       project_id: uuidOrNull(fd, "project_id"),
       supplier_id: uuidOrNull(fd, "supplier_id"),
