@@ -199,28 +199,52 @@ async function ownerDeleteRow(table: string, id: string | null) {
   // also carries a CHECK saying a supplier payment must have a supplier and a
   // labour payment must have a labourer (02_domain.sql). So deleting either
   // party while a bill or wage payment still points at them nulls the column
-  // and trips that check -- Postgres raises, and in production the message is
-  // redacted to "Something went wrong".
+  // and trips that check -- the delete can never succeed on its own. Clear
+  // those rows first.
   //
-  // Say what is actually in the way instead, and leave the decision to the
-  // person: archiving keeps the history, which is almost always what they
-  // meant by "delete".
+  // The person has already been told this will happen: DeleteForeverButton on
+  // the supplier and labourer pages names the count and the amount before
+  // anything is submitted.
   const blocker =
     table === "suppliers" ? "supplier_id" : table === "labourers" ? "labourer_id" : null;
   if (blocker) {
-    const { count } = await supabase
+    const { data: doomed, error: findErr } = await supabase
       .from("payments")
-      .select("id", { count: "exact", head: true })
+      .select("id, material_id")
       .eq(blocker, id);
-    if (count && count > 0) {
-      const noun = table === "suppliers" ? "bill" : "wage payment";
-      const many = count > 1;
-      await setFlashError(
-        `Cannot delete permanently: ${count} ${noun}${many ? "s" : ""} still ` +
-          `${many ? "refer" : "refers"} to this record. Archive it instead to keep the ` +
-          `history, or delete ${many ? "those" : "that"} ${noun}${many ? "s" : ""} first.`,
-      );
+    if (findErr) {
+      await setFlashError(`Could not delete: ${findErr.message}`);
       return;
+    }
+
+    if (doomed && doomed.length > 0) {
+      // A material flagged `billed` is skipped by lib/cashflow.ts, because its
+      // cost is counted through the supplier payment instead. Deleting that
+      // payment without clearing the flag would drop the cost out of cash flow
+      // and the cost reports entirely -- the delivery still happened, so it has
+      // to go back to being counted directly.
+      const materialIds = doomed
+        .map((p) => p.material_id)
+        .filter((v): v is string => Boolean(v));
+      if (materialIds.length > 0) {
+        const { error: unbillErr } = await supabase
+          .from("materials")
+          .update({ billed: false })
+          .in("id", materialIds);
+        if (unbillErr) {
+          await setFlashError(`Could not delete: ${unbillErr.message}`);
+          return;
+        }
+      }
+
+      const { error: payErr } = await supabase
+        .from("payments")
+        .delete()
+        .in("id", doomed.map((p) => p.id));
+      if (payErr) {
+        await setFlashError(`Could not delete the linked payments: ${payErr.message}`);
+        return;
+      }
     }
   }
 

@@ -111,7 +111,24 @@ export default async function ManageSupplierPage(props: { params: Promise<{ id: 
                   Restore
                 </button>
               </form>
-              {isOwner && <DeleteForeverButton id={supplier.id} name={supplier.name} action={deleteSupplier} />}
+              {isOwner && (
+                <DeleteForeverButton
+                  id={supplier.id}
+                  name={supplier.name}
+                  action={deleteSupplier}
+                  // Names the real consequence before anything is submitted:
+                  // the bills go too, and every money figure that counts them
+                  // moves. Archiving is the option that keeps the history.
+                  warning={
+                    payments && payments.length > 0
+                      ? `This also permanently deletes ${payments.length} bill${payments.length === 1 ? "" : "s"} ` +
+                        `worth ₹${payments.reduce((a, p) => a + Number(p.amount), 0).toLocaleString()}. ` +
+                        `Cash flow, Profit & Loss and cost ` +
+                        `reports will all change. Archive instead if you only want this supplier out of your lists.`
+                      : undefined
+                  }
+                />
+              )}
             </div>
           </>
         ) : (

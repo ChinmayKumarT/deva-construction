@@ -137,7 +137,11 @@ export default async function LabourersPage(
                     {isOwner && (
                       <DeleteForeverButton
                         id={l.id} name={l.name} action={deleteLabourer}
-                        warning="Their entire attendance and wage history will be deleted too."
+                        warning={
+                          "Their entire attendance and wage history is deleted too, along with any " +
+                          "wage payments recorded for them. Cash flow, Profit & Loss and cost reports " +
+                          "will all change. Archive instead to keep the history."
+                        }
                       />
                     )}
                   </div>
