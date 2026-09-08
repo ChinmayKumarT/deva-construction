@@ -111,16 +111,28 @@ export function ArchivedToggle({
   // basePath may already carry a query string (e.g. a ?project= filter), so
   // join with & in that case rather than a second ?.
   const withArchived = `${basePath}${basePath.includes("?") ? "&" : "?"}archived=1`;
+
+  // A solid chip rather than a bare link, because this control appears on two
+  // very different grounds: the list pages pull it up onto the header gradient
+  // (AdminContent's -mt-10), while the project page renders it inside a white
+  // Card. Plain brand-coloured text vanished against the gradient. White fill
+  // with a border reads on both, and looks like the control it is.
+  const chip =
+    "inline-flex items-center gap-1 rounded-lg border border-[var(--line)] bg-white " +
+    "px-3 py-1.5 text-sm font-medium text-brand-700 shadow-sm transition " +
+    "hover:border-brand hover:bg-brand/5 " +
+    "focus:outline-none focus-visible:ring-2 focus-visible:ring-white/70";
+
   if (showArchived) {
     return (
-      <Link href={basePath} className="text-sm font-medium text-brand-700 hover:underline">
+      <Link href={basePath} className={chip}>
         ← Back to active {label}
       </Link>
     );
   }
   if (!archivedCount) return null;
   return (
-    <Link href={withArchived} className="text-sm font-medium text-brand-700 hover:underline">
+    <Link href={withArchived} className={chip}>
       View {archivedCount} archived {label} →
     </Link>
   );
