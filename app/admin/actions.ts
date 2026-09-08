@@ -260,7 +260,14 @@ export async function deleteProject(fd: FormData) { await ownerDeleteRow("projec
 export async function deleteClient(fd: FormData) { await ownerDeleteRow("clients", str(fd, "id")); }
 export async function deleteSupplier(fd: FormData) { await ownerDeleteRow("suppliers", str(fd, "id")); }
 export async function deleteLabourer(fd: FormData) { await ownerDeleteRow("labourers", str(fd, "id")); }
-export async function deleteMaterial(fd: FormData) { await ownerDeleteRow("materials", str(fd, "id")); }
+// Refund before the delete here, unlike archiveMaterial: supplier_advances
+// .material_id is "on delete set null", so once the material row is gone there
+// is nothing left to tell which deduction belonged to this delivery.
+export async function deleteMaterial(fd: FormData) {
+  const id = str(fd, "id");
+  if (id) await refundSupplierAdvanceForMaterial(id);
+  await ownerDeleteRow("materials", id);
+}
 export async function deletePayment(fd: FormData) { await ownerDeleteRow("payments", str(fd, "id")); }
 export async function deleteProjectUpdate(fd: FormData) { await ownerDeleteRow("project_updates", str(fd, "id")); }
 
@@ -563,6 +570,44 @@ async function billSupplierDelivery(
   revalidatePath(`/admin/suppliers/${m.supplierId}`);
 }
 
+/**
+ * A delivery that was settled out of the advance account has to hand that
+ * credit back when the delivery is deleted -- otherwise the advance stays
+ * spent on goods that are no longer on the books, and the balance understates
+ * what the supplier is still holding for us.
+ *
+ * Written as an offsetting row rather than by deleting the deduction: the
+ * ledger is the record of what happened, and the supplier page renders it as
+ * a statement, so a silent row removal would leave the balance moving with no
+ * line to explain it.
+ *
+ * Idempotent by construction -- it refunds the material's *net* ledger
+ * position, and only while that is still negative. Deleting a delivery and
+ * then its bill (two buttons for what was one event) therefore returns the
+ * money once, in whichever order they are pressed.
+ */
+async function refundSupplierAdvanceForMaterial(materialId: string) {
+  const supabase = await createSupabaseServerClient();
+  const { data: rows } = await supabase
+    .from("supplier_advances")
+    .select("supplier_id, amount")
+    .eq("material_id", materialId);
+  if (!rows || rows.length === 0) return;
+
+  const net = rows.reduce((s, r) => s + Number(r.amount), 0);
+  if (net >= 0) return;
+
+  const supplierId = rows[0].supplier_id as string;
+  await supabase.from("supplier_advances").insert({
+    supplier_id: supplierId,
+    amount: -net,
+    description: "Returned to advance — delivery deleted",
+    material_id: materialId,
+  });
+  revalidatePath(`/admin/suppliers/${supplierId}`);
+  revalidatePath("/admin/suppliers");
+}
+
 // ---------- Labourers ----------
 export async function updateLabourer(fd: FormData) {
   // profile_id is deliberately not written: labourers don't sign in (the site
@@ -599,7 +644,14 @@ export async function updateMaterial(fd: FormData) {
   });
   redirect("/admin/materials");
 }
-export async function archiveMaterial(fd: FormData) { await setArchived("materials", str(fd, "id"), true); }
+// Refund after the archive, not before: if the archive fails there is nothing
+// to give back. setArchived() has already revalidated by then, so the helper
+// revalidates the supplier pages itself.
+export async function archiveMaterial(fd: FormData) {
+  const id = str(fd, "id");
+  await setArchived("materials", id, true);
+  if (id) await refundSupplierAdvanceForMaterial(id);
+}
 export async function unarchiveMaterial(fd: FormData) { await setArchived("materials", str(fd, "id"), false); }
 
 // ---------- Payments ----------

@@ -44,13 +44,48 @@ object Repo {
         }) { filter { eq("id", id) } }
     }
 
+    /**
+     * A delivery that was settled out of the advance account has to hand that
+     * credit back when the delivery is deleted -- otherwise the advance stays
+     * spent on goods that are no longer on the books, and the balance
+     * understates what the supplier is still holding for us.
+     *
+     * Written as an offsetting row rather than by deleting the deduction: the
+     * supplier page renders the ledger as a statement, so a silent row removal
+     * would leave the balance moving with no line to explain it. Mirrors
+     * refundSupplierAdvanceForMaterial in app/admin/actions.ts -- the two must
+     * agree or the balance depends on which app deleted the delivery.
+     *
+     * Refunds the material's *net* ledger position, and only while that is
+     * still negative, so the money can only ever come back once.
+     */
+    private suspend fun refundSupplierAdvanceForMaterial(materialId: String) {
+        val rows = supabase.from("supplier_advances").select {
+            filter { eq("material_id", materialId) }
+        }.decodeList<SupplierAdvanceRow>()
+        val net = rows.sumOf { it.amount }
+        if (net >= 0) return
+        val supplierId = rows.firstOrNull()?.supplierId ?: return
+        supabase.from("supplier_advances").insert(buildJsonObject {
+            put("supplier_id", supplierId)
+            put("amount", -net)
+            put("description", "Returned to advance — delivery deleted")
+            put("material_id", materialId)
+        })
+    }
+
     suspend fun archiveClient(id: String) = setArchived("clients", id, true)
     suspend fun unarchiveClient(id: String) = setArchived("clients", id, false)
     suspend fun archiveSupplier(id: String) = setArchived("suppliers", id, true)
     suspend fun unarchiveSupplier(id: String) = setArchived("suppliers", id, false)
     suspend fun archiveLabourer(id: String) = setArchived("labourers", id, true)
     suspend fun unarchiveLabourer(id: String) = setArchived("labourers", id, false)
-    suspend fun archiveMaterial(id: String) = setArchived("materials", id, true)
+    // Refund after the archive, not before: if the archive fails there is
+    // nothing to give back.
+    suspend fun archiveMaterial(id: String) {
+        setArchived("materials", id, true)
+        refundSupplierAdvanceForMaterial(id)
+    }
     suspend fun unarchiveMaterial(id: String) = setArchived("materials", id, false)
     suspend fun archivePayment(id: String) = setArchived("payments", id, true)
     suspend fun unarchivePayment(id: String) = setArchived("payments", id, false)
@@ -208,7 +243,13 @@ object Repo {
     suspend fun deleteClientForever(id: String) = ownerDeleteRow("clients", id)
     suspend fun deleteSupplierForever(id: String) = ownerDeleteRow("suppliers", id)
     suspend fun deleteLabourerForever(id: String) = ownerDeleteRow("labourers", id)
-    suspend fun deleteMaterialForever(id: String) = ownerDeleteRow("materials", id)
+    // Refund before the delete here, unlike archiveMaterial: supplier_advances
+    // .material_id is "on delete set null", so once the material row is gone
+    // there is nothing left to tell which deduction belonged to this delivery.
+    suspend fun deleteMaterialForever(id: String) {
+        refundSupplierAdvanceForMaterial(id)
+        ownerDeleteRow("materials", id)
+    }
     suspend fun deletePaymentForever(id: String) = ownerDeleteRow("payments", id)
     suspend fun deleteUpdateForever(id: String) = ownerDeleteRow("project_updates", id)
     suspend fun deletePersonalTransactionForever(id: String) = ownerDeleteRow("personal_transactions", id)
