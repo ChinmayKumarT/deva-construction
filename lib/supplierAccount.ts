@@ -11,8 +11,11 @@
  *
  *   Lifetime payment  every rupee that has actually left the account.
  *
- *   Remaining         what is still owed. Goes NEGATIVE when advances run
- *                     ahead of deliveries, which reads as "they owe us goods".
+ *   Remaining         what is still owed, and never less than zero. Once an
+ *                     advance has cleared the bills there is nothing owed, so
+ *                     Remaining rests at 0 and the surplus shows as advance
+ *                     balance instead -- credit belongs in one place, not as a
+ *                     negative in another.
  *
  * The subtraction in `lifetimePayment` is the part worth understanding. A bill
  * settled out of an advance is marked paid, but that money was already counted
@@ -36,7 +39,8 @@ export type SupplierMoney = {
   advanceBalance: number;
   /** Every rupee that has actually left the account. */
   lifetimePayment: number;
-  /** Owed minus credit held. Negative means we are ahead. */
+  /** Owed, after credit is applied. Never negative -- surplus credit shows
+   *  as advanceBalance instead. */
   remaining: number;
 };
 
@@ -60,6 +64,6 @@ export function supplierMoney({ payments, advances }: SupplierMoneyInput): Suppl
     outstanding,
     advanceBalance,
     lifetimePayment: given + paidBills - consumed,
-    remaining: outstanding - advanceBalance,
+    remaining: Math.max(0, outstanding - advanceBalance),
   };
 }
