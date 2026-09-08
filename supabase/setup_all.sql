@@ -11,6 +11,8 @@
 --   50_repair_negative_advances.sql -- a one-off repair for production data
 --                                      written under the old advance rule.
 --                                      Nothing to repair on a fresh database.
+--   53_apply_existing_advances.sql  -- likewise: applies balances that the old
+--                                      all-or-nothing rule left unspent.
 --   test_data.sql                   -- the seed. Run it AFTER this file.
 --
 -- Two manual steps afterwards:

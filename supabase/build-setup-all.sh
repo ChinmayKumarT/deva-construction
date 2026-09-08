@@ -12,7 +12,7 @@ cd "$(dirname "$0")"
 OUT=setup_all.sql
 # schema.sql is first and is NOT numbered -- it creates profiles, the role
 # enum and the signup trigger that everything after it depends on.
-FILES="./schema.sql $(ls ./[0-9][0-9]_*.sql | sort -V | grep -v '50_repair_negative_advances.sql' | tr '
+FILES="./schema.sql $(ls ./[0-9][0-9]_*.sql | sort -V | grep -vE '50_repair_negative_advances.sql|53_apply_existing_advances.sql' | tr '
 ' ' ')"
 
 {
@@ -30,6 +30,8 @@ FILES="./schema.sql $(ls ./[0-9][0-9]_*.sql | sort -V | grep -v '50_repair_negat
 --   50_repair_negative_advances.sql -- a one-off repair for production data
 --                                      written under the old advance rule.
 --                                      Nothing to repair on a fresh database.
+--   53_apply_existing_advances.sql  -- likewise: applies balances that the old
+--                                      all-or-nothing rule left unspent.
 --   test_data.sql                   -- the seed. Run it AFTER this file.
 --
 -- Two manual steps afterwards:
