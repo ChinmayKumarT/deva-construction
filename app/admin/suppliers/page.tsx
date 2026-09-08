@@ -25,12 +25,13 @@ export default async function SuppliersPage(
     .select("id, name, email, phone, profile_id, archived_at")
     .order("created_at", { ascending: false });
 
-  const [{ data: suppliers }, { data: profiles }, { count: archivedCount }, { data: materials }, { data: payments }] = await Promise.all([
+  const [{ data: suppliers }, { data: profiles }, { count: archivedCount }, { data: materials }, { data: payments }, { data: advances }] = await Promise.all([
     showArchived ? base.not("archived_at", "is", null) : base.is("archived_at", null),
     supabase.rpc("admin_list_profiles_with_email", { p_role: "supplier" }),
     supabase.from("suppliers").select("id", { count: "exact", head: true }).not("archived_at", "is", null),
     supabase.from("materials").select("supplier_id, status").is("archived_at", null),
     supabase.from("payments").select("supplier_id, amount, status").is("archived_at", null).eq("payee_type", "supplier"),
+    supabase.from("supplier_advances").select("supplier_id, amount"),
   ]);
 
   const linked = new Set((suppliers ?? []).map((s) => s.profile_id).filter(Boolean));
@@ -52,6 +53,14 @@ export default async function SuppliersPage(
     if (p.status === "paid") {
       paidBySupplier.set(p.supplier_id, (paidBySupplier.get(p.supplier_id) ?? 0) + Number(p.amount));
     }
+  }
+  // The ledger sums to the credit a supplier is still holding: positive rows
+  // are advances handed over, negative rows are deliveries that consumed them.
+  // It never goes below zero -- see recordDelivery in app/supplier/actions.ts.
+  const advanceBySupplier = new Map<string, number>();
+  for (const a of advances ?? []) {
+    if (!a.supplier_id) continue;
+    advanceBySupplier.set(a.supplier_id, (advanceBySupplier.get(a.supplier_id) ?? 0) + Number(a.amount));
   }
 
   return (
@@ -103,6 +112,31 @@ export default async function SuppliersPage(
                 <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2">
                   <div className="text-[10px] font-medium uppercase tracking-wide text-emerald-700">Total paid</div>
                   <div className="text-sm font-semibold text-emerald-700">₹{(paidBySupplier.get(s.id) ?? 0).toLocaleString()}</div>
+                </div>
+                {/* Blue only when they are actually holding credit, so a card
+                    with no advance stays quiet instead of showing a coloured
+                    zero. Same treatment as the supplier detail page. */}
+                <div
+                  className={`rounded-lg border px-3 py-2 ${
+                    (advanceBySupplier.get(s.id) ?? 0) > 0
+                      ? "border-blue-200 bg-blue-50"
+                      : "border-slate-200 bg-slate-50"
+                  }`}
+                >
+                  <div
+                    className={`text-[10px] font-medium uppercase tracking-wide ${
+                      (advanceBySupplier.get(s.id) ?? 0) > 0 ? "text-blue-700" : "text-slate-500"
+                    }`}
+                  >
+                    Advance
+                  </div>
+                  <div
+                    className={`text-sm font-semibold ${
+                      (advanceBySupplier.get(s.id) ?? 0) > 0 ? "text-blue-700" : ""
+                    }`}
+                  >
+                    ₹{(advanceBySupplier.get(s.id) ?? 0).toLocaleString()}
+                  </div>
                 </div>
               </div>
               <p className="mt-3 text-sm font-medium text-brand-700">Manage →</p>
