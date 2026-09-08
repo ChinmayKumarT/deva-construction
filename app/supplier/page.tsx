@@ -89,7 +89,7 @@ export default async function SupplierDashboard() {
     supabase.from("projects").select("id, name").is("archived_at", null).order("name"),
     supabase
       .from("supplier_advances")
-      .select("amount")
+      .select("amount, payment_id, material_id")
       .eq("supplier_id", supplier.id),
   ]);
 

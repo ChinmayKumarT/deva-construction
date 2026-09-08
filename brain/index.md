@@ -1,6 +1,6 @@
 # Brain Index
 
-_Auto-generated. Last updated 2026-09-08T12:56:49.255Z._
+_Auto-generated. Last updated 2026-09-08T17:33:41.493Z._
 
 - [budget-extensions](pages/budget-extensions.md) — category: decision | <current best understanding — replace this with the real content>
 - [client-payments-tracking](pages/client-payments-tracking.md) — category: decision | <current best understanding — replace this with the real content>

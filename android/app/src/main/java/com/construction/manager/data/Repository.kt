@@ -909,32 +909,28 @@ object Repo {
 
         val cost = lineTotal(quantity, unitCost)
 
-        // Through the RPC, not a direct insert: a supplier signed into the app
-        // has SELECT and nothing more on supplier_advances, so the insert this
-        // used to do was silently rejected while the bill below was still
-        // marked paid. 51_supplier_advance_rpcs.sql holds the rule now, shared
-        // with the web's recordDelivery -- the advance is consumed only when it
-        // covers the whole delivery, since a partial deduction would spend the
-        // credit while the bill still showed its full amount outstanding.
-        val settledFromAdvance = supabase.postgrest.rpc(
-            "deduct_supplier_advance_for_material",
-            buildJsonObject { put("p_material_id", material.id) },
-        ).decodeAs<Boolean>()
-
-        // No approval step and no button -- the status is computed. "paid"
-        // only where the advance covered it, since that is the case where the
-        // money genuinely left already. 49_supplier_bill_status_from_advance
-        // .sql allows exactly these two values on a supplier-context insert.
-        supabase.from("payments").insert(buildJsonObject {
+        // Raised as owing, then offered to the advance. No approval step and
+        // no button -- the status is computed, and 49_supplier_bill_status
+        // _from_advance.sql allows exactly this value on a supplier insert.
+        val bill = supabase.from("payments").insert(buildJsonObject {
             put("project_id", projectId)
             put("payee_type", "supplier")
             put("supplier_id", supplierId)
             put("amount", cost)
             put("description", "$name ($quantity $unit)")
-            put("status", if (settledFromAdvance) "paid" else "approved")
-            if (settledFromAdvance) put("paid_at", java.time.Instant.now().toString())
+            put("status", "approved")
             put("created_by_supplier", true)
             put("material_id", material.id)
+        }) { select() }.decodeSingle<PaymentRow>()
+
+        // Through the RPC, not a direct insert: a supplier signed into the app
+        // has SELECT and nothing more on supplier_advances, so the insert this
+        // used to do was silently rejected while the bill was still marked
+        // paid. 52_partial_advance_application.sql holds the rule now, shared
+        // with the web's recordDelivery -- the advance goes against the bill as
+        // far as it reaches, and the bill flips to paid only if that clears it.
+        supabase.postgrest.rpc("apply_supplier_advance_to_bill", buildJsonObject {
+            put("p_payment_id", bill.id)
         })
     }
     suspend fun supplierPayments(supplierId: String) = supabase.from("payments")

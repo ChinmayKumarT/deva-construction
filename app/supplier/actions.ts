@@ -99,29 +99,11 @@ export async function recordDelivery(
       if (bills && material) {
         const cost = lineTotal(quantity, unit_cost);
 
-        // Through the RPC, not a direct insert: RLS gives a supplier SELECT on
-        // supplier_advances and nothing more (47_supplier_advances.sql), so the
-        // insert this code used to do was silently rejected -- while the bill
-        // below was still marked paid. See 51_supplier_advance_rpcs.sql.
-        //
-        // The function applies the same all-or-nothing rule as everywhere else
-        // and answers whether the advance covered the whole delivery. A partial
-        // deduction would double-count: the credit spent while the bill still
-        // showed its full amount outstanding.
-        const { data: deducted, error: advError } = await supabase.rpc(
-          "deduct_supplier_advance_for_material",
-          { p_material_id: material.id },
-        );
-        if (advError) throw new Error(advError.message);
-        const settledFromAdvance = deducted === true;
-
-        // Still no approval step and no button -- the status is computed
-        // rather than clicked. "paid" only when the advance covered it, since
-        // that is the case where the money genuinely did leave already. Any
-        // other delivery is a real debt and shows up in Remaining.
+        // Raised as owing, then offered to the advance. Still no approval
+        // step and no button -- the status is computed rather than clicked.
         // 49_supplier_bill_status_from_advance.sql's insert policy allows
-        // exactly these two values.
-        const { error: billError } = await supabase.from("payments").insert({
+        // exactly this value from a supplier.
+        const { data: bill, error: billError } = await supabase.from("payments").insert({
           project_id,
           payee_type: "supplier",
           supplier_id: supplier.id,
@@ -130,12 +112,25 @@ export async function recordDelivery(
           // produces (components/admin/PaymentForm.tsx), so bills from the
           // two paths read identically in the payments list.
           description: `${name} (${quantity} ${unit})`,
-          status: settledFromAdvance ? "paid" : "approved",
-          paid_at: settledFromAdvance ? new Date().toISOString() : null,
+          status: "approved",
           created_by_supplier: true,
           material_id: material.id,
-        });
+        }).select("id").single();
         if (billError) throw new Error(billError.message);
+
+        // Through the RPC, not a direct insert: RLS gives a supplier SELECT on
+        // supplier_advances and nothing more (47_supplier_advances.sql), so
+        // the insert this code used to do was silently rejected -- while the
+        // bill was still marked paid. 52_partial_advance_application.sql holds
+        // the rule now, shared with the admin's own billing: the advance goes
+        // against the bill as far as it reaches, and the bill flips to paid
+        // only if that clears it.
+        if (bill) {
+          const { error: advError } = await supabase.rpc("apply_supplier_advance_to_bill", {
+            p_payment_id: bill.id,
+          });
+          if (advError) throw new Error(advError.message);
+        }
       }
     }
 

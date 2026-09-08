@@ -413,14 +413,15 @@ export async function deleteSupplierAdvance(fd: FormData) {
 
 /**
  * Handing over an advance is handing over money, so it clears what is already
- * owed rather than sitting beside it. Bills are settled oldest first, and only
- * when the credit covers a bill in full -- a part-settled bill would spend the
- * credit while still showing its whole amount outstanding, which is the
- * double-count this ledger exists to avoid.
+ * owed rather than sitting beside it. Bills are settled oldest first, each one
+ * taking as much of the credit as it can -- a bill bigger than the balance
+ * takes the balance to zero and keeps the rest as a debt.
  *
- * Each settlement writes a matching negative ledger row. That row is what
- * keeps `lifetimePayment` honest (see lib/supplierAccount.ts): the money is
- * counted once, when it was handed over.
+ * The applying itself is `apply_supplier_advance_to_bill`
+ * (52_partial_advance_application.sql), the one place that rule lives now.
+ * Each application writes a negative ledger row naming the bill, which is what
+ * keeps `lifetimePayment` and each bill's own outstanding amount honest -- see
+ * lib/supplierAccount.ts.
  */
 async function settleOutstandingFromAdvance(
   supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>,
@@ -430,7 +431,7 @@ async function settleOutstandingFromAdvance(
     supabase.from("supplier_advances").select("amount").eq("supplier_id", supplierId),
     supabase
       .from("payments")
-      .select("id, amount, description")
+      .select("id")
       .eq("supplier_id", supplierId)
       .eq("payee_type", "supplier")
       .in("status", ["pending", "approved"])
@@ -439,62 +440,33 @@ async function settleOutstandingFromAdvance(
   ]);
 
   let credit = (advances ?? []).reduce((s, r) => s + Number(r.amount), 0);
-  const now = new Date().toISOString();
 
   for (const bill of bills ?? []) {
-    const owed = Number(bill.amount);
-    if (owed <= 0 || credit < owed) continue;
-
-    const { error: payErr } = await supabase
-      .from("payments")
-      .update({ status: "paid", paid_at: now })
-      .eq("id", bill.id);
-    if (payErr) continue;
-
-    await supabase.from("supplier_advances").insert({
-      supplier_id: supplierId,
-      amount: -owed,
-      description: `Settled from advance: ${bill.description ?? "bill"}`,
+    if (credit <= 0) break;
+    const { data: applied } = await supabase.rpc("apply_supplier_advance_to_bill", {
+      p_payment_id: bill.id,
     });
-    credit -= owed;
+    credit -= Number(applied ?? 0);
   }
 }
 
-async function deductFromSupplierAdvance(
+/**
+ * Put whatever credit the supplier is holding against a bill just raised.
+ * Returns whether it cleared the bill outright, which is only worth knowing
+ * for the message shown afterwards -- the function has already flipped the
+ * bill to paid if it did.
+ */
+async function applyAdvanceToBill(
   supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>,
   supplierId: string,
-  materialId: string | null,
+  paymentId: string,
   cost: number,
-  description = "Auto-deducted for material delivery",
 ) {
-  if (cost <= 0) return false;
-
-  // The advance ledger holds money actually handed over, and nothing else --
-  // it never goes below zero. What we still owe is carried by the bill's own
-  // status instead (see recordDelivery), so a debt is stated once rather than
-  // as both an unpaid bill AND a negative balance.
-  const { data: advances } = await supabase
-    .from("supplier_advances")
-    .select("amount")
-    .eq("supplier_id", supplierId);
-  const balance = (advances ?? []).reduce((s, r) => s + Number(r.amount), 0);
-
-  // Consume the advance only when it covers the whole delivery. A partial
-  // deduction would double-count: the advance would be spent while the bill
-  // still showed its full amount outstanding. Left alone, the balance stays
-  // as credit the supplier is holding, and the net position is simply
-  // (outstanding bills - advance balance).
-  if (balance < cost) return false;
-
-  const row: Record<string, unknown> = {
-    supplier_id: supplierId,
-    amount: -cost,
-    description,
-  };
-  if (materialId) row.material_id = materialId;
-  await supabase.from("supplier_advances").insert(row);
+  const { data: applied } = await supabase.rpc("apply_supplier_advance_to_bill", {
+    p_payment_id: paymentId,
+  });
   revalidatePath(`/admin/suppliers/${supplierId}`);
-  return true;
+  return Number(applied ?? 0) >= cost;
 }
 
 /**
@@ -508,8 +480,9 @@ async function deductFromSupplierAdvance(
  * from the other side of the app.
  *
  * The advance decides the status, as everywhere else: covered in full means the
- * money already left as the advance, so the bill is `paid`; otherwise it is a
- * real outstanding debt and shows up in Remaining.
+ * money already left as the advance, so the bill ends up `paid`; a part-covered
+ * one keeps the balance it could not absorb as a real debt, and shows up in
+ * Remaining.
  */
 async function billSupplierDelivery(
   supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>,
@@ -538,13 +511,13 @@ async function billSupplierDelivery(
     .limit(1);
   if (existing && existing.length > 0) return;
 
-  const settledFromAdvance = await deductFromSupplierAdvance(
-    supabase, m.supplierId, m.materialId, cost,
-  );
-
   const { data: { user } } = await supabase.auth.getUser();
   const now = new Date().toISOString();
-  const { error } = await supabase.from("payments").insert({
+  // Raised as owing, then offered to the advance -- not the other way round.
+  // The credit is applied against the bill's id, so the bill has to exist
+  // first; apply_supplier_advance_to_bill flips it to paid if the advance
+  // covers the whole of it, and leaves the rest owing if it does not.
+  const { data: bill, error } = await supabase.from("payments").insert({
     project_id: m.projectId,
     payee_type: "supplier",
     supplier_id: m.supplierId,
@@ -553,13 +526,13 @@ async function billSupplierDelivery(
     // identically in the payments list.
     description: `${m.name} (${m.quantity} ${m.unit})`,
     work_category: m.workCategory ?? null,
-    status: settledFromAdvance ? "paid" : "approved",
+    status: "approved",
     approved_at: now,
     approved_by: user?.id ?? null,
-    paid_at: settledFromAdvance ? now : null,
     material_id: m.materialId,
-  });
+  }).select("id").single();
   if (error) throw new Error(error.message);
+  if (bill) await applyAdvanceToBill(supabase, m.supplierId, bill.id, cost);
 
   // Only now that the bill exists. lib/cashflow.ts skips a `billed` material
   // because its cost is counted through the payment instead -- setting the flag
@@ -577,7 +550,7 @@ async function billSupplierDelivery(
  * what the supplier is still holding for us.
  *
  * The rule lives in SQL -- refund_supplier_advance_for_material in
- * 51_supplier_advance_rpcs.sql -- so this path, the supplier portal and
+ * 52_partial_advance_application.sql -- so this path, the supplier portal and
  * Android all give back the same money. It writes an offsetting row rather
  * than deleting the deduction (the ledger is the record of what happened, and
  * the supplier page renders it as a statement, so a silent removal would leave
@@ -990,9 +963,12 @@ export async function createPayment(
       const { data: inserted, error } = await supabase.from("payments").insert(row).select("id").single();
       if (error) throw new Error(error.message);
 
+      // A bill entered by hand draws on the advance the same way a delivery
+      // does -- as far as the credit goes, and no further. One entered as
+      // already paid does not: that money left some other way, and the
+      // function leaves anything but a pending or approved bill alone.
       if (payee_type === "supplier" && resolvedSupplierId && inserted) {
-        const amount = row.amount as number;
-        await deductFromSupplierAdvance(supabase, resolvedSupplierId, null, amount, `Auto-deducted for supplier payment`);
+        await applyAdvanceToBill(supabase, resolvedSupplierId, inserted.id, row.amount as number);
       }
     }
 

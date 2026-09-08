@@ -31,8 +31,8 @@ export default async function SuppliersPage(
     supabase.rpc("admin_list_profiles_with_email", { p_role: "supplier" }),
     supabase.from("suppliers").select("id", { count: "exact", head: true }).not("archived_at", "is", null),
     supabase.from("materials").select("supplier_id, status").is("archived_at", null),
-    supabase.from("payments").select("supplier_id, amount, status").is("archived_at", null).eq("payee_type", "supplier"),
-    supabase.from("supplier_advances").select("supplier_id, amount"),
+    supabase.from("payments").select("id, supplier_id, amount, status").is("archived_at", null).eq("payee_type", "supplier"),
+    supabase.from("supplier_advances").select("supplier_id, amount, payment_id, material_id"),
   ]);
 
   const linked = new Set((suppliers ?? []).map((s) => s.profile_id).filter(Boolean));
@@ -46,18 +46,18 @@ export default async function SuppliersPage(
   }
   // One shared derivation per supplier, so these cards agree with the detail
   // page and the supplier's own dashboard. See lib/supplierAccount.ts.
-  const paymentsBySupplier = new Map<string, { amount: number; status: string }[]>();
+  const paymentsBySupplier = new Map<string, { id: string; amount: number; status: string }[]>();
   for (const p of payments ?? []) {
     if (!p.supplier_id) continue;
     const list = paymentsBySupplier.get(p.supplier_id) ?? [];
-    list.push({ amount: Number(p.amount), status: p.status });
+    list.push({ id: p.id, amount: Number(p.amount), status: p.status });
     paymentsBySupplier.set(p.supplier_id, list);
   }
-  const advancesBySupplier = new Map<string, { amount: number }[]>();
+  const advancesBySupplier = new Map<string, { amount: number; payment_id: string | null; material_id: string | null }[]>();
   for (const a of advances ?? []) {
     if (!a.supplier_id) continue;
     const list = advancesBySupplier.get(a.supplier_id) ?? [];
-    list.push({ amount: Number(a.amount) });
+    list.push({ amount: Number(a.amount), payment_id: a.payment_id, material_id: a.material_id });
     advancesBySupplier.set(a.supplier_id, list);
   }
   const moneyFor = (id: string) =>

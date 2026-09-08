@@ -60,7 +60,7 @@ export default async function ManageSupplierPage(props: { params: Promise<{ id: 
       .order("created_at", { ascending: false }),
     supabase
       .from("supplier_advances")
-      .select("id, amount, description, material_id, created_at")
+      .select("id, amount, description, material_id, payment_id, created_at")
       .eq("supplier_id", params.id)
       .order("created_at", { ascending: false }),
   ]);
