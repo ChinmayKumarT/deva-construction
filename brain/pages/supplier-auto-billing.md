@@ -5,7 +5,9 @@ category: decision
 status: active
 created: "2026-08-26T17:44:53"
 updated: "2026-09-07T23:01:58"
+updated: "2026-09-08T17:15:56"
 ---
+
 
 <!-- compiled_truth -->
 Before Aug 2026, recording a delivery and billing for it were two separate forms. Suppliers often skipped the second form, leaving goods on site with no debt visible on the admin's books.
@@ -52,4 +54,10 @@ Related: [[rls-is-the-authority]], [[supplier-advance-ledger]]
   kind: reversal
   summary: "Advance ledger no longer goes negative; bill status is computed from advance coverage"
   source: "chat + commit c801fac"
+  affects: [supplier-auto-billing]
+
+- time: 2026-09-08T17:15:56
+  kind: decision
+  summary: "The admin path auto-bills too, and Ordered is gone from the pickers"
+  source: "session 2026-09-08, commits 7d06c11, e16e647"
   affects: [supplier-auto-billing]

@@ -1,0 +1,7 @@
+# The brain CLI parses page frontmatter line by line and cannot read CRLF, so
+# every page shows as "(untitled)" in `brain list-pages` and in the SessionStart
+# summary. core.autocrlf=true on Windows rewrites LF to CRLF on checkout, which
+# means a fresh clone breaks the brain even though the CLI always writes LF.
+# Pin these to LF so that cannot happen again.
+brain/** text eol=lf
+BRAIN.md text eol=lf
