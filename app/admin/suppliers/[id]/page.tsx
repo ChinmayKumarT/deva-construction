@@ -2,10 +2,11 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createSupabaseServerClient, getSessionAndRole } from "@/lib/supabase/server";
 import { AdminPage, AdminPageHeader, AdminContent } from "@/components/admin/Page";
-import { DeleteForeverButton } from "@/components/admin/RowActions";
+import { DeleteForeverButton, DeleteAdvanceButton } from "@/components/admin/RowActions";
 import { CollapsibleForm } from "@/components/admin/CollapsibleForm";
 import {
   archiveSupplier, deleteSupplier, unarchiveSupplier, archiveMaterial, archivePayment,
+  deleteSupplierAdvance,
   giveSupplierAdvance,
 } from "../../actions";
 import { lineTotal } from "@/lib/money";
@@ -306,11 +307,12 @@ export default async function ManageSupplierPage(props: { params: Promise<{ id: 
               <th className="px-4 py-2 font-medium">Date</th>
               <th className="px-4 py-2 font-medium">Description</th>
               <th className="px-4 py-2 font-medium text-right">Amount</th>
+              <th className="px-4 py-2 font-medium"><span className="sr-only">Remove</span></th>
             </tr>
           </thead>
           <tbody>
             {(advances ?? []).length === 0 && (
-              <tr><td colSpan={3} className="px-4 py-6 text-center text-slate-500">No advance payments yet.</td></tr>
+              <tr><td colSpan={4} className="px-4 py-6 text-center text-slate-500">No advance payments yet.</td></tr>
             )}
             {advances?.map((a) => {
               const amt = Number(a.amount);
@@ -321,6 +323,19 @@ export default async function ManageSupplierPage(props: { params: Promise<{ id: 
                   <td className={`px-4 py-2 text-right font-medium ${amt >= 0 ? "text-blue-700" : "text-red-600"}`}>
                     {amt >= 0 ? "+" : ""}₹{Math.abs(amt).toLocaleString()}
                   </td>
+                  {/* Only money handed over can be removed. The negative rows
+                      are deliveries drawing the credit down -- deleting one
+                      would claim credit that has already been spent. */}
+                  <td className="px-4 py-2 text-right">
+                    {amt > 0 && (
+                      <DeleteAdvanceButton
+                        id={a.id}
+                        supplierId={params.id}
+                        amount={amt}
+                        action={deleteSupplierAdvance}
+                      />
+                    )}
+                  </td>
                 </tr>
               );
             })}
@@ -330,6 +345,7 @@ export default async function ManageSupplierPage(props: { params: Promise<{ id: 
                 <td className={`px-4 py-2 text-right font-bold ${advanceBalance > 0 ? "text-blue-700" : advanceBalance < 0 ? "text-red-600" : "text-slate-700"}`}>
                   ₹{advanceBalance.toLocaleString()}
                 </td>
+                <td />
               </tr>
             )}
           </tbody>

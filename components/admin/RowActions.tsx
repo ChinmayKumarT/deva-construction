@@ -164,3 +164,45 @@ export function ManageSection({
     </section>
   );
 }
+
+/**
+ * Removes one advance from a supplier's ledger.
+ *
+ * Confirms first and names the amount: unlike archiving, this is a real
+ * delete, and an advance is money someone believes they handed over. The
+ * server refuses the delete outright when the credit has already settled
+ * bills, so this is a speed bump rather than the actual guard.
+ */
+export function DeleteAdvanceButton({
+  id,
+  supplierId,
+  amount,
+  action,
+}: {
+  id: string;
+  supplierId: string;
+  amount: number;
+  action: (fd: FormData) => Promise<void>;
+}) {
+  return (
+    <form
+      action={action}
+      onSubmit={(e) => {
+        const msg =
+          `Remove this ₹${amount.toLocaleString()} advance from the ledger? ` +
+          `Use this only if the money was never actually handed over.`;
+        if (!window.confirm(msg)) e.preventDefault();
+      }}
+    >
+      <input type="hidden" name="id" value={id} />
+      <input type="hidden" name="supplier_id" value={supplierId} />
+      <button
+        type="submit"
+        title={`Remove the ₹${amount.toLocaleString()} advance`}
+        className="rounded-md border border-red-200 bg-white px-2 py-0.5 text-xs text-red-600 transition hover:bg-red-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-300"
+      >
+        Remove
+      </button>
+    </form>
+  );
+}

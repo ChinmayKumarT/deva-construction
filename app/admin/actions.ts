@@ -345,6 +345,66 @@ export async function giveSupplierAdvance(fd: FormData) {
 }
 
 /**
+ * Remove an advance entry that should not be there -- a typo, or money that
+ * was never actually handed over.
+ *
+ * Only the advance itself can be removed, never the negative rows. Those
+ * record deliveries and bills that were settled out of the credit; deleting
+ * one would inflate the balance and claim money is available that has already
+ * been spent.
+ *
+ * Refused when the balance could not absorb it, because that means this money
+ * has already gone towards settling bills. Undoing it would leave those bills
+ * marked paid with nothing behind them, so the person is told what is in the
+ * way and left to decide.
+ */
+export async function deleteSupplierAdvance(fd: FormData) {
+  const supabase = await createSupabaseServerClient();
+  const id = str(fd, "id");
+  const supplier_id = str(fd, "supplier_id");
+  if (!id || !supplier_id) throw new Error("advance required");
+
+  const { data: rows } = await supabase
+    .from("supplier_advances")
+    .select("id, amount, description")
+    .eq("supplier_id", supplier_id);
+
+  const row = (rows ?? []).find((r) => r.id === id);
+  if (!row) {
+    await setFlashError("That advance entry no longer exists.");
+    return;
+  }
+
+  const amount = Number(row.amount);
+  if (amount <= 0) {
+    await setFlashError(
+      "This entry records an advance being used up by a delivery, not money handed over. " +
+        "Remove the delivery or its bill instead.",
+    );
+    return;
+  }
+
+  const balance = (rows ?? []).reduce((t, r) => t + Number(r.amount), 0);
+  if (balance - amount < 0) {
+    await setFlashError(
+      `Cannot remove this ₹${amount.toLocaleString()} advance: ₹${(amount - balance).toLocaleString()} of it ` +
+        `has already settled bills. Reverse those bills first, or leave this entry in place.`,
+    );
+    return;
+  }
+
+  const { error } = await supabase.from("supplier_advances").delete().eq("id", id);
+  if (error) {
+    await setFlashError(`Could not remove the advance: ${error.message}`);
+    return;
+  }
+
+  revalidatePath(`/admin/suppliers/${supplier_id}`);
+  revalidatePath("/admin/suppliers");
+  revalidatePath("/supplier");
+}
+
+/**
  * Handing over an advance is handing over money, so it clears what is already
  * owed rather than sitting beside it. Bills are settled oldest first, and only
  * when the credit covers a bill in full -- a part-settled bill would spend the
