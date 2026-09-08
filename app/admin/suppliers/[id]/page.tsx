@@ -99,9 +99,7 @@ export default async function ManageSupplierPage(props: { params: Promise<{ id: 
           className={
             remaining > 0
               ? "border-amber-200 bg-amber-50 text-amber-700"
-              : remaining < 0
-                ? "border-blue-200 bg-blue-50 text-blue-700"
-                : "border-slate-200 bg-white"
+              : "border-slate-200 bg-white"
           }
         />
         <StatBox label="Lifetime payment" value={`₹${lifetimePayment.toLocaleString()}`} className="border-emerald-200 bg-emerald-50 text-emerald-700" />

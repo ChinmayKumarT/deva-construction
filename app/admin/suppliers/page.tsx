@@ -110,17 +110,14 @@ export default async function SuppliersPage(
                   <div className="text-[10px] font-medium uppercase tracking-wide text-slate-500">Deliveries</div>
                   <div className="text-sm font-semibold">{deliveriesBySupplier.get(s.id) ?? 0}</div>
                 </div>
-                {/* Amber only while money is genuinely owed. A negative figure
-                    means the advance runs ahead of deliveries, which is credit,
-                    not a debt -- so it reads blue like the advance card. */}
+                {/* Amber only while money is genuinely owed, so a settled
+                    supplier shows a quiet zero rather than a warning colour. */}
                 <div className={`rounded-lg border px-3 py-2 ${
-                  m.remaining > 0 ? "border-amber-200 bg-amber-50"
-                  : m.remaining < 0 ? "border-blue-200 bg-blue-50"
-                  : "border-slate-200 bg-slate-50"}`}>
+                  m.remaining > 0 ? "border-amber-200 bg-amber-50" : "border-slate-200 bg-slate-50"}`}>
                   <div className={`text-[10px] font-medium uppercase tracking-wide ${
-                    m.remaining > 0 ? "text-amber-700" : m.remaining < 0 ? "text-blue-700" : "text-slate-500"}`}>Remaining</div>
+                    m.remaining > 0 ? "text-amber-700" : "text-slate-500"}`}>Remaining</div>
                   <div className={`text-sm font-semibold ${
-                    m.remaining > 0 ? "text-amber-700" : m.remaining < 0 ? "text-blue-700" : ""}`}>₹{m.remaining.toLocaleString()}</div>
+                    m.remaining > 0 ? "text-amber-700" : ""}`}>₹{m.remaining.toLocaleString()}</div>
                 </div>
                 <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2">
                   <div className="text-[10px] font-medium uppercase tracking-wide text-emerald-700">Lifetime payment</div>

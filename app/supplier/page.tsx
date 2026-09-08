@@ -134,7 +134,7 @@ export default async function SupplierDashboard() {
             label="Remaining"
             value={`₹${remaining.toLocaleString()}`}
             warn={remaining > 0}
-            sub={remaining > 0 ? "Awaiting payment" : remaining < 0 ? "Advance held" : "All clear"}
+            sub={remaining > 0 ? "Awaiting payment" : "All clear"}
             icon={<svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.5"><path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>}
           />
           <SummaryCard
