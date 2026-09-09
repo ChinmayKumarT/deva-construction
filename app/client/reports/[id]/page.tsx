@@ -3,6 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireRole } from "@/lib/guard";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { lineTotal } from "@/lib/money";
 
 export const revalidate = 60;
 
@@ -18,16 +19,44 @@ export default async function ClientSiteReportPage(props: { params: Promise<{ id
     .single();
   if (!client) notFound();
 
-  const { data: project } = await supabase
-    .from("projects")
-    .select("id, name, status, completion_pct, total_cost, current_stage, start_date, end_date, agreement_image_url")
-    .eq("id", params.id)
-    .eq("client_id", client.id)
-    .single();
+  const [{ data: project }, { data: materials }, { data: wageTotals }] = await Promise.all([
+    supabase
+      .from("projects")
+      .select("id, name, status, completion_pct, total_cost, current_stage, start_date, end_date, agreement_image_url")
+      .eq("id", params.id)
+      .eq("client_id", client.id)
+      .single(),
+    supabase
+      .from("materials")
+      .select("quantity, unit_cost, status")
+      .eq("project_id", params.id)
+      .is("archived_at", null),
+    // Clients can't read the attendance table directly, so wages come back
+    // through a security-definer RPC that only exposes their own totals.
+    supabase.rpc("my_project_wage_totals"),
+  ]);
   if (!project) notFound();
 
   const pct = Number(project.completion_pct);
   const budget = Number(project.total_cost);
+
+  const wages = Number(
+    ((wageTotals ?? []) as { project_id: string; wage_total: number }[]).find(
+      (w) => w.project_id === params.id,
+    )?.wage_total ?? 0,
+  );
+
+  // Same basis as the owner's report page: material lines plus accrued
+  // attendance wages. Labour payments settle those same wages, so counting
+  // both would charge the client twice for one day's work.
+  const spent =
+    (materials ?? [])
+      .filter((m) => m.status !== "returned")
+      .reduce((sum, m) => sum + lineTotal(m.quantity, m.unit_cost), 0) + wages;
+
+  const remaining = budget - spent;
+  const overBudget = budget > 0 && spent > budget;
+  const spendPct = budget > 0 ? Math.min(100, (spent / budget) * 100) : 0;
 
   const STATUS_STYLE: Record<string, string> = {
     active: "bg-emerald-50 text-emerald-700 ring-emerald-200",
@@ -73,6 +102,24 @@ export default async function ClientSiteReportPage(props: { params: Promise<{ id
           <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
             <div className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">Budget</div>
             <div className="mt-2 text-xl font-bold text-slate-800">₹{budget.toLocaleString()}</div>
+            <div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-slate-100">
+              <div
+                className={`h-full rounded-full ${overBudget ? "bg-red-500" : "bg-gradient-to-r from-amber-400 to-brand"}`}
+                style={{ width: `${spendPct}%` }}
+              />
+            </div>
+            <dl className="mt-3 flex items-start justify-between gap-3 text-xs">
+              <div>
+                <dt className="text-slate-400">Spent</dt>
+                <dd className="font-semibold text-slate-700">₹{spent.toLocaleString()}</dd>
+              </div>
+              <div className="text-right">
+                <dt className="text-slate-400">{overBudget ? "Over by" : "Remaining"}</dt>
+                <dd className={`font-semibold ${overBudget ? "text-red-600" : "text-emerald-700"}`}>
+                  ₹{Math.abs(remaining).toLocaleString()}
+                </dd>
+              </div>
+            </dl>
           </div>
           <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
             <div className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">Timeline</div>
