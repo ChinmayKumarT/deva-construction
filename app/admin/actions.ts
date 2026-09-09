@@ -191,7 +191,7 @@ function revalidateAll() {
  * project cascades to its materials/updates; deleting a labourer cascades to
  * their attendance -- expected once the owner chose delete over archive.
  */
-async function ownerDeleteRow(table: string, id: string | null) {
+async function ownerDeleteRow(table: string, id: string | null): Promise<boolean> {
   if (!id) throw new Error("id required");
   const supabase = await createSupabaseServerClient();
 
@@ -214,7 +214,7 @@ async function ownerDeleteRow(table: string, id: string | null) {
       .eq(blocker, id);
     if (findErr) {
       await setFlashError(`Could not delete: ${findErr.message}`);
-      return;
+      return false;
     }
 
     if (doomed && doomed.length > 0) {
@@ -233,7 +233,7 @@ async function ownerDeleteRow(table: string, id: string | null) {
           .in("id", materialIds);
         if (unbillErr) {
           await setFlashError(`Could not delete: ${unbillErr.message}`);
-          return;
+          return false;
         }
       }
 
@@ -243,7 +243,7 @@ async function ownerDeleteRow(table: string, id: string | null) {
         .in("id", doomed.map((p) => p.id));
       if (payErr) {
         await setFlashError(`Could not delete the linked payments: ${payErr.message}`);
-        return;
+        return false;
       }
     }
   }
@@ -251,14 +251,27 @@ async function ownerDeleteRow(table: string, id: string | null) {
   const { error } = await supabase.rpc("owner_delete_row", { target_table: table, target_id: id });
   if (error) {
     await setFlashError(`Could not delete: ${error.message}`);
-    return;
+    return false;
   }
   revalidateAll();
+  return true;
 }
 
-export async function deleteProject(fd: FormData) { await ownerDeleteRow("projects", str(fd, "id")); }
-export async function deleteClient(fd: FormData) { await ownerDeleteRow("clients", str(fd, "id")); }
-export async function deleteSupplier(fd: FormData) { await ownerDeleteRow("suppliers", str(fd, "id")); }
+// Projects, clients, suppliers and materials can each be deleted from their
+// own detail page. Revalidating alone would re-render that page for a row that
+// no longer exists, so the owner landed on a 404 for the thing they had just
+// deleted -- send them to the list instead. Only on success: a failed delete
+// has set a flash error the current page still needs to show. The rest delete
+// only from a list, which is already the right place to stay.
+export async function deleteProject(fd: FormData) {
+  if (await ownerDeleteRow("projects", str(fd, "id"))) redirect("/admin/projects");
+}
+export async function deleteClient(fd: FormData) {
+  if (await ownerDeleteRow("clients", str(fd, "id"))) redirect("/admin/clients");
+}
+export async function deleteSupplier(fd: FormData) {
+  if (await ownerDeleteRow("suppliers", str(fd, "id"))) redirect("/admin/suppliers");
+}
 export async function deleteLabourer(fd: FormData) { await ownerDeleteRow("labourers", str(fd, "id")); }
 // Refund before the delete here, unlike archiveMaterial: supplier_advances
 // .material_id is "on delete set null", so once the material row is gone there
@@ -266,7 +279,7 @@ export async function deleteLabourer(fd: FormData) { await ownerDeleteRow("labou
 export async function deleteMaterial(fd: FormData) {
   const id = str(fd, "id");
   if (id) await refundSupplierAdvanceForMaterial(id);
-  await ownerDeleteRow("materials", id);
+  if (await ownerDeleteRow("materials", id)) redirect("/admin/materials");
 }
 export async function deletePayment(fd: FormData) { await ownerDeleteRow("payments", str(fd, "id")); }
 export async function deleteProjectUpdate(fd: FormData) { await ownerDeleteRow("project_updates", str(fd, "id")); }
