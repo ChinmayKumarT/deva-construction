@@ -1,6 +1,6 @@
 # Brain Index
 
-_Auto-generated. Last updated 2026-09-08T17:33:41.493Z._
+_Auto-generated. Last updated 2026-09-09T06:06:11.841Z._
 
 - [budget-extensions](pages/budget-extensions.md) — category: decision | <current best understanding — replace this with the real content>
 - [client-payments-tracking](pages/client-payments-tracking.md) — category: decision | <current best understanding — replace this with the real content>
@@ -17,3 +17,4 @@ _Auto-generated. Last updated 2026-09-08T17:33:41.493Z._
 - [superadmin-role](pages/superadmin-role.md) — category: decision | <current best understanding — replace this with the real content>
 - [supplier-advance-ledger](pages/supplier-advance-ledger.md) — category: decision | Supplier advances live in one ledger table, `supplier_advances`.
 - [supplier-auto-billing](pages/supplier-auto-billing.md) — category: decision | Before Aug 2026, recording a delivery and billing for it were two separate forms. Suppliers often skipped the second form, leaving goods on
+- [supplier-material-catalog](pages/supplier-material-catalog.md) — category: decision | tags: [supplier, materials, ux] | Suppliers were retyping the same material, unit and rate on every delivery, because a delivery row *is* the material record — `materials` ca

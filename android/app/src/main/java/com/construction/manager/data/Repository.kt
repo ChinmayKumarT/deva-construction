@@ -861,13 +861,48 @@ object Repo {
                 order("created_at", Order.DESCENDING)
             }.decodeList()
     }
+    // Newest first, matching the web supplier page's query. materialQuickPicks()
+    // depends on that order for the rate it offers and for its recency
+    // tie-break, so the two platforms would rank chips differently without it.
     suspend fun supplierMaterials(supplierId: String) = supabase.from("materials")
         .select {
             filter {
                 eq("supplier_id", supplierId)
                 filter("archived_at", FilterOperator.IS, "null")
             }
+            order("ordered_at", Order.DESCENDING)
         }.decodeList<MaterialRow>()
+
+    // ---------- Supplier price list (supplier_materials) ----------
+    // The agreed rates behind the quick-pick chips. Read-only for a supplier
+    // by RLS; the writes below only ever run from the admin screens.
+    suspend fun supplierCatalog(supplierId: String) = supabase.from("supplier_materials")
+        .select {
+            filter {
+                eq("supplier_id", supplierId)
+                filter("archived_at", FilterOperator.IS, "null")
+            }
+            order("name", Order.ASCENDING)
+        }.decodeList<SupplierMaterialRow>()
+
+    suspend fun addSupplierMaterial(
+        supplierId: String, name: String, unit: String, unitCost: Double,
+    ) {
+        supabase.from("supplier_materials").insert(buildJsonObject {
+            put("supplier_id", supplierId)
+            put("name", name)
+            put("unit", unit)
+            put("unit_cost", unitCost)
+        })
+    }
+
+    // Archived, not deleted -- a rate we once agreed stays on record, it just
+    // stops being offered. Same convention as everything else here.
+    suspend fun archiveSupplierMaterial(id: String) {
+        supabase.from("supplier_materials").update(buildJsonObject {
+            put("archived_at", java.time.Instant.now().toString())
+        }) { filter { eq("id", id) } }
+    }
     /**
      * Records a delivery and, when it is actually delivered, raises the bill
      * for it in the same call. The two used to be separate: this inserted the

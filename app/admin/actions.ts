@@ -411,6 +411,64 @@ export async function deleteSupplierAdvance(fd: FormData) {
   revalidatePath("/supplier");
 }
 
+// ---------- Supplier price list ----------
+// The agreed rate for a material this supplier delivers regularly. It only
+// feeds the one-tap quick picks above their Record Delivery form -- it is not
+// a constraint, and a delivery still carries its own name/unit/cost. See
+// supabase/54_supplier_material_catalog.sql.
+export async function addSupplierMaterial(fd: FormData) {
+  const supabase = await createSupabaseServerClient();
+  const supplier_id = str(fd, "supplier_id");
+  if (!supplier_id) throw new Error("supplier required");
+  const name = str(fd, "name");
+  if (!name) {
+    await setFlashError("Material name is required.");
+    return;
+  }
+
+  const { error } = await supabase.from("supplier_materials").insert({
+    supplier_id,
+    name,
+    unit: str(fd, "unit") || "unit",
+    unit_cost: nonNegNum(fd, "unit_cost", "Unit cost") ?? 0,
+  });
+  if (error) {
+    // The live-rows unique index is the likely culprit, and "duplicate key
+    // value violates..." means nothing to the office.
+    await setFlashError(
+      error.code === "23505"
+        ? `${name} is already on this supplier's price list. Remove the old entry to change its rate.`
+        : `Could not add the material: ${error.message}`,
+    );
+    return;
+  }
+
+  revalidatePath(`/admin/suppliers/${supplier_id}`);
+  revalidatePath("/supplier");
+}
+
+// Archived rather than deleted, like everything else here (10_archive.sql):
+// the entry stops being offered, but a price we once agreed stays on record.
+export async function archiveSupplierMaterial(fd: FormData) {
+  const supabase = await createSupabaseServerClient();
+  const id = str(fd, "id");
+  const supplier_id = str(fd, "supplier_id");
+  if (!id || !supplier_id) throw new Error("material required");
+
+  const { error } = await supabase
+    .from("supplier_materials")
+    .update({ archived_at: new Date().toISOString() })
+    .eq("id", id)
+    .eq("supplier_id", supplier_id);
+  if (error) {
+    await setFlashError(`Could not remove the material: ${error.message}`);
+    return;
+  }
+
+  revalidatePath(`/admin/suppliers/${supplier_id}`);
+  revalidatePath("/supplier");
+}
+
 /**
  * Handing over an advance is handing over money, so it clears what is already
  * owed rather than sitting beside it. Bills are settled oldest first, each one

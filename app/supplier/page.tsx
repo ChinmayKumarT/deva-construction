@@ -12,6 +12,8 @@ import { ProfileMenu } from "@/components/ProfileMenu";
 import { AccountDetailsPopover } from "@/components/AccountDetailsPopover";
 import { signOut } from "@/app/actions/auth";
 import { supplierMoney } from "@/lib/supplierAccount";
+import { materialQuickPicks } from "@/lib/materialQuickPicks";
+import { MaterialQuickPicks, MATERIAL_DATALIST_ID } from "@/components/supplier/MaterialQuickPicks";
 
 export const revalidate = 60;
 
@@ -73,7 +75,13 @@ export default async function SupplierDashboard() {
     );
   }
 
-  const [{ data: materials }, { data: payments }, { data: allProjects }, { data: advances }] = await Promise.all([
+  const [
+    { data: materials },
+    { data: payments },
+    { data: allProjects },
+    { data: advances },
+    { data: catalog },
+  ] = await Promise.all([
     supabase
       .from("materials")
       .select("id, name, quantity, unit, unit_cost, status, ordered_at, delivered_at, created_by_supplier, projects(id, name)")
@@ -91,6 +99,12 @@ export default async function SupplierDashboard() {
       .from("supplier_advances")
       .select("amount, payment_id, material_id")
       .eq("supplier_id", supplier.id),
+    supabase
+      .from("supplier_materials")
+      .select("name, unit, unit_cost")
+      .eq("supplier_id", supplier.id)
+      .is("archived_at", null)
+      .order("name"),
   ]);
 
   const deliveredCount = (materials ?? []).filter((m) => m.status === "delivered").length;
@@ -102,6 +116,10 @@ export default async function SupplierDashboard() {
     advances: advances ?? [],
   });
   const totalMaterialValue = (materials ?? []).reduce((s, m) => s + lineTotal(m.quantity, m.unit_cost), 0);
+  // The office's agreed price list first, then whatever this supplier delivers
+  // most often. `materials` is already ordered newest-first, which is the order
+  // materialQuickPicks() relies on for the rate and for tie-breaking.
+  const quickPicks = materialQuickPicks(catalog ?? [], materials ?? []);
 
   return (
     <main className="min-h-screen">
@@ -173,9 +191,10 @@ export default async function SupplierDashboard() {
                     {allProjects.map((p) => (<option key={p.id} value={p.id}>{p.name}</option>))}
                   </select>
                 </label>
+                <MaterialQuickPicks picks={quickPicks} />
                 <label className="block text-sm">
                   <span className="mb-1 block font-medium text-slate-700">Material</span>
-                  <input name="name" required placeholder="e.g. Cement" className="w-full rounded-lg border border-slate-200 bg-slate-50/50 px-3 py-2 text-sm outline-none focus:border-brand focus:ring-1 focus:ring-brand/20" />
+                  <input name="name" required placeholder="e.g. Cement" list={quickPicks.length > 0 ? MATERIAL_DATALIST_ID : undefined} className="w-full rounded-lg border border-slate-200 bg-slate-50/50 px-3 py-2 text-sm outline-none focus:border-brand focus:ring-1 focus:ring-brand/20" />
                 </label>
                 <label className="block text-sm">
                   <span className="mb-1 block font-medium text-slate-700">Unit</span>

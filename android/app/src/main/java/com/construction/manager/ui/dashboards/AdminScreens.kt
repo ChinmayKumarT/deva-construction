@@ -1519,6 +1519,83 @@ private fun SupplierDetail(
                 )
             }
         }
+        Divider()
+        SupplierPriceList(supplier)
+    }
+}
+
+/**
+ * The agreed rates for the materials this supplier delivers regularly.
+ * Everything listed here becomes a one-tap chip above their Record Delivery
+ * form, so they stop retyping the same material every time -- and the chips
+ * fall back to their own delivery history for anything not listed. The rate is
+ * a prefill, not a lock: the supplier can still edit it.
+ *
+ * Mirrors the Price List section on the web supplier detail page
+ * (app/admin/suppliers/[id]/page.tsx). Loads its own rows rather than taking
+ * them as a parameter, so the caller's list screen is unchanged.
+ */
+@Composable
+private fun SupplierPriceList(supplier: SupplierRow) {
+    var catalog by remember { mutableStateOf<List<SupplierMaterialRow>>(emptyList()) }
+    var version by remember { mutableStateOf(0) }
+    var error by remember { mutableStateOf<String?>(null) }
+    var name by remember { mutableStateOf("") }
+    var unit by remember { mutableStateOf("bag") }
+    var rate by remember { mutableStateOf("") }
+    val scope = rememberCoroutineScope()
+
+    LaunchedEffect(supplier.id, version) {
+        try {
+            catalog = Repo.supplierCatalog(supplier.id)
+        } catch (e: Exception) { error = e.message }
+    }
+
+    SectionTitle("Price list (${catalog.size})")
+    if (catalog.isEmpty()) {
+        Text(
+            "Nothing on the price list yet. Their quick picks fall back to whatever they deliver most often.",
+            Modifier.padding(16.dp),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
+    catalog.forEach { c ->
+        MockupCard(modifier = Modifier.padding(horizontal = 16.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(c.name, style = MaterialTheme.typography.titleSmall, modifier = Modifier.weight(1f))
+                Text("${money(c.unitCost)} / ${c.unit}", style = MaterialTheme.typography.bodySmall)
+                TextButton(onClick = {
+                    scope.launch {
+                        try {
+                            Repo.archiveSupplierMaterial(c.id)
+                            version++
+                        } catch (e: Exception) { error = e.message }
+                    }
+                }) { Text("Remove") }
+            }
+        }
+    }
+
+    TextField(name, { name = it }, "Material (e.g. Cement)")
+    TextField(unit, { unit = it }, "Unit (bag, kg, m³…)")
+    NumberField(rate, { rate = it }, "Rate (₹ per unit)")
+    Button(
+        onClick = {
+            val cost = rate.toDoubleOrNull() ?: return@Button
+            if (name.isBlank() || cost < 0) return@Button
+            scope.launch {
+                try {
+                    Repo.addSupplierMaterial(supplier.id, name.trim(), unit.trim().ifBlank { "unit" }, cost)
+                    name = ""; rate = ""; unit = "bag"; error = null; version++
+                } catch (e: Exception) { error = e.message }
+            }
+        },
+        modifier = Modifier.padding(16.dp),
+    ) { Text("Add material") }
+
+    com.construction.manager.util.friendlyError(error)?.let {
+        Text(it, color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(16.dp))
     }
 }
 

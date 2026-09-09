@@ -241,3 +241,73 @@ data class BackupLogRow(
     @SerialName("created_at") val createdAt: String,
     @SerialName("table_counts") val tableCounts: kotlinx.serialization.json.JsonObject? = null,
 )
+
+// Mirrors the supplier_materials table (54_supplier_material_catalog.sql): the
+// office's agreed price list for one supplier. Admin-managed -- RLS gives the
+// supplier SELECT and nothing more.
+@Serializable
+data class SupplierMaterialRow(
+    val id: String,
+    @SerialName("supplier_id") val supplierId: String? = null,
+    val name: String,
+    val unit: String = "unit",
+    @SerialName("unit_cost") val unitCost: Double = 0.0,
+    @SerialName("archived_at") val archivedAt: String? = null,
+)
+
+// One tap-to-fill preset above the supplier's Record Delivery form.
+data class MaterialQuickPick(
+    val name: String,
+    val unit: String,
+    val unitCost: Double,
+    val fromCatalog: Boolean,
+    val count: Int,
+)
+
+// Kotlin twin of materialQuickPicks() in lib/materialQuickPicks.ts. Both
+// platforms must offer the same chips in the same order for the same supplier,
+// so any change here belongs in both files (and in both test suites).
+//
+// The agreed price list goes first, alphabetically; the supplier's own history
+// fills the rest, most-delivered first, skipping anything the list covers.
+// `history` must arrive MOST RECENT FIRST -- the rate and the display casing
+// come from the first row seen, and recency breaks a frequency tie.
+fun materialQuickPicks(
+    catalog: List<SupplierMaterialRow>,
+    history: List<MaterialRow>,
+    limit: Int = 8,
+): List<MaterialQuickPick> {
+    fun keyOf(name: String, unit: String) =
+        "${name.trim().lowercase()}|${unit.trim().lowercase()}"
+
+    val seen = mutableSetOf<String>()
+    val picks = mutableListOf<MaterialQuickPick>()
+
+    for (row in catalog) {
+        val name = row.name.trim()
+        if (name.isEmpty()) continue
+        val unit = row.unit.trim().ifEmpty { "unit" }
+        if (!seen.add(keyOf(name, unit))) continue
+        picks += MaterialQuickPick(name, unit, row.unitCost, fromCatalog = true, count = 0)
+    }
+    picks.sortBy { it.name }
+
+    // LinkedHashMap: insertion order is most-recent-first, which is the tie-break.
+    val grouped = LinkedHashMap<String, MaterialQuickPick>()
+    for (row in history) {
+        val name = row.name.trim()
+        if (name.isEmpty()) continue
+        val unit = row.unit.trim().ifEmpty { "unit" }
+        val key = keyOf(name, unit)
+        if (key in seen) continue // the price list already covers it, at the agreed rate
+        val existing = grouped[key]
+        if (existing != null) {
+            grouped[key] = existing.copy(count = existing.count + 1)
+        } else {
+            grouped[key] = MaterialQuickPick(name, unit, row.unitCost, fromCatalog = false, count = 1)
+        }
+    }
+
+    // sortedByDescending is stable, so equal counts keep insertion (recency) order.
+    return (picks + grouped.values.sortedByDescending { it.count }).take(maxOf(0, limit))
+}

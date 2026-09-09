@@ -65,6 +65,7 @@ fun SupplierDashboard(vm: AuthViewModel) = RoleScaffold("Supplier", vm) { paddin
     var materials by remember { mutableStateOf<List<MaterialRow>>(emptyList()) }
     var payments by remember { mutableStateOf<List<PaymentRow>>(emptyList()) }
     var projects by remember { mutableStateOf<List<ProjectRow>>(emptyList()) }
+    var catalog by remember { mutableStateOf<List<SupplierMaterialRow>>(emptyList()) }
     var error by remember { mutableStateOf<String?>(null) }
     var version by remember { mutableStateOf(0) }
     val scope = rememberCoroutineScope()
@@ -76,6 +77,7 @@ fun SupplierDashboard(vm: AuthViewModel) = RoleScaffold("Supplier", vm) { paddin
                 materials = Repo.supplierMaterials(s.id)
                 payments = Repo.supplierPayments(s.id)
                 projects = Repo.listProjects()
+                catalog = Repo.supplierCatalog(s.id)
             }
         } catch (e: Exception) { error = e.message }
     }
@@ -88,6 +90,9 @@ fun SupplierDashboard(vm: AuthViewModel) = RoleScaffold("Supplier", vm) { paddin
     var dUnit by remember { mutableStateOf("bag") }
     var dQty by remember { mutableStateOf("") }
     var dUnitCost by remember { mutableStateOf("") }
+    // Which quick pick is showing as selected. Only drives the chip highlight;
+    // the fields themselves stay freely editable after a tap.
+    var dPick by remember { mutableStateOf<MaterialQuickPick?>(null) }
     // Always "delivered" -- see the note where the Status picker used to be.
     val dStatus = "delivered"
     // Optional photo of what was actually delivered, so admin can check it.
@@ -118,6 +123,33 @@ fun SupplierDashboard(vm: AuthViewModel) = RoleScaffold("Supplier", vm) { paddin
             LabeledChipPicker(
                 "Project (site)", projects, dProject, { it.name }, { dProject = it },
             )
+            // One tap fills the material, its unit and its rate, so the same
+            // cement is not retyped every delivery. Quantity is deliberately
+            // left alone -- it is the field that really does change each time --
+            // and every field stays editable afterwards. Ranked by the shared
+            // materialQuickPicks(), so these chips match the web portal's.
+            val quickPicks = remember(catalog, materials) { materialQuickPicks(catalog, materials) }
+            if (quickPicks.isNotEmpty()) {
+                LabeledChipPicker(
+                    "Frequent materials — tap to fill",
+                    quickPicks,
+                    dPick,
+                    // A filled bullet marks a rate the office agreed, a hollow
+                    // one a rate inferred from past deliveries. Same meaning as
+                    // the coloured dot on the web chips.
+                    render = { p ->
+                        val mark = if (p.fromCatalog) "●" else "○"
+                        val rate = if (p.unitCost > 0) " · ${money(p.unitCost)}" else ""
+                        "$mark ${p.name} · ${p.unit}$rate"
+                    },
+                    onSelect = { p ->
+                        dPick = p
+                        dName = p.name
+                        dUnit = p.unit
+                        dUnitCost = p.unitCost.toString()
+                    },
+                )
+            }
             com.construction.manager.ui.TextField(dName, { dName = it }, "Material (e.g. Cement)")
             com.construction.manager.ui.TextField(dUnit, { dUnit = it }, "Unit (bag, kg, m³…)")
             com.construction.manager.ui.NumberField(dQty, { dQty = it }, "Quantity")
@@ -161,7 +193,8 @@ fun SupplierDashboard(vm: AuthViewModel) = RoleScaffold("Supplier", vm) { paddin
                             }
                             Repo.recordSupplierDelivery(p.id, supplier!!.id, dName,
                                 dUnit.ifBlank { "unit" }, qty, uc, dStatus, url)
-                            dName = ""; dQty = ""; dUnitCost = ""; dPickedUri = null; version++
+                            dName = ""; dQty = ""; dUnitCost = ""; dPickedUri = null
+                            dPick = null; version++
                         } catch (e: Exception) { error = e.message }
                     }
                 },

@@ -8,6 +8,7 @@ import {
   archiveSupplier, deleteSupplier, unarchiveSupplier, archiveMaterial, archivePayment,
   deleteSupplierAdvance,
   giveSupplierAdvance,
+  addSupplierMaterial, archiveSupplierMaterial,
 } from "../../actions";
 import { lineTotal } from "@/lib/money";
 import { supplierMoney } from "@/lib/supplierAccount";
@@ -43,7 +44,13 @@ export default async function ManageSupplierPage(props: { params: Promise<{ id: 
   const supabase = await createSupabaseServerClient();
   const { isOwner } = await getSessionAndRole();
 
-  const [{ data: supplier }, { data: materials }, { data: payments }, { data: advances }] = await Promise.all([
+  const [
+    { data: supplier },
+    { data: materials },
+    { data: payments },
+    { data: advances },
+    { data: catalog },
+  ] = await Promise.all([
     supabase.from("suppliers").select("id, name, email, phone, profile_id, archived_at").eq("id", params.id).single(),
     supabase
       .from("materials")
@@ -63,6 +70,12 @@ export default async function ManageSupplierPage(props: { params: Promise<{ id: 
       .select("id, amount, description, material_id, payment_id, created_at")
       .eq("supplier_id", params.id)
       .order("created_at", { ascending: false }),
+    supabase
+      .from("supplier_materials")
+      .select("id, name, unit, unit_cost")
+      .eq("supplier_id", params.id)
+      .is("archived_at", null)
+      .order("name"),
   ]);
   if (!supplier) notFound();
 
@@ -346,6 +359,104 @@ export default async function ManageSupplierPage(props: { params: Promise<{ id: 
                 <td />
               </tr>
             )}
+          </tbody>
+        </table>
+      </div>
+
+      {/* Anything listed here shows up as a one-tap chip above this supplier's
+          Record Delivery form, so they stop retyping the same material every
+          time. The rate is a prefill, not a lock -- they can still edit it. */}
+      <h2 className="mt-10 mb-3 text-sm font-semibold uppercase tracking-wide text-slate-500">Price List</h2>
+
+      {!archived && (
+        <CollapsibleForm label="Add material" icon="transaction">
+        <form
+          action={addSupplierMaterial}
+          className="flex flex-wrap items-end gap-3 rounded-xl border border-slate-200 bg-white p-4"
+        >
+          <input type="hidden" name="supplier_id" value={supplier.id} />
+          <label className="block text-sm flex-1 min-w-[160px]">
+            <span className="mb-1 block text-[10px] font-semibold uppercase tracking-wider text-slate-500">Material</span>
+            <input
+              name="name"
+              type="text"
+              required
+              placeholder="e.g. Cement"
+              className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none focus:border-brand focus:ring-2 focus:ring-brand/20"
+            />
+          </label>
+          <label className="block text-sm">
+            <span className="mb-1 block text-[10px] font-semibold uppercase tracking-wider text-slate-500">Unit</span>
+            <input
+              name="unit"
+              type="text"
+              defaultValue="bag"
+              className="w-32 rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none focus:border-brand focus:ring-2 focus:ring-brand/20"
+            />
+          </label>
+          <label className="block text-sm">
+            <span className="mb-1 block text-[10px] font-semibold uppercase tracking-wider text-slate-500">Rate</span>
+            <input
+              name="unit_cost"
+              type="number"
+              min="0"
+              step="0.01"
+              required
+              placeholder="₹ per unit"
+              className="w-40 rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none focus:border-brand focus:ring-2 focus:ring-brand/20"
+            />
+          </label>
+          <button
+            type="submit"
+            className="rounded-lg bg-brand px-4 py-2 text-sm font-medium text-white hover:bg-brand-700 transition"
+          >
+            Add material
+          </button>
+        </form>
+        </CollapsibleForm>
+      )}
+
+      <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white">
+        <table className="w-full text-sm">
+          <thead className="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
+            <tr>
+              <th className="px-4 py-2 font-medium">Material</th>
+              <th className="px-4 py-2 font-medium">Unit</th>
+              <th className="px-4 py-2 font-medium text-right">Rate</th>
+              <th className="px-4 py-2 font-medium"><span className="sr-only">Remove</span></th>
+            </tr>
+          </thead>
+          <tbody>
+            {(catalog ?? []).length === 0 && (
+              <tr>
+                <td colSpan={4} className="px-4 py-6 text-center text-slate-500">
+                  Nothing on the price list yet. Their quick picks fall back to whatever they deliver most often.
+                </td>
+              </tr>
+            )}
+            {catalog?.map((c) => (
+              <tr key={c.id} className="border-t border-slate-100">
+                <td className="px-4 py-2 font-medium text-slate-800">{c.name}</td>
+                <td className="px-4 py-2 text-slate-600">{c.unit}</td>
+                <td className="px-4 py-2 text-right font-medium tabular-nums text-slate-700">
+                  ₹{Number(c.unit_cost).toLocaleString()}
+                </td>
+                <td className="px-4 py-2 text-right">
+                  {!archived && (
+                    <form action={archiveSupplierMaterial}>
+                      <input type="hidden" name="id" value={c.id} />
+                      <input type="hidden" name="supplier_id" value={supplier.id} />
+                      <button
+                        type="submit"
+                        className="rounded-md border border-red-200 bg-white px-2.5 py-1 text-xs text-red-600 transition hover:bg-red-50"
+                      >
+                        Remove
+                      </button>
+                    </form>
+                  )}
+                </td>
+              </tr>
+            ))}
           </tbody>
         </table>
       </div>
