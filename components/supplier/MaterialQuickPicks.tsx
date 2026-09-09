@@ -32,11 +32,12 @@ export function MaterialQuickPicks({ picks }: { picks: QuickPick[] }) {
     };
     set("name", pick.name);
     set("unit", pick.unit);
-    set("unit_cost", String(pick.unitCost));
+    // The rate is deliberately not prefilled: it moves per load, so a pinned
+    // one was stale more often than it was right. The supplier types it.
 
     setActive(keyOf(pick));
 
-    // Land the cursor on the only thing still left to type.
+    // Land the cursor on the first thing still left to type.
     const qty = form.elements.namedItem("quantity");
     if (qty instanceof HTMLInputElement) {
       qty.focus();
@@ -72,15 +73,15 @@ export function MaterialQuickPicks({ picks }: { picks: QuickPick[] }) {
                 className={`h-1.5 w-1.5 shrink-0 rounded-full ${
                   pick.source === "catalog" ? "bg-brand" : "bg-slate-300"
                 }`}
-                title={pick.source === "catalog" ? "Agreed price list" : "From your past deliveries"}
+                title={pick.source === "catalog" ? "From the price list" : "From your past deliveries"}
               />
               <span className="font-medium text-slate-800">{pick.name}</span>
               <span className="text-slate-400">·</span>
               <span>{pick.unit}</span>
-              {pick.unitCost > 0 && (
+              {pick.description && (
                 <>
                   <span className="text-slate-400">·</span>
-                  <span className="tabular-nums">₹{pick.unitCost.toLocaleString()}</span>
+                  <span className="truncate max-w-[14rem]" title={pick.description}>{pick.description}</span>
                 </>
               )}
             </button>

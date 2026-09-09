@@ -443,7 +443,9 @@ export async function addSupplierMaterial(fd: FormData) {
     supplier_id,
     name,
     unit: str(fd, "unit") || "unit",
-    unit_cost: nonNegNum(fd, "unit_cost", "Unit cost") ?? 0,
+    // No rate here any more: it moves per load, so it is typed on each
+    // delivery instead. See 55_supplier_material_description.sql.
+    description: str(fd, "description"),
   });
   if (error) {
     // The live-rows unique index is the likely culprit, and "duplicate key

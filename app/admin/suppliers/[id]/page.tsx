@@ -72,7 +72,7 @@ export default async function ManageSupplierPage(props: { params: Promise<{ id: 
       .order("created_at", { ascending: false }),
     supabase
       .from("supplier_materials")
-      .select("id, name, unit, unit_cost")
+      .select("id, name, unit, description")
       .eq("supplier_id", params.id)
       .is("archived_at", null)
       .order("name"),
@@ -363,8 +363,9 @@ export default async function ManageSupplierPage(props: { params: Promise<{ id: 
 
       {/* Anything listed here shows up as a one-tap chip above this supplier's
           Record Delivery form, so they stop retyping the same material every
-          time. The rate is a prefill, not a lock -- they can still edit it. */}
-      <h2 className="mt-10 mb-3 text-sm font-semibold uppercase tracking-wide text-slate-500">Price List</h2>
+          time. The description says WHICH material it is; the rate is typed per
+          delivery because it moves per load. See 55_*.sql. */}
+      <h2 className="mt-10 mb-3 text-sm font-semibold uppercase tracking-wide text-slate-500">Material List</h2>
 
       {!archived && (
         <CollapsibleForm label="Add material" icon="transaction">
@@ -392,16 +393,13 @@ export default async function ManageSupplierPage(props: { params: Promise<{ id: 
               className="w-32 rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none focus:border-brand focus:ring-2 focus:ring-brand/20"
             />
           </label>
-          <label className="block text-sm">
-            <span className="mb-1 block text-[10px] font-semibold uppercase tracking-wider text-slate-500">Rate</span>
+          <label className="block text-sm flex-1 min-w-[180px]">
+            <span className="mb-1 block text-[10px] font-semibold uppercase tracking-wider text-slate-500">Description</span>
             <input
-              name="unit_cost"
-              type="number"
-              min="0"
-              step="0.01"
-              required
-              placeholder="₹ per unit"
-              className="w-40 rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none focus:border-brand focus:ring-2 focus:ring-brand/20"
+              name="description"
+              type="text"
+              placeholder="e.g. OPC 53 grade, Ultratech"
+              className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none focus:border-brand focus:ring-2 focus:ring-brand/20"
             />
           </label>
           <button
@@ -420,7 +418,7 @@ export default async function ManageSupplierPage(props: { params: Promise<{ id: 
             <tr>
               <th className="px-4 py-2 font-medium">Material</th>
               <th className="px-4 py-2 font-medium">Unit</th>
-              <th className="px-4 py-2 font-medium text-right">Rate</th>
+              <th className="px-4 py-2 font-medium">Description</th>
               <th className="px-4 py-2 font-medium"><span className="sr-only">Remove</span></th>
             </tr>
           </thead>
@@ -436,8 +434,8 @@ export default async function ManageSupplierPage(props: { params: Promise<{ id: 
               <tr key={c.id} className="border-t border-slate-100">
                 <td className="px-4 py-2 font-medium text-slate-800">{c.name}</td>
                 <td className="px-4 py-2 text-slate-600">{c.unit}</td>
-                <td className="px-4 py-2 text-right font-medium tabular-nums text-slate-700">
-                  ₹{Number(c.unit_cost).toLocaleString()}
+                <td className="px-4 py-2 text-slate-600">
+                  {c.description || <span className="text-slate-400">—</span>}
                 </td>
                 <td className="px-4 py-2 text-right">
                   {!archived && (

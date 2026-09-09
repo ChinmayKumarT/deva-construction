@@ -101,7 +101,7 @@ export default async function SupplierDashboard() {
       .eq("supplier_id", supplier.id),
     supabase
       .from("supplier_materials")
-      .select("name, unit, unit_cost")
+      .select("name, unit, description")
       .eq("supplier_id", supplier.id)
       .is("archived_at", null)
       .order("name"),

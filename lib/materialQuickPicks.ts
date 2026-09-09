@@ -8,9 +8,14 @@
 //   * the admin's price list for this supplier (supplier_materials), and
 //   * the supplier's own delivery history, ranked by how often they record it.
 //
-// The catalog goes first because those are the rates the office actually
-// agreed. History fills the remaining slots with anything the office has not
-// pinned yet, so a supplier gets useful chips on day one either way.
+// The catalog goes first because those are the materials the office actually
+// deals with, and it carries a description ("OPC 53 grade, Ultratech") that
+// history cannot supply. History fills the remaining slots with anything the
+// office has not pinned yet, so a supplier gets useful chips on day one.
+//
+// A pick fills in the name and unit only. The rate is typed per delivery: it
+// moves per load and per negotiation, so a pinned rate went stale faster than
+// it saved anyone typing (see 55_supplier_material_description.sql).
 //
 // Kept pure and mirrored in Kotlin (materialQuickPicks in
 // android/.../data/Models.kt) so both platforms rank the chips identically --
@@ -19,7 +24,8 @@
 export type QuickPick = {
   name: string;
   unit: string;
-  unitCost: number;
+  /** Admin's note on which material this is. Catalog entries only. */
+  description: string | null;
   source: "catalog" | "history";
   /** How many past deliveries this pick came from. 0 for catalog-only entries. */
   count: number;
@@ -28,14 +34,8 @@ export type QuickPick = {
 type Row = {
   name?: string | null;
   unit?: string | null;
-  unit_cost?: number | string | null;
+  description?: string | null;
 };
-
-/** Supabase hands numerics back as strings often enough to not trust the type. */
-function num(v: number | string | null | undefined): number {
-  const n = typeof v === "string" ? parseFloat(v) : v;
-  return Number.isFinite(n as number) ? (n as number) : 0;
-}
 
 /**
  * "Cement" / "bag" and " cement " / "Bag" are the same material as far as a
@@ -50,8 +50,8 @@ function keyOf(name: string, unit: string): string {
  * @param catalog admin-set price list rows for this supplier
  * @param history the supplier's own past deliveries, MOST RECENT FIRST --
  *   both callers already order by ordered_at desc, and this relies on it: the
- *   rate and the display casing come from the first row seen for a material,
- *   which is therefore the latest rate they charged.
+ *   display casing comes from the first row seen for a material, which is
+ *   therefore how they most recently wrote it.
  * @param limit how many chips to return
  */
 export function materialQuickPicks(
@@ -69,7 +69,7 @@ export function materialQuickPicks(
     const key = keyOf(name, unit);
     if (seen.has(key)) continue;
     seen.add(key);
-    picks.push({ name, unit, unitCost: num(row.unit_cost), source: "catalog", count: 0 });
+    picks.push({ name, unit, description: (row.description ?? "").trim() || null, source: "catalog", count: 0 });
   }
 
   picks.sort((a, b) => a.name.localeCompare(b.name));
@@ -83,12 +83,12 @@ export function materialQuickPicks(
     if (!name) continue;
     const unit = (row.unit ?? "").trim() || "unit";
     const key = keyOf(name, unit);
-    if (seen.has(key)) continue; // the catalog already covers it, at the agreed rate
+    if (seen.has(key)) continue; // the catalog already covers it
     const existing = grouped.get(key);
     if (existing) {
       existing.count += 1;
     } else {
-      grouped.set(key, { name, unit, unitCost: num(row.unit_cost), source: "history", count: 1 });
+      grouped.set(key, { name, unit, description: null, source: "history", count: 1 });
     }
   }
 
