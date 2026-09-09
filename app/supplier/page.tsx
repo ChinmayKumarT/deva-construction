@@ -4,6 +4,7 @@ import { lineTotal } from "@/lib/money";
 import { formatDateTime, formatDateOnly } from "@/lib/dateFormat";
 import {
   recordDelivery, archiveDelivery, archiveSupplierPayment,
+  addOwnMaterial, archiveOwnMaterial,
   type RecordDeliveryState,
 } from "./actions";
 import { FormSubmitButton } from "@/components/FormSubmitButton";
@@ -101,7 +102,7 @@ export default async function SupplierDashboard() {
       .eq("supplier_id", supplier.id),
     supabase
       .from("supplier_materials")
-      .select("name, unit, description")
+      .select("id, name, unit, description")
       .eq("supplier_id", supplier.id)
       .is("archived_at", null)
       .order("name"),
@@ -227,6 +228,74 @@ export default async function SupplierDashboard() {
               </ResettableForm>
             )}
           </div>
+        </div>
+
+        {/* ── Material list ──
+            The same list the office maintains from the supplier page. Since
+            there is no rate on an entry any more, there is nothing here the
+            office needs to own -- and the supplier is the one who knows their
+            own catalogue. Entries feed the quick picks above. */}
+        <SectionHeader title="My materials" count={(catalog ?? []).length} className="mt-8" />
+        <div className="rounded-2xl border border-slate-200 bg-white p-5">
+          <form action={addOwnMaterial} className="flex flex-wrap items-end gap-3">
+            <label className="block text-sm flex-1 min-w-[160px]">
+              <span className="mb-1 block text-[10px] font-semibold uppercase tracking-wider text-slate-500">Material</span>
+              <input
+                name="name"
+                required
+                placeholder="e.g. Cement"
+                className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none focus:border-brand focus:ring-2 focus:ring-brand/20"
+              />
+            </label>
+            <label className="block text-sm">
+              <span className="mb-1 block text-[10px] font-semibold uppercase tracking-wider text-slate-500">Unit</span>
+              <input
+                name="unit"
+                defaultValue="bag"
+                className="w-28 rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none focus:border-brand focus:ring-2 focus:ring-brand/20"
+              />
+            </label>
+            <label className="block text-sm flex-1 min-w-[180px]">
+              <span className="mb-1 block text-[10px] font-semibold uppercase tracking-wider text-slate-500">Description</span>
+              <input
+                name="description"
+                placeholder="e.g. OPC 53 grade, Ultratech"
+                className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none focus:border-brand focus:ring-2 focus:ring-brand/20"
+              />
+            </label>
+            <FormSubmitButton className="rounded-lg bg-brand px-4 py-2 text-sm font-medium text-white transition hover:bg-brand-700">Add material</FormSubmitButton>
+          </form>
+
+          {(catalog ?? []).length === 0 ? (
+            <p className="mt-4 text-sm text-slate-500">
+              Nothing here yet. Anything you add becomes a one-tap chip on the delivery form above.
+            </p>
+          ) : (
+            <ul className="mt-4 divide-y divide-slate-100">
+              {(catalog ?? []).map((c) => (
+                <li key={c.id} className="flex items-center gap-3 py-2.5">
+                  <span className="font-medium text-slate-800">{c.name}</span>
+                  <span className="text-sm text-slate-400">·</span>
+                  <span className="text-sm text-slate-600">{c.unit}</span>
+                  {c.description && (
+                    <>
+                      <span className="text-sm text-slate-400">·</span>
+                      <span className="truncate text-sm text-slate-600">{c.description}</span>
+                    </>
+                  )}
+                  <form action={archiveOwnMaterial} className="ml-auto">
+                    <input type="hidden" name="id" value={c.id} />
+                    <button
+                      type="submit"
+                      className="rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-xs text-slate-600 transition hover:border-red-300 hover:text-red-600"
+                    >
+                      Remove
+                    </button>
+                  </form>
+                </li>
+              ))}
+            </ul>
+          )}
         </div>
 
         {/* ── Deliveries ── */}

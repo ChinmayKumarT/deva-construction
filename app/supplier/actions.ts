@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { wasJustCreated } from "@/app/admin/actions";
 import { lineTotal } from "@/lib/money";
+import { setFlashError } from "@/lib/flash";
 
 export type RecordDeliveryState = { error: string | null; success: boolean };
 
@@ -261,4 +262,88 @@ export async function archiveSupplierPayment(fd: FormData) {
   revalidatePath("/admin/payments");
   revalidatePath(`/admin/suppliers/${supplier.id}`);
   revalidatePath("/admin");
+}
+
+/**
+ * The supplier's own material list -- the same list the admin maintains from
+ * the supplier page, editable from this end too.
+ *
+ * Since 55 an entry is a name, a unit and a description of which material it
+ * is; there is no rate on it, so nothing here needs the office's approval. The
+ * supplier is the one who knows their own catalogue.
+ *
+ * The supplier is resolved from the SESSION, never from the form. A
+ * supplier_id posted by the caller would let one supplier write onto another's
+ * list. RLS blocks that too (56_supplier_manages_own_materials.sql) -- this is
+ * the belt, that is the braces.
+ */
+export async function addOwnMaterial(fd: FormData): Promise<void> {
+  const supabase = await createSupabaseServerClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error("not signed in");
+
+  const { data: supplier } = await supabase
+    .from("suppliers")
+    .select("id")
+    .eq("profile_id", user.id)
+    .single();
+  if (!supplier) throw new Error("no supplier profile linked");
+
+  const name = String(fd.get("name") ?? "").trim();
+  if (!name) {
+    await setFlashError("Material name is required.");
+    return;
+  }
+
+  const { error } = await supabase.from("supplier_materials").insert({
+    supplier_id: supplier.id,
+    name,
+    unit: String(fd.get("unit") ?? "").trim() || "unit",
+    description: String(fd.get("description") ?? "").trim() || null,
+  });
+  if (error) {
+    // The live-rows unique index in 54. "duplicate key value violates..."
+    // means nothing to someone standing next to a lorry.
+    await setFlashError(
+      error.code === "23505"
+        ? `${name} is already on your material list.`
+        : `Could not add the material: ${error.message}`,
+    );
+    return;
+  }
+
+  revalidatePath("/supplier");
+  revalidatePath(`/admin/suppliers/${supplier.id}`);
+}
+
+/** Archived, not deleted -- the entry stops being offered, nothing is lost. */
+export async function archiveOwnMaterial(fd: FormData): Promise<void> {
+  const supabase = await createSupabaseServerClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error("not signed in");
+
+  const { data: supplier } = await supabase
+    .from("suppliers")
+    .select("id")
+    .eq("profile_id", user.id)
+    .single();
+  if (!supplier) throw new Error("no supplier profile linked");
+
+  const id = String(fd.get("id") ?? "").trim();
+  if (!id) return;
+
+  // Scoped to their own supplier as well as the row id: RLS would refuse
+  // anyway, but a silent no-op is a worse outcome than never asking.
+  const { error } = await supabase
+    .from("supplier_materials")
+    .update({ archived_at: new Date().toISOString() })
+    .eq("id", id)
+    .eq("supplier_id", supplier.id);
+  if (error) {
+    await setFlashError(`Could not remove the material: ${error.message}`);
+    return;
+  }
+
+  revalidatePath("/supplier");
+  revalidatePath(`/admin/suppliers/${supplier.id}`);
 }
