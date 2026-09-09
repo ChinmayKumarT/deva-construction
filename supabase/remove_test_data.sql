@@ -1,9 +1,8 @@
 -- ============================================================
 -- REMOVE ALL TEST DATA
 --
--- Covers everything seeded by test_data.sql AND by
--- test_data_attendance_personal.sql -- attendance and the personal ledger
--- included.
+-- Covers everything seeded by test_data.sql -- attendance and the personal
+-- ledger included.
 --
 -- Matches ONLY on the fixed id prefixes the seeds assign:
 --   clients  a0000001-   suppliers b0000001-   labourers c0000001-
