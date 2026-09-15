@@ -4,29 +4,31 @@ title: Supplier deliveries auto-create their bill
 category: decision
 status: active
 created: "2026-08-26T17:44:53"
-updated: "2026-09-15T12:36:41"
+updated: "2026-09-15T18:35:19"
 ---
 
 
 <!-- compiled_truth -->
-**Reversed on 2026-09-15. Deliveries no longer create a bill.** The owner's instruction: "When a supplier delivers material, the owner should automatically know. There is no need to create any bill... it should show on the admin page for payment only."
+**The model as of 2026-09-15 (this supersedes the auto-billing era below).** A supplier delivery no longer creates a bill. The unpaid purchase (the `materials` row) IS the debt. Recording a delivery -- supplier portal `recordDelivery`, admin `addMaterial` (delivered), or `markMaterialDelivered` -- inserts the material with `billed = false` and then calls `apply_supplier_advance_to_material` (migration 57). A `payments` row is created only when real money leaves.
 
-**Current model (simple):**
-- Recording a delivery -- from the supplier's own portal (`recordDelivery` in app/supplier/actions.ts), the admin material form (`addMaterial`), or `markMaterialDelivered` -- inserts **only** the `materials` row, with `billed = false`. No `payments` row is created and no advance is drawn down at delivery time.
-- The delivery then shows in the Payments "Purchase (optional)" picker (the picker query is `billed = false`, `status != returned`, `supplier_id is not null`, filtered to the chosen project). The owner sees it and raises the payment when they choose.
-- `createPayment` (app/admin/actions.ts) is the one place a supplier bill is now created. Picking a purchase there sets that material's `billed = true` (so it drops out of the picker, no double-pay) and applies any advance via `apply_supplier_advance_to_bill`.
+**What the advance does at delivery time** (the owner's spec, checked for the double-count/scope holes first):
+- Advance is applied to THAT purchase, partial allowed, recorded as a negative `supplier_advances` row with `material_id` set and `payment_id` null.
+- Covered in full -> the material is marked `billed = true`, drops out of the Payments "Purchase" picker, and shows a **"Paid from advance"** badge on the deliveries tables.
+- Covered in part -> stays in the picker, and the picker prefills the **net** still owed (line total − advance applied), never the full total, so it can't be overpaid; badge reads "₹X from advance".
+- An advance handed over LATER settles open purchases oldest-first via `settle_supplier_purchases_from_advance` (called from `giveSupplierAdvance`), so credit given after a delivery still reaches it.
+- Deleting a purchase hands its advance back (`refund_supplier_advance_for_material`).
 
-**Why this doesn't double-count in cash flow:** while `billed = false`, the material's own row carries its cost in `lib/cashflow.ts`; once the owner pays and `billed` flips to `true`, cashflow skips the material and counts the payment instead. Exactly one of the two is ever counted.
+**The money figures** ([[supplier-advance-ledger]], `lib/supplierAccount.ts` — `supplierMoney` now also takes `materials`):
+- `Remaining` = open purchases (billed=false) owing their line total less advance applied, PLUS any legacy/ad-hoc bills still pending/approved. The two never overlap (a purchase with a bill is billed=true).
+- `Lifetime payment` = money that actually left = advances given + supplier payments marked paid. A new purchase never inflates it; a purchase settled from advance creates no payment row, so it is counted once (as the advance given).
 
-**What was removed:** `billSupplierDelivery()` in app/admin/actions.ts (deleted), the bill-insert + advance-apply block inside the supplier's `recordDelivery()`, and both admin auto-bill call sites. The advance system itself is untouched -- advances are still given, and still applied when the owner raises a bill manually or gives an advance ([[supplier-advance-ledger]]).
+**Cash flow / Costs / P&L / Overview** (`lib/cashflow.ts`, and the Costs/P&L pages which were already material-based): a purchase is counted once, through its material at full line total, whether paid in cash, from advance, or still owing. A supplier payment that carries a `material_id` is a settlement of an already-counted material and is skipped; only ad-hoc supplier payments (no material) count on their own. Advances never enter cash flow.
 
-**Still in place, now dormant / defensive:** migration 40's unique index on `payments.material_id` (still stops one delivery being paid twice through the picker); the delete-cascade archiving from [[delete-cascade-traps]]. `applyAdvanceToBill`, `settleOutstandingFromAdvance`, `refundSupplierAdvanceForMaterial` remain, used by the manual bill and advance paths.
-
-**Historical note (superseded):** everything below described the auto-billing era -- deliveries writing their own `approved`/`paid` bill and drawing the advance at delivery time. That is no longer how it works; kept only to explain the migrations (40, 48, 49, 50, 52) that still exist in the schema.
+**Why the whole double-count/scope class is closed:** advance is allocated per-purchase (a ledger row names the material), so "is this purchase covered" is answerable per purchase; `≥` handles exact cover; each application zeroes the correct side.
 
 ---
 
-Before Aug 2026, recording a delivery and billing for it were two separate forms. Suppliers often skipped the second form, leaving goods on site with no debt visible on the admin's books. From Aug 2026 to Sep 15 2026 the app auto-created the bill at delivery time (`recordDelivery()` inserting the material AND its bill, the admin path doing the same via `billSupplierDelivery()`), with bill status computed from advance coverage. The 2026-09-15 reversal above ended that.
+**Historical (auto-billing era, Aug 2026 – 15 Sep 2026, now removed).** Deliveries used to auto-create their bill (`recordDelivery`/`billSupplierDelivery` inserting a `payments` row, status computed from advance coverage; `materials.billed` set at delivery so cash flow counted the cost via the bill). This was removed in two steps in Sep 2026: first the bill creation was torn out entirely (delivery records material only), then the advance settlement above was added back at the material level. The migrations from that era (40 unique material_id index, 48/49 status policies, 52 partial application on bills) still exist and still serve legacy bills and manual supplier bills.
 
 
 ## Timeline
@@ -82,5 +84,11 @@ Before Aug 2026, recording a delivery and billing for it were two separate forms
 - time: 2026-09-15T12:36:41
   kind: reversal
   summary: "Auto-billing removed entirely: a delivery records the material only; the owner raises the payment manually from the Payments picker"
+  source: "chat + implementation 2026-09-15"
+  affects: [supplier-auto-billing]
+
+- time: 2026-09-15T18:35:19
+  kind: decision
+  summary: "Final model: a delivery records the material and settles from any advance; no bill is created, the net still owed shows in the Payments picker, and a fully advance-covered purchase reads 'paid from advance'"
   source: "chat + implementation 2026-09-15"
   affects: [supplier-auto-billing]

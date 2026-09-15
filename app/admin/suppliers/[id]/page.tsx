@@ -11,7 +11,7 @@ import {
   addSupplierMaterial, archiveSupplierMaterial,
 } from "../../actions";
 import { lineTotal } from "@/lib/money";
-import { supplierMoney } from "@/lib/supplierAccount";
+import { supplierMoney, advanceAppliedByMaterial } from "@/lib/supplierAccount";
 import { formatDateTime } from "@/lib/dateFormat";
 
 export const dynamic = "force-dynamic";
@@ -54,7 +54,7 @@ export default async function ManageSupplierPage(props: { params: Promise<{ id: 
     supabase.from("suppliers").select("id, name, email, phone, profile_id, archived_at").eq("id", params.id).single(),
     supabase
       .from("materials")
-      .select("id, name, unit, quantity, unit_cost, status, ordered_at, projects(name)")
+      .select("id, name, unit, quantity, unit_cost, status, billed, ordered_at, projects(name)")
       .eq("supplier_id", params.id)
       .is("archived_at", null)
       .order("ordered_at", { ascending: false }),
@@ -86,7 +86,12 @@ export default async function ManageSupplierPage(props: { params: Promise<{ id: 
   const { advanceBalance, lifetimePayment, remaining } = supplierMoney({
     payments: payments ?? [],
     advances: advances ?? [],
+    materials: (materials ?? []).map((m) => ({
+      id: m.id, quantity: Number(m.quantity), unit_cost: Number(m.unit_cost), status: m.status, billed: Boolean(m.billed),
+    })),
   });
+  // Advance put against each purchase, for the "paid from advance" badge below.
+  const appliedByMaterial = advanceAppliedByMaterial(advances ?? []);
 
   return (
     <AdminPage>
@@ -215,7 +220,19 @@ export default async function ManageSupplierPage(props: { params: Promise<{ id: 
                 <td className="px-4 py-2">{m.name} <span className="text-xs text-slate-500">({m.quantity} {m.unit})</span></td>
                 <td className="px-4 py-2 font-medium">₹{lineTotal(m.quantity, m.unit_cost).toLocaleString()}</td>
                 <td className="px-4 py-2">
-                  <span className={`rounded-md border px-2 py-0.5 text-xs ${MATERIAL_STATUS_STYLE[m.status] ?? ""}`}>{m.status}</span>
+                  <div className="flex flex-wrap items-center gap-1">
+                    <span className={`rounded-md border px-2 py-0.5 text-xs ${MATERIAL_STATUS_STYLE[m.status] ?? ""}`}>{m.status}</span>
+                    {(() => {
+                      const applied = appliedByMaterial.get(m.id) ?? 0;
+                      if (applied <= 0) return null;
+                      const covered = applied >= lineTotal(m.quantity, m.unit_cost);
+                      return (
+                        <span className="rounded-md border border-blue-200 bg-blue-50 px-2 py-0.5 text-xs text-blue-700">
+                          {covered ? "Paid from advance" : `₹${applied.toLocaleString()} from advance`}
+                        </span>
+                      );
+                    })()}
+                  </div>
                 </td>
                 <td className="px-4 py-2">
                   <form action={archiveMaterial}>

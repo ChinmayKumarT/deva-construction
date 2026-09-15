@@ -12,7 +12,7 @@ import { ResettableForm, FormError } from "@/components/ResettableForm";
 import { ProfileMenu } from "@/components/ProfileMenu";
 import { AccountDetailsPopover } from "@/components/AccountDetailsPopover";
 import { signOut } from "@/app/actions/auth";
-import { supplierMoney } from "@/lib/supplierAccount";
+import { supplierMoney, advanceAppliedByMaterial } from "@/lib/supplierAccount";
 import { materialQuickPicks } from "@/lib/materialQuickPicks";
 import { MaterialQuickPicks, MATERIAL_DATALIST_ID } from "@/components/supplier/MaterialQuickPicks";
 
@@ -85,7 +85,7 @@ export default async function SupplierDashboard() {
   ] = await Promise.all([
     supabase
       .from("materials")
-      .select("id, name, quantity, unit, unit_cost, status, ordered_at, delivered_at, created_by_supplier, projects(id, name)")
+      .select("id, name, quantity, unit, unit_cost, status, billed, ordered_at, delivered_at, created_by_supplier, projects(id, name)")
       .eq("supplier_id", supplier.id)
       .is("archived_at", null)
       .order("ordered_at", { ascending: false }),
@@ -115,7 +115,12 @@ export default async function SupplierDashboard() {
   const { advanceBalance, lifetimePayment, remaining } = supplierMoney({
     payments: payments ?? [],
     advances: advances ?? [],
+    materials: (materials ?? []).map((m) => ({
+      id: m.id, quantity: Number(m.quantity), unit_cost: Number(m.unit_cost), status: m.status, billed: Boolean(m.billed),
+    })),
   });
+  // Advance put against each purchase, for the "paid from advance" badge.
+  const appliedByMaterial = advanceAppliedByMaterial(advances ?? []);
   const totalMaterialValue = (materials ?? []).reduce((s, m) => s + lineTotal(m.quantity, m.unit_cost), 0);
   // The office's agreed price list first, then whatever this supplier delivers
   // most often. `materials` is already ordered newest-first, which is the order
@@ -332,9 +337,21 @@ export default async function SupplierDashboard() {
                         <td className="whitespace-nowrap px-5 py-3 text-right tabular-nums text-slate-600">₹{Number(m.unit_cost).toLocaleString()}</td>
                         <td className="whitespace-nowrap px-5 py-3 text-right font-semibold tabular-nums text-slate-800">₹{lineTotal(m.quantity, m.unit_cost).toLocaleString()}</td>
                         <td className="whitespace-nowrap px-5 py-3">
-                          <span className={`rounded-full px-2.5 py-1 text-xs font-medium ring-1 ring-inset ${statusCls}`}>
-                            {m.status}
-                          </span>
+                          <div className="flex flex-wrap items-center gap-1">
+                            <span className={`rounded-full px-2.5 py-1 text-xs font-medium ring-1 ring-inset ${statusCls}`}>
+                              {m.status}
+                            </span>
+                            {(() => {
+                              const applied = appliedByMaterial.get(m.id) ?? 0;
+                              if (applied <= 0) return null;
+                              const covered = applied >= lineTotal(m.quantity, m.unit_cost);
+                              return (
+                                <span className="rounded-full px-2.5 py-1 text-xs font-medium ring-1 ring-inset bg-blue-50 text-blue-700 ring-blue-200">
+                                  {covered ? "Paid from advance" : `₹${applied.toLocaleString()} from advance`}
+                                </span>
+                              );
+                            })()}
+                          </div>
                         </td>
                         <td className="whitespace-nowrap px-5 py-3 text-slate-500">{formatDateOnly(m.ordered_at)}</td>
                         <td className="whitespace-nowrap px-5 py-3">

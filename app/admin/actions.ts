@@ -358,6 +358,11 @@ export async function giveSupplierAdvance(fd: FormData) {
     return;
   }
 
+  // Open purchases first (the current model -- a delivery is its own debt),
+  // then any legacy/ad-hoc bills still on the books. Credit handed over after a
+  // delivery still reaches it, oldest first, so this is the mirror of applying
+  // the advance at delivery time.
+  await supabase.rpc("settle_supplier_purchases_from_advance", { p_supplier_id: supplier_id });
   await settleOutstandingFromAdvance(supabase, supplier_id);
 
   revalidatePath(`/admin/suppliers/${supplier_id}`);
@@ -722,11 +727,17 @@ export async function createMaterial(
       unit_cost: row.unit_cost,
     });
     if (!duplicate) {
-      // A delivery just records the goods arriving. No bill is raised here:
-      // the material shows in the Payments "Purchase" picker (billed defaults
-      // false) and the owner raises the payment when they choose to.
-      const { error } = await supabase.from("materials").insert(row);
+      // A delivery just records the goods arriving. No bill is raised: the
+      // purchase shows in the Payments "Purchase" picker (billed defaults
+      // false) and the owner pays it when they choose. Any standing advance is
+      // put against it now, though -- covered in full it settles itself and
+      // reads as "paid from advance"; covered in part, the picker offers the
+      // net still owed.
+      const { data: inserted, error } = await supabase.from("materials").insert(row).select("id").single();
       if (error) throw new Error(error.message);
+      if (inserted && row.supplier_id && status === "delivered") {
+        await supabase.rpc("apply_supplier_advance_to_material", { p_material_id: inserted.id });
+      }
     }
     revalidatePath("/admin/materials");
     revalidatePath("/admin/payments");
@@ -744,11 +755,14 @@ export async function markMaterialDelivered(fd: FormData) {
   if (!id) return;
   // Just marks the goods as arrived. No bill is raised: the delivery shows in
   // the Payments "Purchase" picker and the owner pays for it when they choose.
+  // Settling from any standing advance is the same event as delivering it
+  // fresh, so it draws the advance down the same way.
   const { error } = await supabase
     .from("materials")
     .update({ status: "delivered", delivered_at: new Date().toISOString() })
     .eq("id", id);
   if (error) throw new Error(error.message);
+  await supabase.rpc("apply_supplier_advance_to_material", { p_material_id: id });
   revalidatePath("/admin/materials");
   revalidatePath("/admin/costs");
   revalidatePath("/admin/payments");

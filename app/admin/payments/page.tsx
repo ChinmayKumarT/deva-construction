@@ -9,6 +9,7 @@ import { byProjectTotals, payeeTypeSplitByProject, dailyPaymentTotals } from "@/
 import { toCumulative } from "@/lib/cashflow";
 import { computeWagesDueFromAccrued } from "@/lib/wages";
 import { SupplierAdvanceForm } from "@/components/admin/SupplierAdvanceForm";
+import { advanceAppliedByMaterial } from "@/lib/supplierAccount";
 import { createPayment, giveSupplierAdvance } from "../actions";
 
 export const dynamic = "force-dynamic";
@@ -29,7 +30,7 @@ export default async function PaymentsIndexPage(
   const [
     { data: projects }, { data: payments }, { count: archivedCount },
     { data: suppliers }, { data: labourers }, { data: materials }, { data: assignments },
-    { data: allLabourPayments }, { data: wageAccrued },
+    { data: allLabourPayments }, { data: wageAccrued }, { data: materialAdvances },
   ] = await Promise.all([
     supabase.from("projects").select("id, name, status").is("archived_at", null).order("name"),
     showArchived
@@ -58,9 +59,17 @@ export default async function PaymentsIndexPage(
     // entire attendance table just to add it up client-side -- see
     // supabase/29_staff_wage_accrued.sql.
     supabase.rpc("staff_labourer_wage_accrued"),
+    // Advance already put against each open purchase, so the picker can prefill
+    // the NET still owed instead of the full line total.
+    supabase.from("supplier_advances").select("material_id, amount, payment_id").not("material_id", "is", null),
   ]);
 
   const wageDue = computeWagesDueFromAccrued(wageAccrued ?? [], allLabourPayments ?? []);
+  const appliedByMaterial = advanceAppliedByMaterial(materialAdvances ?? []);
+  const materialsForForm = (materials ?? []).map((m) => ({
+    ...m,
+    advance_applied: appliedByMaterial.get(m.id) ?? 0,
+  }));
 
   const byProject = new Map<string, { count: number; spend: number }>();
   let unassignedCount = 0;
@@ -115,7 +124,7 @@ export default async function PaymentsIndexPage(
           projects={projects ?? []}
           suppliers={suppliers ?? []}
           labourers={(labourers ?? []).map((l) => ({ id: l.id, name: l.name, familyId: l.family_id, category: l.category }))}
-          materials={materials ?? []}
+          materials={materialsForForm}
           assignments={assignments ?? []}
           wageDue={wageDue}
         />

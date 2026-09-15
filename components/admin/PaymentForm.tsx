@@ -32,6 +32,10 @@ type Material = {
   work_category: string | null;
   supplier_id: string | null;
   project_id: string | null;
+  /** Advance already put against this purchase. The picker offers the NET
+   *  still owed (line total minus this), never the full line total, so a
+   *  part-covered purchase can't be paid for twice. */
+  advance_applied?: number;
 };
 
 type Assignment = { labourer_id: string; project_id: string };
@@ -165,7 +169,10 @@ function PaymentFormFields({
     if (!m) return;
     setPayeeType("supplier");
     setSupplierId(m.supplier_id ?? "none");
-    setAmount(String(lineTotal(m.quantity, m.unit_cost)));
+    // Net still owed, never the full line total: an advance already put against
+    // this purchase has been paid, so only the remainder is due.
+    const net = Math.max(0, lineTotal(m.quantity, m.unit_cost) - (m.advance_applied ?? 0));
+    setAmount(String(net));
     setDescription(`${m.name} (${m.quantity} ${m.unit})`);
     const mCategory = m.work_category ?? "";
     const mCategoryKnown = allKnownCategories.includes(mCategory);
@@ -366,11 +373,16 @@ function PaymentFormFields({
               <option value="none">
                 {projectId === "none" ? "— choose a project first —" : "— none —"}
               </option>
-              {projectMaterials.map((m) => (
-                <option key={m.id} value={m.id}>
-                  {m.name} ({Number(m.quantity)} {m.unit}) — ₹{lineTotal(m.quantity, m.unit_cost).toLocaleString()}
-                </option>
-              ))}
+              {projectMaterials.map((m) => {
+                const applied = m.advance_applied ?? 0;
+                const net = Math.max(0, lineTotal(m.quantity, m.unit_cost) - applied);
+                return (
+                  <option key={m.id} value={m.id}>
+                    {m.name} ({Number(m.quantity)} {m.unit}) — ₹{net.toLocaleString()}
+                    {applied > 0 ? ` (₹${applied.toLocaleString()} from advance)` : ""}
+                  </option>
+                );
+              })}
               <option value={OTHER_PURCHASE}>Other…</option>
             </select>
             <span className="mt-1 block text-xs text-slate-500">

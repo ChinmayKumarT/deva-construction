@@ -4,7 +4,7 @@ title: Supplier advances use a ledger-based account system
 category: decision
 status: active
 created: "2026-08-30T01:25:58"
-updated: "2026-09-08T23:03:05"
+updated: "2026-09-15T18:34:55"
 ---
 
 
@@ -82,3 +82,9 @@ Related: [[supplier-auto-billing]], [[rls-is-the-authority]], [[delete-cascade-t
   summary: "All-or-nothing deduction overturned: 400 of credit against a 1,000 bill now takes the balance to zero and leaves 600 owing"
   source: "owner report 2026-09-08, migration 52"
   affects: [supplier-advance-ledger, supplier-auto-billing]
+
+- time: 2026-09-15T18:34:55
+  kind: decision
+  summary: "Advances now settle open purchases directly (apply_supplier_advance_to_material, migration 57), not just bills; supplierMoney takes materials and derives owed from unbilled purchases net of advance"
+  source: "chat + implementation 2026-09-15"
+  affects: [supplier-advance-ledger]

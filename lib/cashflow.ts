@@ -19,6 +19,7 @@ type CashPayment = {
   amount: number | string;
   status: string;
   created_at: string | null;
+  material_id?: string | null;
 };
 type CashAttendance = {
   project_id: string | null;
@@ -46,11 +47,16 @@ export type CashFlow = ReturnType<typeof reduceCashFlow> & { daily: DailyCashFlo
 // `from`/`to` are inclusive `YYYY-MM-DD` bounds. Materials are dated by
 // delivered_at ?? ordered_at; payments by created_at (date part); attendance by
 // its own date. Only paid/approved payments count; returned materials and
-// zero-weight (absent) attendance are excluded. Billed materials (paid off via
-// the Payments form's linked-purchase picker) are excluded from the materials
-// delivery sum, since their amount is already counted via the linked payment
-// row below -- the picker copies the material's line total into the new
-// payments row, so counting both would double the outflow for that purchase.
+// zero-weight (absent) attendance are excluded.
+//
+// A purchase is counted once, through its MATERIAL, at its full line total --
+// whether it was paid in cash, settled from an advance, or still owing. The
+// supplier payment that settles a purchase carries a `material_id`, and is
+// therefore excluded here: counting both the material and its settling payment
+// would double the outflow. Only supplier payments with no material behind them
+// (ad-hoc bills the owner types in) are counted as their own spend. Advances
+// never enter cash flow -- they are just how a purchase got settled, and the
+// material already carries the cost.
 export function reduceCashFlow(
   materials: CashMaterial[],
   payments: CashPayment[],
@@ -69,7 +75,7 @@ export function reduceCashFlow(
   const byProjectWages = new Map<string, number>();
 
   for (const m of materials) {
-    if (m.status === "returned" || m.billed || !m.project_id) continue;
+    if (m.status === "returned" || !m.project_id) continue;
     const date = m.delivered_at ?? m.ordered_at;
     if (!date || date < from || date > to) continue;
     const amount = lineTotal(m.quantity, m.unit_cost);
@@ -82,6 +88,8 @@ export function reduceCashFlow(
     const date = p.created_at.slice(0, 10);
     if (date < from || date > to) continue;
     if (p.payee_type === "supplier") {
+      // A payment that settles a purchase is already counted via its material.
+      if (p.material_id) continue;
       materialsCost += Number(p.amount);
       byProjectMaterials.set(p.project_id, (byProjectMaterials.get(p.project_id) ?? 0) + Number(p.amount));
     } else if (p.payee_type === "labour") {
@@ -123,7 +131,7 @@ export function dailyCashFlowTotals(
   const add = (date: string, amount: number) => byDate.set(date, (byDate.get(date) ?? 0) + amount);
 
   for (const m of materials) {
-    if (m.status === "returned" || m.billed || !m.project_id) continue;
+    if (m.status === "returned" || !m.project_id) continue;
     const date = m.delivered_at ?? m.ordered_at;
     if (!date) continue;
     const d = date.slice(0, 10);
@@ -133,6 +141,8 @@ export function dailyCashFlowTotals(
   for (const p of payments) {
     if (!p.project_id || !p.created_at) continue;
     if (p.status !== "paid" && p.status !== "approved") continue;
+    // A supplier payment that settles a purchase is counted via its material.
+    if (p.payee_type === "supplier" && p.material_id) continue;
     const d = p.created_at.slice(0, 10);
     if (d < from || d > to) continue;
     add(d, Number(p.amount));
@@ -178,7 +188,7 @@ export async function computeCashFlow(
     .is("archived_at", null);
   let paymentsQuery = supabase
     .from("payments")
-    .select("project_id, payee_type, amount, status, created_at")
+    .select("project_id, payee_type, amount, status, created_at, material_id")
     .is("archived_at", null)
     .in("status", ["paid", "approved"]);
   let attendanceQuery = supabase

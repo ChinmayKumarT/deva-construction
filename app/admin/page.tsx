@@ -61,8 +61,8 @@ export default async function AdminOverview() {
     supabase.from("labourers").select("id, daily_wage"),
     supabase.from("projects").select("*", { count: "exact", head: true }).is("archived_at", null).gte("created_at", thisMonth.start).lt("created_at", thisMonth.end),
     supabase.from("projects").select("*", { count: "exact", head: true }).is("archived_at", null).gte("created_at", lastMonth.start).lt("created_at", lastMonth.end),
-    supabase.from("payments").select("amount").is("archived_at", null).gte("created_at", thisMonth.start).lt("created_at", thisMonth.end),
-    supabase.from("payments").select("amount").is("archived_at", null).gte("created_at", lastMonth.start).lt("created_at", lastMonth.end),
+    supabase.from("payments").select("amount, payee_type, material_id").is("archived_at", null).gte("created_at", thisMonth.start).lt("created_at", thisMonth.end),
+    supabase.from("payments").select("amount, payee_type, material_id").is("archived_at", null).gte("created_at", lastMonth.start).lt("created_at", lastMonth.end),
     supabase.from("materials").select("quantity, unit_cost").is("archived_at", null).gte("created_at", thisMonth.start).lt("created_at", thisMonth.end),
     supabase.from("materials").select("quantity, unit_cost").is("archived_at", null).gte("created_at", lastMonth.start).lt("created_at", lastMonth.end),
     supabase.from("attendance").select("*", { count: "exact", head: true }).gte("created_at", thisMonth.start).lt("created_at", thisMonth.end),
@@ -100,8 +100,13 @@ export default async function AdminOverview() {
     else if (pct >= 80) nearBudget.push({ id: p.id, name: p.name, pct });
   }
 
-  const payThisSum = (paymentsThisMonth.data ?? []).reduce((s, r) => s + Number(r.amount ?? 0), 0);
-  const payLastSum = (paymentsLastMonth.data ?? []).reduce((s, r) => s + Number(r.amount ?? 0), 0);
+  // Skip supplier payments that settle a purchase -- that purchase is already
+  // counted through its material below, so counting the payment too would
+  // double the spend. Same rule as lib/cashflow.ts.
+  const isMaterialSettlement = (r: { payee_type?: string | null; material_id?: string | null }) =>
+    r.payee_type === "supplier" && r.material_id != null;
+  const payThisSum = (paymentsThisMonth.data ?? []).reduce((s, r) => s + (isMaterialSettlement(r) ? 0 : Number(r.amount ?? 0)), 0);
+  const payLastSum = (paymentsLastMonth.data ?? []).reduce((s, r) => s + (isMaterialSettlement(r) ? 0 : Number(r.amount ?? 0)), 0);
   const matThisSum = (materialsThisMonth.data ?? []).reduce((s, r) => s + lineTotal(r.quantity, r.unit_cost), 0);
   const matLastSum = (materialsLastMonth.data ?? []).reduce((s, r) => s + lineTotal(r.quantity, r.unit_cost), 0);
   const spendThis = payThisSum + matThisSum;

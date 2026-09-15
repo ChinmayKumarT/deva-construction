@@ -73,7 +73,9 @@ export async function recordDelivery(
       // A delivery just records that the goods arrived on site. No bill is
       // raised here: it shows on the owner's Payments "Purchase" picker
       // (billed stays false) and the owner raises the payment when they choose.
-      const { error } = await supabase
+      // Any advance the supplier is holding is put against it now -- covered in
+      // full it settles itself and shows as "paid from advance".
+      const { data: material, error } = await supabase
         .from("materials")
         .insert({
           project_id,
@@ -87,8 +89,16 @@ export async function recordDelivery(
           image_url,
           created_by_supplier: true,
           billed: false,
-        });
+        })
+        .select("id")
+        .single();
       if (error) throw new Error(error.message);
+      if (material && status === "delivered") {
+        const { error: advError } = await supabase.rpc("apply_supplier_advance_to_material", {
+          p_material_id: material.id,
+        });
+        if (advError) throw new Error(advError.message);
+      }
     }
 
     revalidatePath("/supplier");

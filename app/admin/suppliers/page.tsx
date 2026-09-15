@@ -30,7 +30,7 @@ export default async function SuppliersPage(
     showArchived ? base.not("archived_at", "is", null) : base.is("archived_at", null),
     supabase.rpc("admin_list_profiles_with_email", { p_role: "supplier" }),
     supabase.from("suppliers").select("id", { count: "exact", head: true }).not("archived_at", "is", null),
-    supabase.from("materials").select("supplier_id, status").is("archived_at", null),
+    supabase.from("materials").select("id, supplier_id, status, quantity, unit_cost, billed").is("archived_at", null),
     supabase.from("payments").select("id, supplier_id, amount, status").is("archived_at", null).eq("payee_type", "supplier"),
     supabase.from("supplier_advances").select("supplier_id, amount, payment_id, material_id"),
   ]);
@@ -60,10 +60,19 @@ export default async function SuppliersPage(
     list.push({ amount: Number(a.amount), payment_id: a.payment_id, material_id: a.material_id });
     advancesBySupplier.set(a.supplier_id, list);
   }
+  // Open purchases now carry their own debt, so the derivation needs them too.
+  const materialsBySupplier = new Map<string, { id: string; quantity: number; unit_cost: number; status: string; billed: boolean }[]>();
+  for (const m of materials ?? []) {
+    if (!m.supplier_id) continue;
+    const list = materialsBySupplier.get(m.supplier_id) ?? [];
+    list.push({ id: m.id, quantity: Number(m.quantity), unit_cost: Number(m.unit_cost), status: m.status, billed: Boolean(m.billed) });
+    materialsBySupplier.set(m.supplier_id, list);
+  }
   const moneyFor = (id: string) =>
     supplierMoney({
       payments: paymentsBySupplier.get(id) ?? [],
       advances: advancesBySupplier.get(id) ?? [],
+      materials: materialsBySupplier.get(id) ?? [],
     });
 
   return (

@@ -8,6 +8,7 @@ import { CreatePaymentForm } from "@/components/admin/PaymentForm";
 import { CashFlowBarChart } from "@/components/admin/CashFlowBarChart";
 import { byCategoryTotals } from "@/lib/paymentsChart";
 import { computeWagesDueFromAccrued } from "@/lib/wages";
+import { advanceAppliedByMaterial } from "@/lib/supplierAccount";
 import { formatDateTime } from "@/lib/dateFormat";
 import {
   createPayment, unarchivePayment, deletePayment,
@@ -55,7 +56,7 @@ export default async function ProjectPaymentsPage(
   const [
     { data: project }, { data: payments }, { data: projects }, { data: suppliers }, { data: labourers },
     { data: materials }, { data: assignments }, { data: allLabourPayments }, { data: wageAccrued },
-    { count: archivedCount }, { data: clientPayments },
+    { count: archivedCount }, { data: clientPayments }, { data: materialAdvances },
   ] = await Promise.all([
     isUnassigned
       ? Promise.resolve({ data: null as { id: string; name: string } | null })
@@ -90,7 +91,16 @@ export default async function ProjectPaymentsPage(
       : showArchived
         ? clientPaymentsBase.not("archived_at", "is", null)
         : clientPaymentsBase.is("archived_at", null),
+    // Advance already put against each open purchase, so the picker prefills
+    // the NET still owed rather than the full line total.
+    supabase.from("supplier_advances").select("material_id, amount, payment_id").not("material_id", "is", null),
   ]);
+
+  const appliedByMaterial = advanceAppliedByMaterial(materialAdvances ?? []);
+  const materialsForForm = (materials ?? []).map((m) => ({
+    ...m,
+    advance_applied: appliedByMaterial.get(m.id) ?? 0,
+  }));
 
   if (!isUnassigned && !project) notFound();
 
@@ -129,7 +139,7 @@ export default async function ProjectPaymentsPage(
           projects={projects ?? []}
           suppliers={suppliers ?? []}
           labourers={(labourers ?? []).map((l) => ({ id: l.id, name: l.name, familyId: l.family_id, category: l.category }))}
-          materials={materials ?? []}
+          materials={materialsForForm}
           assignments={assignments ?? []}
           wageDue={wageDue}
           fixedProject={{ id: project!.id, name: project!.name }}

@@ -62,19 +62,32 @@ describe("reduceCashFlow — materials", () => {
     expect(cf.materialsCost).toBe(0);
   });
 
-  it("excludes billed materials, since their amount is already counted via the linked supplier payment", () => {
+  it("still counts a settled (billed) purchase -- the material is the cost of record", () => {
+    // A purchase is counted once, through its material, whether it was paid in
+    // cash, settled from an advance, or still owing. `billed` no longer hides it.
     const cf = reduceCashFlow([material({ billed: true, quantity: 3, unit_cost: 50 })], [], [], labourers, ...RANGE);
-    expect(cf.materialsCost).toBe(0);
+    expect(cf.materialsCost).toBe(150);
   });
 
   it("does not double-count a purchase paid off via the linked-purchase picker", () => {
+    // The settling payment carries the material_id, so it is skipped and only
+    // the material counts -- otherwise the purchase would be counted twice.
     const cf = reduceCashFlow(
-      [material({ billed: true, quantity: 1, unit_cost: 500 })],
-      [{ project_id: "proj-1", payee_type: "supplier", amount: 500, status: "paid", created_at: "2026-04-01T00:00:00Z" }],
+      [material({ quantity: 1, unit_cost: 500 })],
+      [{ project_id: "proj-1", payee_type: "supplier", amount: 500, status: "paid", created_at: "2026-04-01T00:00:00Z", material_id: "m-1" }],
       [], labourers, ...RANGE,
     );
     expect(cf.materialsCost).toBe(500);
     expect(cf.total).toBe(500);
+  });
+
+  it("counts an ad-hoc supplier payment (no purchase behind it) as its own spend", () => {
+    const cf = reduceCashFlow(
+      [],
+      [{ project_id: "proj-1", payee_type: "supplier", amount: 300, status: "paid", created_at: "2026-04-01T00:00:00Z" }],
+      [], labourers, ...RANGE,
+    );
+    expect(cf.materialsCost).toBe(300);
   });
 });
 
