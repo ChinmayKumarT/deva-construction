@@ -9,6 +9,7 @@ import {
   deleteSupplierAdvance,
   giveSupplierAdvance,
   addSupplierMaterial, archiveSupplierMaterial,
+  payDelivery, unpayDelivery,
 } from "../../actions";
 import { lineTotal } from "@/lib/money";
 import { supplierMoney, advanceAppliedByMaterial } from "@/lib/supplierAccount";
@@ -61,7 +62,7 @@ export default async function ManageSupplierPage(props: { params: Promise<{ id: 
       .order("ordered_at", { ascending: false }),
     supabase
       .from("payments")
-      .select("id, amount, status, description, created_at")
+      .select("id, amount, status, description, created_at, material_id")
       .eq("supplier_id", params.id)
       .eq("payee_type", "supplier")
       .is("archived_at", null)
@@ -93,6 +94,14 @@ export default async function ManageSupplierPage(props: { params: Promise<{ id: 
   });
   // Advance put against each purchase, for the "paid from advance" badge below.
   const appliedByMaterial = advanceAppliedByMaterial(advances ?? []);
+  // Deliveries settled by a real cash payment (via the Paid button or the
+  // Payments form) -- these are the ones that can be undone. A delivery settled
+  // purely from advance has no payment row and is left as-is.
+  const paidByPayment = new Set(
+    (payments ?? [])
+      .filter((p) => p.status === "paid" && p.material_id)
+      .map((p) => p.material_id as string),
+  );
 
   return (
     <AdminPage>
@@ -223,6 +232,9 @@ export default async function ManageSupplierPage(props: { params: Promise<{ id: 
                 <td className="px-4 py-2">
                   <div className="flex flex-wrap items-center gap-1">
                     <span className={`rounded-md border px-2 py-0.5 text-xs ${MATERIAL_STATUS_STYLE[m.status] ?? ""}`}>{m.status}</span>
+                    {m.billed && paidByPayment.has(m.id) && (
+                      <span className="rounded-md border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-xs font-medium text-emerald-700">Paid</span>
+                    )}
                     {(() => {
                       const applied = appliedByMaterial.get(m.id) ?? 0;
                       if (applied <= 0) return null;
@@ -236,16 +248,42 @@ export default async function ManageSupplierPage(props: { params: Promise<{ id: 
                   </div>
                 </td>
                 <td className="px-4 py-2">
-                  <form action={archiveMaterial}>
-                    <input type="hidden" name="id" value={m.id} />
-                    <FormSubmitButton
-                      pendingLabel="Deleting…"
-                      title={`Delete ${m.name}`}
-                      className="rounded-md border border-red-200 bg-white px-2 py-0.5 text-xs text-red-600 hover:bg-red-50 transition"
-                    >
-                      Delete
-                    </FormSubmitButton>
-                  </form>
+                  <div className="flex flex-wrap items-center gap-1">
+                    {!m.billed && m.status !== "returned" && (
+                      <form action={payDelivery}>
+                        <input type="hidden" name="id" value={m.id} />
+                        <FormSubmitButton
+                          pendingLabel="Paying…"
+                          title={`Mark ₹${Math.max(0, lineTotal(m.quantity, m.unit_cost) - (appliedByMaterial.get(m.id) ?? 0)).toLocaleString()} paid`}
+                          className="rounded-md border border-emerald-300 bg-emerald-50 px-2 py-0.5 text-xs font-medium text-emerald-700 hover:bg-emerald-100 transition"
+                        >
+                          Paid
+                        </FormSubmitButton>
+                      </form>
+                    )}
+                    {m.billed && paidByPayment.has(m.id) && (
+                      <form action={unpayDelivery}>
+                        <input type="hidden" name="id" value={m.id} />
+                        <FormSubmitButton
+                          pendingLabel="Undoing…"
+                          title="Undo this payment"
+                          className="rounded-md border border-slate-200 bg-white px-2 py-0.5 text-xs text-slate-600 hover:bg-slate-50 transition"
+                        >
+                          Undo paid
+                        </FormSubmitButton>
+                      </form>
+                    )}
+                    <form action={archiveMaterial}>
+                      <input type="hidden" name="id" value={m.id} />
+                      <FormSubmitButton
+                        pendingLabel="Deleting…"
+                        title={`Delete ${m.name}`}
+                        className="rounded-md border border-red-200 bg-white px-2 py-0.5 text-xs text-red-600 hover:bg-red-50 transition"
+                      >
+                        Delete
+                      </FormSubmitButton>
+                    </form>
+                  </div>
                 </td>
               </tr>
             ))}

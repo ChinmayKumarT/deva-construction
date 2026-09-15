@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { createSupabaseServerClient, getSessionAndRole } from "@/lib/supabase/server";
 import { WAGE_FACTOR } from "@/lib/wages";
 import { setFlashError } from "@/lib/flash";
+import { lineTotal } from "@/lib/money";
 
 function str(fd: FormData, k: string) {
   const v = fd.get(k);
@@ -766,6 +767,146 @@ export async function markMaterialDelivered(fd: FormData) {
   revalidatePath("/admin/materials");
   revalidatePath("/admin/costs");
   revalidatePath("/admin/payments");
+  revalidatePath("/admin");
+}
+
+/**
+ * Settle one delivery in a single click from the supplier profile, without
+ * going through the Payments form. Records a real supplier payment for the NET
+ * still owed (line total less any advance already put against the delivery),
+ * and marks the delivery `billed` so it leaves the Payments "Purchase" picker.
+ *
+ * No advance is drawn here -- that already happened at delivery time
+ * (apply_supplier_advance_to_material). The payment carries `material_id`, so
+ * lib/cashflow.ts counts the delivery once, through the material, not twice.
+ * Idempotent: a delivery already settled, returned, or without a supplier is
+ * left untouched, so a double-click can't raise a second bill.
+ */
+export async function payDelivery(fd: FormData) {
+  const supabase = await createSupabaseServerClient();
+  const id = str(fd, "id");
+  if (!id) return;
+
+  const { data: m } = await supabase
+    .from("materials")
+    .select("supplier_id, project_id, name, unit, quantity, unit_cost, work_category, status, billed, archived_at")
+    .eq("id", id)
+    .single();
+
+  if (!m || m.archived_at || m.billed || m.status === "returned" || !m.supplier_id) return;
+
+  const cost = lineTotal(m.quantity, m.unit_cost);
+
+  // Advance already put against this delivery (material-linked rows only).
+  const { data: advRows } = await supabase
+    .from("supplier_advances")
+    .select("amount")
+    .eq("material_id", id)
+    .is("payment_id", null);
+  const applied = (advRows ?? []).reduce((s, r) => s - Number(r.amount), 0);
+  const net = Math.max(0, cost - applied);
+
+  // Only raise a payment when real money is due. A delivery already fully
+  // covered by advance is settled with no payment row -- just mark it.
+  if (net > 0) {
+    // The unique index on payments.material_id (40_supplier_delivery_autobill)
+    // would reject a second bill; skip if one somehow already exists.
+    const { data: existing } = await supabase
+      .from("payments")
+      .select("id")
+      .eq("material_id", id)
+      .is("archived_at", null)
+      .limit(1);
+    if (!existing || existing.length === 0) {
+      const { data: { user } } = await supabase.auth.getUser();
+      const now = new Date().toISOString();
+      const { error } = await supabase.from("payments").insert({
+        project_id: m.project_id,
+        payee_type: "supplier",
+        supplier_id: m.supplier_id,
+        amount: net,
+        description: `${m.name ?? "Material"} (${m.quantity} ${m.unit ?? "unit"})`,
+        work_category: m.work_category ?? null,
+        status: "paid",
+        approved_at: now,
+        approved_by: user?.id ?? null,
+        paid_at: now,
+        material_id: id,
+      });
+      if (error) {
+        await setFlashError(`Could not record the payment: ${error.message}`);
+        return;
+      }
+    }
+  }
+
+  const { error: matErr } = await supabase.from("materials").update({ billed: true }).eq("id", id);
+  if (matErr) {
+    await setFlashError(`Could not mark the delivery paid: ${matErr.message}`);
+    return;
+  }
+
+  revalidatePath(`/admin/suppliers/${m.supplier_id}`);
+  revalidatePath("/admin/suppliers");
+  revalidatePath("/admin/payments");
+  revalidatePath("/admin/materials");
+  revalidatePath("/supplier");
+  revalidatePath("/admin");
+}
+
+/**
+ * Undo a one-click payment. Archives the delivery's linked cash payment (so the
+ * money leaves Lifetime payment again) and returns the delivery to `billed =
+ * false` -- owed once more, and back in the Payments picker. Any advance that
+ * was applied stays applied, so a part-covered delivery returns to owing its
+ * net, not its whole line total.
+ *
+ * Only acts when such a payment exists; a delivery settled purely from advance
+ * (no payment row) is left alone -- reversing that is a different operation.
+ */
+export async function unpayDelivery(fd: FormData) {
+  const supabase = await createSupabaseServerClient();
+  const id = str(fd, "id");
+  if (!id) return;
+
+  const { data: m } = await supabase
+    .from("materials")
+    .select("supplier_id")
+    .eq("id", id)
+    .single();
+  if (!m) return;
+
+  const { data: bill } = await supabase
+    .from("payments")
+    .select("id")
+    .eq("material_id", id)
+    .eq("payee_type", "supplier")
+    .eq("status", "paid")
+    .is("archived_at", null)
+    .limit(1)
+    .maybeSingle();
+  if (!bill) return;
+
+  const { error: payErr } = await supabase
+    .from("payments")
+    .update({ archived_at: new Date().toISOString() })
+    .eq("id", bill.id);
+  if (payErr) {
+    await setFlashError(`Could not undo the payment: ${payErr.message}`);
+    return;
+  }
+
+  const { error: matErr } = await supabase.from("materials").update({ billed: false }).eq("id", id);
+  if (matErr) {
+    await setFlashError(`Could not reopen the delivery: ${matErr.message}`);
+    return;
+  }
+
+  if (m.supplier_id) revalidatePath(`/admin/suppliers/${m.supplier_id}`);
+  revalidatePath("/admin/suppliers");
+  revalidatePath("/admin/payments");
+  revalidatePath("/admin/materials");
+  revalidatePath("/supplier");
   revalidatePath("/admin");
 }
 

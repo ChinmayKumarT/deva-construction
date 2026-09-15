@@ -4,7 +4,7 @@ title: Supplier deliveries auto-create their bill
 category: decision
 status: active
 created: "2026-08-26T17:44:53"
-updated: "2026-09-15T18:35:19"
+updated: "2026-09-15T19:25:09"
 ---
 
 
@@ -90,5 +90,11 @@ updated: "2026-09-15T18:35:19"
 - time: 2026-09-15T18:35:19
   kind: decision
   summary: "Final model: a delivery records the material and settles from any advance; no bill is created, the net still owed shows in the Payments picker, and a fully advance-covered purchase reads 'paid from advance'"
+  source: "chat + implementation 2026-09-15"
+  affects: [supplier-auto-billing]
+
+- time: 2026-09-15T19:25:09
+  kind: decision
+  summary: "Added one-click Paid / Undo paid on the admin supplier profile deliveries table (payDelivery/unpayDelivery): pays the net still owed, marks the delivery billed (drops from picker), and Undo archives the payment and reopens it"
   source: "chat + implementation 2026-09-15"
   affects: [supplier-auto-billing]
