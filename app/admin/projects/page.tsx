@@ -2,6 +2,7 @@ import Link from "next/link";
 import { createSupabaseServerClient, getSessionAndRole } from "@/lib/supabase/server";
 import { AdminPage, AdminPageHeader, AdminContent, CostBox, Field, Select, SubmitButton } from "@/components/admin/Page";
 import { DeleteForeverButton } from "@/components/admin/RowActions";
+import { FormSubmitButton } from "@/components/FormSubmitButton";
 import { CollapsibleForm } from "@/components/admin/CollapsibleForm";
 import { createProject, unarchiveProject, deleteProject } from "../actions";
 
@@ -149,12 +150,12 @@ export default async function ProjectsPage(
                   <div className="flex items-center gap-2">
                     <form action={unarchiveProject}>
                       <input type="hidden" name="id" value={p.id} />
-                      <button
-                        type="submit"
+                      <FormSubmitButton
+                        pendingLabel="Restoring…"
                         className="rounded-lg bg-brand px-3 py-1.5 text-xs font-medium text-white hover:bg-brand-700"
                       >
                         Restore
-                      </button>
+                      </FormSubmitButton>
                     </form>
                     {isOwner && (
                       <DeleteForeverButton

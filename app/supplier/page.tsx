@@ -64,12 +64,12 @@ export default async function SupplierDashboard() {
             Your account isn&apos;t linked to a supplier record yet. Please contact the admin to get started.
           </p>
           <form action={signOut} className="mt-5">
-            <button
-              type="submit"
+            <FormSubmitButton
+              pendingLabel="Signing out…"
               className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand/40"
             >
               Sign out
-            </button>
+            </FormSubmitButton>
           </form>
         </div>
       </main>
@@ -290,12 +290,12 @@ export default async function SupplierDashboard() {
                   )}
                   <form action={archiveOwnMaterial} className="ml-auto">
                     <input type="hidden" name="id" value={c.id} />
-                    <button
-                      type="submit"
+                    <FormSubmitButton
+                      pendingLabel="Removing…"
                       className="rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-xs text-slate-600 transition hover:border-red-300 hover:text-red-600"
                     >
                       Remove
-                    </button>
+                    </FormSubmitButton>
                   </form>
                 </li>
               ))}

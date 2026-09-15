@@ -3,6 +3,7 @@ import Image from "next/image";
 import { createSupabaseServerClient, getSessionAndRole } from "@/lib/supabase/server";
 import { AdminPage, AdminPageHeader, AdminContent, Field, Select, SubmitButton } from "@/components/admin/Page";
 import { ArchivedToggle, DeleteForeverButton, RestoreAction } from "@/components/admin/RowActions";
+import { FormSubmitButton } from "@/components/FormSubmitButton";
 import { CollapsibleForm } from "@/components/admin/CollapsibleForm";
 import { postProjectUpdate, archiveProjectUpdate, unarchiveProjectUpdate, deleteProjectUpdate } from "../actions";
 
@@ -120,13 +121,13 @@ export default async function UpdatesPage(
                   </Link>
                   <form action={archiveProjectUpdate}>
                     <input type="hidden" name="id" value={u.id} />
-                    <button
-                      type="submit"
+                    <FormSubmitButton
+                      pendingLabel="Archiving…"
                       title="Hide this update from admin and the client. Nothing is deleted."
                       className="rounded-lg border border-red-300 bg-white px-3 py-1.5 text-xs text-red-700 hover:bg-red-50"
                     >
                       Archive
-                    </button>
+                    </FormSubmitButton>
                   </form>
                 </>
               )}

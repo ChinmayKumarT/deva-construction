@@ -1,4 +1,5 @@
 import { signOut } from "@/app/actions/auth";
+import { FormSubmitButton } from "@/components/FormSubmitButton";
 
 export type Metric = { label: string; value: string };
 
@@ -22,12 +23,12 @@ export function DashboardShell({
           {userLabel && <p className="mt-1 text-sm text-slate-500">{userLabel}</p>}
         </div>
         <form action={signOut}>
-          <button
-            type="submit"
+          <FormSubmitButton
+            pendingLabel="Signing out…"
             className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-100"
           >
             Sign out
-          </button>
+          </FormSubmitButton>
         </form>
       </div>
 

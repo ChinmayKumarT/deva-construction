@@ -226,13 +226,13 @@ export default async function ManageProjectPage(
               </Link>
               <form action={archiveProject}>
                 <input type="hidden" name="id" value={project.id} />
-                <button
-                  type="submit"
+                <FormSubmitButton
+                  pendingLabel="Archiving…"
                   title={`Archive ${project.name}`}
                   className="rounded-lg border border-red-200 bg-white px-3.5 py-1.5 text-sm font-medium text-red-600 shadow-sm hover:bg-red-50 transition"
                 >
                   Archive
-                </button>
+                </FormSubmitButton>
               </form>
             </div>
           )}
@@ -288,9 +288,9 @@ export default async function ManageProjectPage(
           <div className="flex items-center gap-2">
             <form action={unarchiveProject}>
               <input type="hidden" name="id" value={project.id} />
-              <button type="submit" className="rounded-lg bg-brand px-3 py-1.5 text-sm font-medium text-white hover:bg-brand-700">
+              <FormSubmitButton pendingLabel="Restoring…" className="rounded-lg bg-brand px-3 py-1.5 text-sm font-medium text-white hover:bg-brand-700">
                 Restore
-              </button>
+              </FormSubmitButton>
             </form>
             {isOwner && (
               <DeleteForeverButton
@@ -388,9 +388,9 @@ export default async function ManageProjectPage(
                         !archived ? (
                           <form action={archiveClientPayment}>
                             <input type="hidden" name="id" value={cp.id} />
-                            <button type="submit" className="rounded-lg px-2 py-1 text-xs text-slate-400 hover:text-red-600 hover:bg-red-50 transition">
+                            <FormSubmitButton pendingLabel="Removing…" className="rounded-lg px-2 py-1 text-xs text-slate-400 hover:text-red-600 hover:bg-red-50 transition">
                               Remove
-                            </button>
+                            </FormSubmitButton>
                           </form>
                         ) : undefined
                       }
@@ -464,9 +464,9 @@ export default async function ManageProjectPage(
                       ) : (
                         <form action={archiveChangeOrder}>
                           <input type="hidden" name="id" value={co.id} />
-                          <button type="submit" className="rounded-lg px-2 py-1 text-xs text-slate-400 hover:text-red-600 hover:bg-red-50 transition">
+                          <FormSubmitButton pendingLabel="Archiving…" className="rounded-lg px-2 py-1 text-xs text-slate-400 hover:text-red-600 hover:bg-red-50 transition">
                             Archive
-                          </button>
+                          </FormSubmitButton>
                         </form>
                       )
                     }
@@ -518,9 +518,9 @@ export default async function ManageProjectPage(
                         !archived ? (
                           <form action={archiveBudgetExtension}>
                             <input type="hidden" name="id" value={ext.id} />
-                            <button type="submit" className="rounded-lg px-2 py-1 text-xs text-slate-400 hover:text-red-600 hover:bg-red-50 transition">
+                            <FormSubmitButton pendingLabel="Removing…" className="rounded-lg px-2 py-1 text-xs text-slate-400 hover:text-red-600 hover:bg-red-50 transition">
                               Remove
-                            </button>
+                            </FormSubmitButton>
                           </form>
                         ) : undefined
                       }
@@ -566,9 +566,9 @@ export default async function ManageProjectPage(
                       <input type="text" name="reason" className="w-full rounded-lg border border-slate-200 bg-slate-50/50 px-3 py-2 text-sm focus:border-brand focus:ring-1 focus:ring-brand/20" />
                     </label>
                   </div>
-                  <button type="submit" className="mt-3 rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 shadow-sm hover:bg-slate-50 transition">
+                  <FormSubmitButton pendingLabel="Updating…" className="mt-3 rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 shadow-sm hover:bg-slate-50 transition">
                     Update date
-                  </button>
+                  </FormSubmitButton>
                 </form>
               </div>
             </Card>
@@ -590,9 +590,9 @@ export default async function ManageProjectPage(
                     <input type="number" step="0.01" min="0" name="next_payment_amount" defaultValue={project.next_payment_amount ?? ""} className="w-full rounded-lg border border-slate-200 bg-slate-50/50 px-3 py-2 text-sm focus:border-brand focus:ring-1 focus:ring-brand/20" />
                   </label>
                 </div>
-                <button type="submit" className="mt-3 rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 shadow-sm hover:bg-slate-50 transition">
+                <FormSubmitButton pendingLabel="Saving…" className="mt-3 rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 shadow-sm hover:bg-slate-50 transition">
                   Save reminder
-                </button>
+                </FormSubmitButton>
                 <p className="mt-2 text-[11px] text-slate-400">
                   A client payment clears this once the full amount is paid. Left blank, any payment clears it.
                 </p>
@@ -622,9 +622,9 @@ export default async function ManageProjectPage(
                     </form>
                     <form action={removeProjectAgreement}>
                       <input type="hidden" name="project_id" value={project.id} />
-                      <button type="submit" className="rounded-lg border border-red-200 bg-white px-3 py-1.5 text-sm text-red-600 shadow-sm hover:bg-red-50 transition">
+                      <FormSubmitButton pendingLabel="Removing…" className="rounded-lg border border-red-200 bg-white px-3 py-1.5 text-sm text-red-600 shadow-sm hover:bg-red-50 transition">
                         Remove
-                      </button>
+                      </FormSubmitButton>
                     </form>
                   </div>
                 )}

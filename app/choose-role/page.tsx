@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { getSessionAndRole } from "@/lib/supabase/server";
 import { chooseRole } from "../actions/auth";
+import { FormSubmitButton } from "@/components/FormSubmitButton";
 
 export default async function ChooseRolePage(
   props: {
@@ -30,28 +31,28 @@ export default async function ChooseRolePage(
         )}
 
         <form action={chooseRole} className="space-y-3 rounded-2xl border border-[var(--line)] bg-white p-6 shadow-sm">
-          <button
-            type="submit"
+          <FormSubmitButton
             name="role"
             value="client"
+            pendingLabel="Setting up…"
             className="w-full rounded-lg border border-[var(--line)] px-4 py-3 text-left font-medium text-slate-700 hover:border-brand hover:bg-brand/5 transition"
           >
             Client
             <span className="block text-sm font-normal text-slate-500">
               I&apos;m having a project built and want to track its progress.
             </span>
-          </button>
-          <button
-            type="submit"
+          </FormSubmitButton>
+          <FormSubmitButton
             name="role"
             value="supplier"
+            pendingLabel="Setting up…"
             className="w-full rounded-lg border border-[var(--line)] px-4 py-3 text-left font-medium text-slate-700 hover:border-brand hover:bg-brand/5 transition"
           >
             Supplier
             <span className="block text-sm font-normal text-slate-500">
               I deliver materials and submit bills for projects.
             </span>
-          </button>
+          </FormSubmitButton>
         </form>
       </div>
     </main>

@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { assignRoleByEmail, deleteRoleReservation, setUserRole, deleteUser } from "@/app/admin/actions";
 import { DeleteForeverButton } from "@/components/admin/RowActions";
+import { FormSubmitButton } from "@/components/FormSubmitButton";
 
 type Profile = { id: string; full_name: string | null; role: string; is_owner: boolean };
 type Reservation = { email: string; role: string; created_at: string };
@@ -48,12 +49,12 @@ export function TeamAccessClient({ profiles, reservations }: { profiles: Profile
             ))}
           </select>
         </div>
-        <button
-          type="submit"
+        <FormSubmitButton
+          pendingLabel="Assigning…"
           className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800 transition"
         >
           Assign role
-        </button>
+        </FormSubmitButton>
       </form>
 
       {reservations.length > 0 && (
@@ -67,7 +68,7 @@ export function TeamAccessClient({ profiles, reservations }: { profiles: Profile
                 <span className="rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold uppercase text-amber-800">{r.role}</span>
                 <form action={deleteRoleReservation} className="inline">
                   <input type="hidden" name="email" value={r.email} />
-                  <button type="submit" className="ml-1 text-xs text-slate-400 hover:text-red-600" title="Remove reservation">&times;</button>
+                  <FormSubmitButton pendingLabel="…" className="ml-1 text-xs text-slate-400 hover:text-red-600" title="Remove reservation">&times;</FormSubmitButton>
                 </form>
               </div>
             ))}
@@ -116,12 +117,12 @@ export function TeamAccessClient({ profiles, reservations }: { profiles: Profile
                         <option key={r} value={r}>{r}</option>
                       ))}
                     </select>
-                    <button
-                      type="submit"
+                    <FormSubmitButton
+                      pendingLabel="Saving…"
                       className="rounded-lg bg-brand px-3 py-1 text-xs font-medium text-white hover:bg-brand-700"
                     >
                       Save
-                    </button>
+                    </FormSubmitButton>
                   </form>
                 </td>
                 <td className="px-4 py-3">

@@ -11,6 +11,7 @@ import {
   updateShowcaseProject,
 } from "../actions";
 import { ShowcasePhotoUpload } from "@/components/admin/ShowcasePhotoUpload";
+import { FormSubmitButton } from "@/components/FormSubmitButton";
 
 const SITE = "https://devaconstructions.in";
 
@@ -101,38 +102,38 @@ export default async function EditShowcasePage(props: { params: Promise<{ id: st
                       <input type="hidden" name="id" value={photo.id} />
                       <input type="hidden" name="showcase_id" value={project.id} />
                       <input type="hidden" name="direction" value="up" />
-                      <button
-                        type="submit"
+                      <FormSubmitButton
+                        pendingLabel="…"
                         disabled={i === 0}
                         aria-label="Move earlier"
                         className="rounded border border-[var(--line)] px-2 py-1 text-xs disabled:opacity-40"
                       >
                         ←
-                      </button>
+                      </FormSubmitButton>
                     </form>
                     <form action={moveShowcasePhoto}>
                       <input type="hidden" name="id" value={photo.id} />
                       <input type="hidden" name="showcase_id" value={project.id} />
                       <input type="hidden" name="direction" value="down" />
-                      <button
-                        type="submit"
+                      <FormSubmitButton
+                        pendingLabel="…"
                         disabled={i === photos.length - 1}
                         aria-label="Move later"
                         className="rounded border border-[var(--line)] px-2 py-1 text-xs disabled:opacity-40"
                       >
                         →
-                      </button>
+                      </FormSubmitButton>
                     </form>
                   </div>
                   <form action={deleteShowcasePhoto}>
                     <input type="hidden" name="id" value={photo.id} />
                     <input type="hidden" name="showcase_id" value={project.id} />
-                    <button
-                      type="submit"
+                    <FormSubmitButton
+                      pendingLabel="Removing…"
                       className="rounded px-2 py-1 text-xs text-red-600 hover:bg-red-50"
                     >
                       Remove
-                    </button>
+                    </FormSubmitButton>
                   </form>
                 </div>
               </li>
@@ -223,21 +224,21 @@ export default async function EditShowcasePage(props: { params: Promise<{ id: st
               Delete is kept deliberately plain and last. */}
           <form action={archiveShowcaseProject}>
             <input type="hidden" name="id" value={project.id} />
-            <button
-              type="submit"
+            <FormSubmitButton
+              pendingLabel="Archiving…"
               className="rounded-md border border-[var(--line)] px-3 py-2 text-sm text-slate-700 hover:bg-slate-50"
             >
               Archive
-            </button>
+            </FormSubmitButton>
           </form>
           <form action={deleteShowcaseProject}>
             <input type="hidden" name="id" value={project.id} />
-            <button
-              type="submit"
+            <FormSubmitButton
+              pendingLabel="Deleting…"
               className="rounded-md border border-red-200 px-3 py-2 text-sm text-red-600 hover:bg-red-50"
             >
               Delete permanently
-            </button>
+            </FormSubmitButton>
           </form>
         </div>
       </section>

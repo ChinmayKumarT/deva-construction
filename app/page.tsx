@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { signIn, signUp, signInWithGoogle, signInWithMagicLink } from "./actions/auth";
 import { getSessionAndRole } from "@/lib/supabase/server";
 import { PasswordField } from "@/components/PasswordField";
+import { FormSubmitButton } from "@/components/FormSubmitButton";
 import { OrganicBlob } from "@/components/ui/OrganicBlob";
 import { DottedPattern } from "@/components/ui/DottedPattern";
 
@@ -88,12 +89,12 @@ export default async function LoginPage(
               className="space-y-4 rounded-2xl border border-[var(--line)] bg-white p-6 shadow-sm"
             >
               <Field label="Email" name="email" type="email" required />
-              <button
-                type="submit"
+              <FormSubmitButton
+                pendingLabel="Sending…"
                 className="w-full rounded-lg bg-brand px-4 py-2.5 font-medium text-white hover:bg-brand-700 active:bg-brand-800 transition"
               >
                 Send magic link
-              </button>
+              </FormSubmitButton>
               <p className="text-center text-sm">
                 <a href="/" className="font-medium text-brand-700 hover:underline">
                   Use your password instead
@@ -143,13 +144,13 @@ export default async function LoginPage(
                 </label>
               )}
 
-              <button
-                type="submit"
+              <FormSubmitButton
+                pendingLabel={isSignUp ? "Creating…" : "Signing in…"}
                 className="w-full rounded-lg px-4 py-2.5 font-medium text-white transition hover:opacity-90 active:opacity-80"
                 style={{ backgroundColor: "#6257F6" }}
               >
                 {isSignUp ? "Create account" : "Sign in"}
-              </button>
+              </FormSubmitButton>
 
             </form>
           )}
@@ -162,8 +163,8 @@ export default async function LoginPage(
 
 
           <form action={signInWithGoogle}>
-            <button
-              type="submit"
+            <FormSubmitButton
+              pendingLabel="Connecting…"
               className="flex w-full items-center justify-center gap-2 rounded-lg bg-white px-4 py-2.5 font-medium transition hover:bg-slate-50"
               style={{ border: "1px solid #D9DFEA", color: "#3F4654" }}
             >
@@ -174,7 +175,7 @@ export default async function LoginPage(
                 <path fill="#EA4335" d="M9 3.58c1.32 0 2.51.46 3.44 1.35l2.58-2.58C13.46.89 11.43 0 9 0A9 9 0 0 0 .95 4.97l3 2.33C4.66 5.17 6.65 3.58 9 3.58Z" />
               </svg>
               Continue with Google
-            </button>
+            </FormSubmitButton>
           </form>
 
           <a

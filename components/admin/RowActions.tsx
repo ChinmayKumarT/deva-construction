@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { FormSubmitButton } from "@/components/FormSubmitButton";
 
 /**
  * Shared Edit / Archive / Restore controls for the admin list pages.
@@ -29,13 +30,13 @@ export function RowActions({
       </Link>
       <form action={archiveAction}>
         <input type="hidden" name="id" value={id} />
-        <button
-          type="submit"
+        <FormSubmitButton
+          pendingLabel="Archiving…"
           title={`Hide ${name} from lists. Nothing is deleted and it can be restored.`}
           className="rounded-lg border border-red-300 bg-white px-3 py-1.5 text-xs text-red-700 hover:bg-red-50"
         >
           Archive
-        </button>
+        </FormSubmitButton>
       </form>
     </div>
   );
@@ -67,12 +68,12 @@ export function DeleteForeverButton({
       }}
     >
       <input type="hidden" name="id" value={id} />
-      <button
-        type="submit"
+      <FormSubmitButton
+        pendingLabel="Deleting…"
         className="rounded-lg bg-red-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-red-700"
       >
         Delete forever
-      </button>
+      </FormSubmitButton>
     </form>
   );
 }
@@ -87,12 +88,12 @@ export function RestoreAction({
   return (
     <form action={action}>
       <input type="hidden" name="id" value={id} />
-      <button
-        type="submit"
+      <FormSubmitButton
+        pendingLabel="Restoring…"
         className="rounded-lg bg-brand px-3 py-1.5 text-xs font-medium text-white hover:bg-brand-700"
       >
         Restore
-      </button>
+      </FormSubmitButton>
     </form>
   );
 }
@@ -196,13 +197,13 @@ export function DeleteAdvanceButton({
     >
       <input type="hidden" name="id" value={id} />
       <input type="hidden" name="supplier_id" value={supplierId} />
-      <button
-        type="submit"
+      <FormSubmitButton
+        pendingLabel="Removing…"
         title={`Remove the ₹${amount.toLocaleString()} advance`}
         className="rounded-md border border-red-200 bg-white px-2 py-0.5 text-xs text-red-600 transition hover:bg-red-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-300"
       >
         Remove
-      </button>
+      </FormSubmitButton>
     </form>
   );
 }

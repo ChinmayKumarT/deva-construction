@@ -2,16 +2,17 @@
 
 import { useState, useTransition } from "react";
 import { signOut, deleteAccount } from "@/app/actions/auth";
+import { FormSubmitButton } from "@/components/FormSubmitButton";
 
 export function SignOutButton() {
   return (
     <form action={signOut}>
-      <button
-        type="submit"
+      <FormSubmitButton
+        pendingLabel="Signing out…"
         className="rounded-lg border border-slate-200 px-4 py-2 text-sm font-medium text-slate-600 transition hover:bg-slate-50"
       >
         Sign out
-      </button>
+      </FormSubmitButton>
     </form>
   );
 }

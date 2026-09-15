@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { createSupabaseServerClient, getSessionAndRole } from "@/lib/supabase/server";
 import { AdminPage, AdminPageHeader, AdminContent } from "@/components/admin/Page";
 import { DeleteForeverButton } from "@/components/admin/RowActions";
+import { FormSubmitButton } from "@/components/FormSubmitButton";
 import { archiveClient, deleteClient, unarchiveClient } from "../../actions";
 
 export const dynamic = "force-dynamic";
@@ -43,12 +44,12 @@ export default async function ManageClientPage(props: { params: Promise<{ id: st
             <div className="flex items-center gap-2">
               <form action={unarchiveClient}>
                 <input type="hidden" name="id" value={client.id} />
-                <button
-                  type="submit"
+                <FormSubmitButton
+                  pendingLabel="Restoring…"
                   className="rounded-lg bg-brand px-3 py-1.5 text-sm font-medium text-white hover:bg-brand-700"
                 >
                   Restore
-                </button>
+                </FormSubmitButton>
               </form>
               {isOwner && <DeleteForeverButton id={client.id} name={client.name} action={deleteClient} />}
             </div>
@@ -63,13 +64,13 @@ export default async function ManageClientPage(props: { params: Promise<{ id: st
             </Link>
             <form action={archiveClient}>
               <input type="hidden" name="id" value={client.id} />
-              <button
-                type="submit"
+              <FormSubmitButton
+                pendingLabel="Archiving…"
                 title={`Hide ${client.name} from lists. Its projects are unaffected and it can be restored.`}
                 className="rounded-lg border border-red-300 bg-white px-3 py-1.5 text-sm text-red-700 hover:bg-red-50"
               >
                 Archive
-              </button>
+              </FormSubmitButton>
             </form>
           </div>
         )}

@@ -1,4 +1,5 @@
 import { requestPasswordReset } from "../actions/auth";
+import { FormSubmitButton } from "@/components/FormSubmitButton";
 
 export const metadata = {
   title: "Reset your password — Deva Construction",
@@ -45,12 +46,12 @@ export default async function ForgotPasswordPage(
               className="w-full rounded-lg border border-[var(--line)] bg-white px-3 py-2 outline-none focus:border-brand focus:ring-2 focus:ring-brand/20"
             />
           </label>
-          <button
-            type="submit"
+          <FormSubmitButton
+            pendingLabel="Sending…"
             className="w-full rounded-lg bg-brand px-4 py-2.5 font-medium text-white hover:bg-brand-700 active:bg-brand-800 transition"
           >
             Send reset link
-          </button>
+          </FormSubmitButton>
         </form>
 
         <p className="mt-5 text-center text-sm text-slate-600">

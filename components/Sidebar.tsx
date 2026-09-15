@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState, Fragment } from "react";
 import { signOut } from "@/app/actions/auth";
+import { FormSubmitButton } from "@/components/FormSubmitButton";
 
 export type IconName =
   | "overview" | "projects" | "clients" | "suppliers" | "labourers"
@@ -127,9 +128,9 @@ export function Sidebar({
         </nav>
 
         <form action={signOut} className={"mt-2 " + (expanded ? "px-3" : "")}>
-          <button
-            type="submit"
+          <FormSubmitButton
             title="Sign out"
+            pendingLabel={expanded ? "Signing out…" : "…"}
             className={
               (expanded
                 ? "flex w-full items-center gap-3 px-3 h-10 rounded-xl text-sm "
@@ -140,7 +141,7 @@ export function Sidebar({
           >
             <Icon name="signout" size={20} />
             {expanded && <span>Sign out</span>}
-          </button>
+          </FormSubmitButton>
         </form>
       </aside>
 
@@ -207,13 +208,13 @@ export function Sidebar({
 
         <div className="border-t border-slate-100 px-3 py-3 shrink-0">
           <form action={signOut}>
-            <button
-              type="submit"
+            <FormSubmitButton
+              pendingLabel="Signing out…"
               className="flex w-full items-center gap-3 px-3 h-10 rounded-xl text-sm text-slate-600 hover:bg-red-50 hover:text-red-500"
             >
               <Icon name="signout" size={20} />
               <span>Sign out</span>
-            </button>
+            </FormSubmitButton>
           </form>
         </div>
       </aside>

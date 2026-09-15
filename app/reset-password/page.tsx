@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { getSessionAndRole } from "@/lib/supabase/server";
 import { updatePassword } from "../actions/auth";
 import { PasswordField } from "@/components/PasswordField";
+import { FormSubmitButton } from "@/components/FormSubmitButton";
 
 export const metadata = {
   title: "Set a new password — Deva Construction",
@@ -39,12 +40,12 @@ export default async function ResetPasswordPage(
         >
           <PasswordField name="password" label="New password" />
           <PasswordField name="confirm" label="Confirm new password" />
-          <button
-            type="submit"
+          <FormSubmitButton
+            pendingLabel="Updating…"
             className="w-full rounded-lg bg-brand px-4 py-2.5 font-medium text-white hover:bg-brand-700 active:bg-brand-800 transition"
           >
             Update password
-          </button>
+          </FormSubmitButton>
         </form>
       </div>
     </main>

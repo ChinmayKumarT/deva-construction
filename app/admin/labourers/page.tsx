@@ -1,6 +1,7 @@
 import { createSupabaseServerClient, getSessionAndRole } from "@/lib/supabase/server";
 import { AdminPage, AdminPageHeader, AdminContent, DataTable, Field, SubmitButton } from "@/components/admin/Page";
 import { ArchivedToggle, DeleteForeverButton, ManageCard, ManageSection, RestoreAction, RowActions } from "@/components/admin/RowActions";
+import { FormSubmitButton } from "@/components/FormSubmitButton";
 import { AssignLabourerForm } from "@/components/admin/AssignLabourerForm";
 import { CategoryField } from "@/components/admin/CategoryField";
 import { LinkFamilyForm, FamilyBadge } from "@/components/admin/FamilyLink";
@@ -127,7 +128,7 @@ export default async function LabourersPage(
                     <FamilyBadge members={fam} colorIndex={familyColorIdx.get(l.id)} />
                     <form action={unlinkFamily} className="inline ml-2">
                       <input type="hidden" name="labourer_id" value={l.id} />
-                      <button type="submit" className="text-[10px] text-slate-400 hover:text-red-500" title="Remove from family">×</button>
+                      <FormSubmitButton pendingLabel="…" className="text-[10px] text-slate-400 hover:text-red-500" title="Remove from family">×</FormSubmitButton>
                     </form>
                   </div>
                 )}

@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect, useTransition } from "react";
 import { signOut, deleteAccount } from "@/app/actions/auth";
+import { FormSubmitButton } from "@/components/FormSubmitButton";
 
 export function ProfileMenu({ name, email, role = "Supplier" }: { name: string; email: string; role?: string }) {
   const [open, setOpen] = useState(false);
@@ -55,13 +56,13 @@ export function ProfileMenu({ name, email, role = "Supplier" }: { name: string; 
 
           <div className="p-1.5">
             <form action={signOut}>
-              <button
-                type="submit"
+              <FormSubmitButton
+                pendingLabel="Signing out…"
                 className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm text-slate-600 transition hover:bg-slate-50"
               >
                 <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"><path d="M15 4h3a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-3"/><path d="M10 17l-5-5 5-5"/><path d="M15 12H5"/></svg>
                 Sign out
-              </button>
+              </FormSubmitButton>
             </form>
             <button
               onClick={() => { setOpen(false); setShowDelete(true); }}

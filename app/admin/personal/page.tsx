@@ -3,6 +3,7 @@ import { requireRole } from "@/lib/guard";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { AdminPage, AdminPageHeader, AdminContent, CostBox, DataTable, Field, Select, SubmitButton } from "@/components/admin/Page";
 import { ArchivedToggle, DeleteForeverButton, ManageCard, ManageSection, RestoreAction, RowActions } from "@/components/admin/RowActions";
+import { FormSubmitButton } from "@/components/FormSubmitButton";
 import { CollapsibleForm } from "@/components/admin/CollapsibleForm";
 import {
   createPersonalTransaction,
@@ -111,12 +112,12 @@ export default async function PersonalTransactionsPage(
               ) : (
                 <form action={archivePersonalTransaction}>
                   <input type="hidden" name="id" value={t.id} />
-                  <button
-                    type="submit"
+                  <FormSubmitButton
+                    pendingLabel="Archiving…"
                     className="rounded-lg border border-red-300 bg-white px-3 py-1.5 text-xs text-red-700 hover:bg-red-50"
                   >
                     Archive
-                  </button>
+                  </FormSubmitButton>
                 </form>
               )}
             </ManageCard>

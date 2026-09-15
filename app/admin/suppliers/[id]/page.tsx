@@ -13,6 +13,7 @@ import {
 import { lineTotal } from "@/lib/money";
 import { supplierMoney, advanceAppliedByMaterial } from "@/lib/supplierAccount";
 import { formatDateTime } from "@/lib/dateFormat";
+import { FormSubmitButton } from "@/components/FormSubmitButton";
 
 export const dynamic = "force-dynamic";
 export const fetchCache = "force-no-store";
@@ -136,12 +137,12 @@ export default async function ManageSupplierPage(props: { params: Promise<{ id: 
             <div className="flex items-center gap-2">
               <form action={unarchiveSupplier}>
                 <input type="hidden" name="id" value={supplier.id} />
-                <button
-                  type="submit"
+                <FormSubmitButton
+                  pendingLabel="Restoring…"
                   className="rounded-lg bg-brand px-3 py-1.5 text-sm font-medium text-white hover:bg-brand-700"
                 >
                   Restore
-                </button>
+                </FormSubmitButton>
               </form>
               {isOwner && (
                 <DeleteForeverButton
@@ -183,13 +184,13 @@ export default async function ManageSupplierPage(props: { params: Promise<{ id: 
             </Link>
             <form action={archiveSupplier}>
               <input type="hidden" name="id" value={supplier.id} />
-              <button
-                type="submit"
+              <FormSubmitButton
+                pendingLabel="Archiving…"
                 title={`Hide ${supplier.name} from lists and dropdowns. Its past materials and payments are kept and it can be restored.`}
                 className="rounded-lg border border-red-300 bg-white px-3 py-1.5 text-sm text-red-700 hover:bg-red-50"
               >
                 Archive
-              </button>
+              </FormSubmitButton>
             </form>
           </div>
         )}
@@ -237,13 +238,13 @@ export default async function ManageSupplierPage(props: { params: Promise<{ id: 
                 <td className="px-4 py-2">
                   <form action={archiveMaterial}>
                     <input type="hidden" name="id" value={m.id} />
-                    <button
-                      type="submit"
+                    <FormSubmitButton
+                      pendingLabel="Deleting…"
                       title={`Delete ${m.name}`}
                       className="rounded-md border border-red-200 bg-white px-2 py-0.5 text-xs text-red-600 hover:bg-red-50 transition"
                     >
                       Delete
-                    </button>
+                    </FormSubmitButton>
                   </form>
                 </td>
               </tr>
@@ -282,13 +283,13 @@ export default async function ManageSupplierPage(props: { params: Promise<{ id: 
                 <td className="px-4 py-2">
                   <form action={archivePayment}>
                     <input type="hidden" name="id" value={p.id} />
-                    <button
-                      type="submit"
+                    <FormSubmitButton
+                      pendingLabel="Deleting…"
                       title={`Delete payment of ₹${Number(p.amount).toLocaleString()}`}
                       className="rounded-md border border-red-200 bg-white px-2 py-0.5 text-xs text-red-600 hover:bg-red-50 transition"
                     >
                       Delete
-                    </button>
+                    </FormSubmitButton>
                   </form>
                 </td>
               </tr>
@@ -326,12 +327,12 @@ export default async function ManageSupplierPage(props: { params: Promise<{ id: 
               className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none focus:border-brand focus:ring-2 focus:ring-brand/20"
             />
           </label>
-          <button
-            type="submit"
+          <FormSubmitButton
+            pendingLabel="Giving…"
             className="rounded-lg bg-brand px-4 py-2 text-sm font-medium text-white hover:bg-brand-700 transition"
           >
             Give advance
-          </button>
+          </FormSubmitButton>
         </form>
         </CollapsibleForm>
       )}
@@ -429,12 +430,12 @@ export default async function ManageSupplierPage(props: { params: Promise<{ id: 
               className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none focus:border-brand focus:ring-2 focus:ring-brand/20"
             />
           </label>
-          <button
-            type="submit"
+          <FormSubmitButton
+            pendingLabel="Adding…"
             className="rounded-lg bg-brand px-4 py-2 text-sm font-medium text-white hover:bg-brand-700 transition"
           >
             Add material
-          </button>
+          </FormSubmitButton>
         </form>
         </CollapsibleForm>
       )}
@@ -469,12 +470,12 @@ export default async function ManageSupplierPage(props: { params: Promise<{ id: 
                     <form action={archiveSupplierMaterial}>
                       <input type="hidden" name="id" value={c.id} />
                       <input type="hidden" name="supplier_id" value={supplier.id} />
-                      <button
-                        type="submit"
+                      <FormSubmitButton
+                        pendingLabel="Removing…"
                         className="rounded-md border border-red-200 bg-white px-2.5 py-1 text-xs text-red-600 transition hover:bg-red-50"
                       >
                         Remove
-                      </button>
+                      </FormSubmitButton>
                     </form>
                   )}
                 </td>
