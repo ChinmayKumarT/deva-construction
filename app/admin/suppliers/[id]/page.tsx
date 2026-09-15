@@ -257,7 +257,7 @@ export default async function ManageSupplierPage(props: { params: Promise<{ id: 
                           title={`Mark ₹${Math.max(0, lineTotal(m.quantity, m.unit_cost) - (appliedByMaterial.get(m.id) ?? 0)).toLocaleString()} paid`}
                           className="rounded-md border border-emerald-300 bg-emerald-50 px-2 py-0.5 text-xs font-medium text-emerald-700 hover:bg-emerald-100 transition"
                         >
-                          Paid
+                          Pay
                         </FormSubmitButton>
                       </form>
                     )}
