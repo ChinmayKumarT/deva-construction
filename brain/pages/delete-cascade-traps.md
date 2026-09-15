@@ -4,7 +4,7 @@ title: Two schema traps that break permanent delete
 category: reference
 status: active
 created: "2026-09-08T17:16:46"
-updated: "2026-09-09T11:32:23"
+updated: "2026-09-15T12:10:15"
 ---
 
 <!-- compiled_truth -->
@@ -44,4 +44,10 @@ Related: [[supplier-auto-billing]]
   kind: decision
   summary: "A third trap, in navigation: a delete offered on the row's own detail page must redirect to the list. Revalidating alone re-renders the detail route for a row that is gone, so the owner lands on a 404 for what they just deleted. Applies to projects, clients, suppliers, materials; add the redirect to any new detail page that offers delete. /admin now has its own 404 -- the root one says 'Back to sign in', wrong for a signed-in owner."
   source: "session 2026-09-09, commit 22d2ccd"
+  affects: [delete-cascade-traps]
+
+- time: 2026-09-15T12:10:15
+  kind: reversal
+  summary: Deleting a purchase now removes it from spend and from the payment picker
+  source: owner instruction 2026-09-15
   affects: [delete-cascade-traps]
