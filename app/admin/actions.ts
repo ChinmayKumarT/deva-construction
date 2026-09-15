@@ -4,7 +4,6 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createSupabaseServerClient, getSessionAndRole } from "@/lib/supabase/server";
 import { WAGE_FACTOR } from "@/lib/wages";
-import { lineTotal } from "@/lib/money";
 import { setFlashError } from "@/lib/flash";
 
 function str(fd: FormData, k: string) {
@@ -545,80 +544,6 @@ async function applyAdvanceToBill(
 }
 
 /**
- * Raise the bill for a delivered material, the same way a supplier recording
- * their own delivery does (recordDelivery in app/supplier/actions.ts).
- *
- * Until now only the supplier's path billed itself. A delivery entered here
- * created the material and drew down the advance but never produced a payment,
- * so the goods were on site and "Remaining" for that supplier stayed at zero --
- * the exact trap 40_supplier_delivery_autobill.sql was written to close, just
- * from the other side of the app.
- *
- * The advance decides the status, as everywhere else: covered in full means the
- * money already left as the advance, so the bill ends up `paid`; a part-covered
- * one keeps the balance it could not absorb as a real debt, and shows up in
- * Remaining.
- */
-async function billSupplierDelivery(
-  supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>,
-  m: {
-    materialId: string;
-    projectId: string | null;
-    supplierId: string;
-    name: string;
-    unit: string;
-    quantity: number;
-    unitCost: number;
-    workCategory?: string | null;
-  },
-) {
-  const cost = lineTotal(m.quantity, m.unitCost);
-  if (cost <= 0) return;
-
-  // payments.material_id carries a unique index (40_supplier_delivery_autobill),
-  // so a second bill for the same delivery would be rejected outright. Check
-  // first rather than surfacing a constraint violation -- markMaterialDelivered
-  // can run on a material that addMaterial already billed.
-  const { data: existing } = await supabase
-    .from("payments")
-    .select("id")
-    .eq("material_id", m.materialId)
-    .limit(1);
-  if (existing && existing.length > 0) return;
-
-  const { data: { user } } = await supabase.auth.getUser();
-  const now = new Date().toISOString();
-  // Raised as owing, then offered to the advance -- not the other way round.
-  // The credit is applied against the bill's id, so the bill has to exist
-  // first; apply_supplier_advance_to_bill flips it to paid if the advance
-  // covers the whole of it, and leaves the rest owing if it does not.
-  const { data: bill, error } = await supabase.from("payments").insert({
-    project_id: m.projectId,
-    payee_type: "supplier",
-    supplier_id: m.supplierId,
-    amount: cost,
-    // Same shape recordDelivery writes, so bills from either path read
-    // identically in the payments list.
-    description: `${m.name} (${m.quantity} ${m.unit})`,
-    work_category: m.workCategory ?? null,
-    status: "approved",
-    approved_at: now,
-    approved_by: user?.id ?? null,
-    material_id: m.materialId,
-  }).select("id").single();
-  if (error) throw new Error(error.message);
-  if (bill) await applyAdvanceToBill(supabase, m.supplierId, bill.id, cost);
-
-  // Only now that the bill exists. lib/cashflow.ts skips a `billed` material
-  // because its cost is counted through the payment instead -- setting the flag
-  // before the insert succeeded would drop the cost out of cash flow entirely
-  // if that insert then failed.
-  await supabase.from("materials").update({ billed: true }).eq("id", m.materialId);
-  revalidatePath("/admin/payments");
-  revalidatePath(`/admin/suppliers/${m.supplierId}`);
-}
-
-/**
  * A delivery that was settled out of the advance account has to hand that
  * credit back when the delivery is deleted -- otherwise the advance stays
  * spent on goods that are no longer on the books, and the balance understates
@@ -797,24 +722,14 @@ export async function createMaterial(
       unit_cost: row.unit_cost,
     });
     if (!duplicate) {
-      const { data: inserted, error } = await supabase.from("materials").insert(row).select("id").single();
+      // A delivery just records the goods arriving. No bill is raised here:
+      // the material shows in the Payments "Purchase" picker (billed defaults
+      // false) and the owner raises the payment when they choose to.
+      const { error } = await supabase.from("materials").insert(row);
       if (error) throw new Error(error.message);
-      if (status === "delivered" && row.supplier_id && inserted) {
-        // Raises the bill and draws down the advance -- the delivery is one
-        // event, not a material to record now and a payment to remember later.
-        await billSupplierDelivery(supabase, {
-          materialId: inserted.id,
-          projectId: row.project_id,
-          supplierId: row.supplier_id,
-          name: row.name ?? "Material",
-          unit: row.unit,
-          quantity: row.quantity,
-          unitCost: row.unit_cost,
-          workCategory: row.work_category,
-        });
-      }
     }
     revalidatePath("/admin/materials");
+    revalidatePath("/admin/payments");
     revalidatePath("/admin/costs");
     revalidatePath("/admin");
     return { error: null, success: true };
@@ -827,33 +742,16 @@ export async function markMaterialDelivered(fd: FormData) {
   const supabase = await createSupabaseServerClient();
   const id = str(fd, "id");
   if (!id) return;
-  const { data: material } = await supabase
-    .from("materials")
-    .select("supplier_id, project_id, name, unit, quantity, unit_cost, work_category")
-    .eq("id", id)
-    .single();
+  // Just marks the goods as arrived. No bill is raised: the delivery shows in
+  // the Payments "Purchase" picker and the owner pays for it when they choose.
   const { error } = await supabase
     .from("materials")
     .update({ status: "delivered", delivered_at: new Date().toISOString() })
     .eq("id", id);
   if (error) throw new Error(error.message);
-  if (material?.supplier_id) {
-    // Marking an ordered material as delivered is the same real-world event as
-    // entering it delivered in the first place, so it bills the same way.
-    // billSupplierDelivery skips anything already billed.
-    await billSupplierDelivery(supabase, {
-      materialId: id,
-      projectId: material.project_id,
-      supplierId: material.supplier_id,
-      name: material.name ?? "Material",
-      unit: material.unit ?? "unit",
-      quantity: material.quantity,
-      unitCost: material.unit_cost,
-      workCategory: material.work_category,
-    });
-  }
   revalidatePath("/admin/materials");
   revalidatePath("/admin/costs");
+  revalidatePath("/admin/payments");
   revalidatePath("/admin");
 }
 

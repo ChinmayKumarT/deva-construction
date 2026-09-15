@@ -4,30 +4,29 @@ title: Supplier deliveries auto-create their bill
 category: decision
 status: active
 created: "2026-08-26T17:44:53"
-updated: "2026-09-08T23:03:41"
+updated: "2026-09-15T12:36:41"
 ---
 
 
 <!-- compiled_truth -->
-Before Aug 2026, recording a delivery and billing for it were two separate forms. Suppliers often skipped the second form, leaving goods on site with no debt visible on the admin's books.
+**Reversed on 2026-09-15. Deliveries no longer create a bill.** The owner's instruction: "When a supplier delivers material, the owner should automatically know. There is no need to create any bill... it should show on the admin page for payment only."
 
-**Decision**: `recordDelivery()` inserts the material row AND its bill (payment) in one operation. The old `generateBill()` action was deleted entirely. There is still no approval step and no "Mark paid" button for supplier bills -- the status is computed, not clicked. The owner's position is that a supplier's own recorded delivery needs no admin approval.
+**Current model (simple):**
+- Recording a delivery -- from the supplier's own portal (`recordDelivery` in app/supplier/actions.ts), the admin material form (`addMaterial`), or `markMaterialDelivered` -- inserts **only** the `materials` row, with `billed = false`. No `payments` row is created and no advance is drawn down at delivery time.
+- The delivery then shows in the Payments "Purchase (optional)" picker (the picker query is `billed = false`, `status != returned`, `supplier_id is not null`, filtered to the chosen project). The owner sees it and raises the payment when they choose.
+- `createPayment` (app/admin/actions.ts) is the one place a supplier bill is now created. Picking a purchase there sets that material's `billed = true` (so it drops out of the picker, no double-pay) and applies any advance via `apply_supplier_advance_to_bill`.
 
-**How the status is computed now.** The bill is always inserted `approved` -- a real debt -- and then offered to the supplier's advance balance by `apply_supplier_advance_to_bill` (see [[supplier-advance-ledger]]). The credit goes against it as far as it reaches; the bill flips to `paid` only if that clears it in full. Bill first, advance second, because the credit is recorded against the bill's id.
+**Why this doesn't double-count in cash flow:** while `billed = false`, the material's own row carries its cost in `lib/cashflow.ts`; once the owner pays and `billed` flips to `true`, cashflow skips the material and counts the payment instead. Exactly one of the two is ever counted.
 
-**Two reversals got here, both worth knowing** (details on [[supplier-advance-ledger]]):
-- Aug 30 2026 wrote every supplier delivery straight to `paid` and let the advance ledger go negative to carry the debt. Migration 49 undid that: the same debt was being stated twice, and Remaining could never read anything but zero because no supplier bill was ever left outstanding. Migration 50 repaired the data.
-- 49's replacement rule was all-or-nothing -- `paid` where an advance covered the whole delivery, `approved` otherwise, and the advance untouched in between. Sep 2026 replaced that with partial application, because 400 of credit against a 1,000 bill left the 400 showing as credit in hand while Remaining already counted it.
+**What was removed:** `billSupplierDelivery()` in app/admin/actions.ts (deleted), the bill-insert + advance-apply block inside the supplier's `recordDelivery()`, and both admin auto-bill call sites. The advance system itself is untouched -- advances are still given, and still applied when the owner raises a bill manually or gives an advance ([[supplier-advance-ledger]]).
 
-**Key invariants**:
-- `materials.billed` is set to `true` at delivery time -- prevents double-counting in `lib/cashflow.ts` (which skips billed materials).
-- `payments.material_id` links the bill to its delivery (migration 40), and a unique partial index on it stops a delivery being billed twice across the two paths into that table. Migration 41 backfills legacy bills that were never linked.
-- `supplier_advances.payment_id` links credit to the bill it settled (migration 52). This is what lets a bill be part-settled without the credit being counted twice.
-- The insert RLS policy is what makes the status rule mandatory rather than advisory -- a code-only change would be rejected. Migration 48 required `status = 'paid'`; 49 widened it to `paid` or `approved`, which is what the current flow needs (it inserts `approved`, and the `paid` flip happens inside a `security definer` function).
+**Still in place, now dormant / defensive:** migration 40's unique index on `payments.material_id` (still stops one delivery being paid twice through the picker); the delete-cascade archiving from [[delete-cascade-traps]]. `applyAdvanceToBill`, `settleOutstandingFromAdvance`, `refundSupplierAdvanceForMaterial` remain, used by the manual bill and advance paths.
 
-**Labour payments are deliberately excluded.** They keep the `approved` -> `paid` pause, because payday timing is intentionally separate from entry time. The Android admin payments screen still shows a "Paid" button for that reason -- it is not dead UI.
+**Historical note (superseded):** everything below described the auto-billing era -- deliveries writing their own `approved`/`paid` bill and drawing the advance at delivery time. That is no longer how it works; kept only to explain the migrations (40, 48, 49, 50, 52) that still exist in the schema.
 
-Related: [[rls-is-the-authority]], [[supplier-advance-ledger]]
+---
+
+Before Aug 2026, recording a delivery and billing for it were two separate forms. Suppliers often skipped the second form, leaving goods on site with no debt visible on the admin's books. From Aug 2026 to Sep 15 2026 the app auto-created the bill at delivery time (`recordDelivery()` inserting the material AND its bill, the admin path doing the same via `billSupplierDelivery()`), with bill status computed from advance coverage. The 2026-09-15 reversal above ended that.
 
 
 ## Timeline
@@ -73,3 +72,15 @@ Related: [[rls-is-the-authority]], [[supplier-advance-ledger]]
   summary: "Page had still described the Aug 30 'write it straight to paid, let the ledger go negative' rule that migration 49 undid"
   source: session 2026-09-08
   affects: [supplier-auto-billing, supplier-advance-ledger]
+
+- time: 2026-09-15T12:36:35
+  kind: decision
+  summary: "Auto-billing removed: a delivery records the material only; the owner raises the payment manually"
+  source: "chat + implementation 2026-09-15"
+  affects: [supplier-auto-billing]
+
+- time: 2026-09-15T12:36:41
+  kind: reversal
+  summary: "Auto-billing removed entirely: a delivery records the material only; the owner raises the payment manually from the Payments picker"
+  source: "chat + implementation 2026-09-15"
+  affects: [supplier-auto-billing]

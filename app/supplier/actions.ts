@@ -3,7 +3,6 @@
 import { revalidatePath } from "next/cache";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { wasJustCreated } from "@/app/admin/actions";
-import { lineTotal } from "@/lib/money";
 import { setFlashError } from "@/lib/flash";
 
 export type RecordDeliveryState = { error: string | null; success: boolean };
@@ -71,14 +70,10 @@ export async function recordDelivery(
         image_url = pub.publicUrl;
       }
 
-      // A delivered material bills itself (see the bill insert below), so it
-      // is marked billed in the same insert. That flag is load-bearing:
-      // lib/cashflow.ts skips materials where `billed` because their cost is
-      // counted through the supplier payment instead. Set one without the
-      // other and the delivery is counted twice.
-      const bills = status === "delivered";
-
-      const { data: material, error } = await supabase
+      // A delivery just records that the goods arrived on site. No bill is
+      // raised here: it shows on the owner's Payments "Purchase" picker
+      // (billed stays false) and the owner raises the payment when they choose.
+      const { error } = await supabase
         .from("materials")
         .insert({
           project_id,
@@ -91,48 +86,9 @@ export async function recordDelivery(
           delivered_at: status === "delivered" ? new Date().toISOString() : null,
           image_url,
           created_by_supplier: true,
-          billed: bills,
-        })
-        .select("id")
-        .single();
+          billed: false,
+        });
       if (error) throw new Error(error.message);
-
-      if (bills && material) {
-        const cost = lineTotal(quantity, unit_cost);
-
-        // Raised as owing, then offered to the advance. Still no approval
-        // step and no button -- the status is computed rather than clicked.
-        // 49_supplier_bill_status_from_advance.sql's insert policy allows
-        // exactly this value from a supplier.
-        const { data: bill, error: billError } = await supabase.from("payments").insert({
-          project_id,
-          payee_type: "supplier",
-          supplier_id: supplier.id,
-          amount: cost,
-          // Same description shape the admin's own purchase-billing flow
-          // produces (components/admin/PaymentForm.tsx), so bills from the
-          // two paths read identically in the payments list.
-          description: `${name} (${quantity} ${unit})`,
-          status: "approved",
-          created_by_supplier: true,
-          material_id: material.id,
-        }).select("id").single();
-        if (billError) throw new Error(billError.message);
-
-        // Through the RPC, not a direct insert: RLS gives a supplier SELECT on
-        // supplier_advances and nothing more (47_supplier_advances.sql), so
-        // the insert this code used to do was silently rejected -- while the
-        // bill was still marked paid. 52_partial_advance_application.sql holds
-        // the rule now, shared with the admin's own billing: the advance goes
-        // against the bill as far as it reaches, and the bill flips to paid
-        // only if that clears it.
-        if (bill) {
-          const { error: advError } = await supabase.rpc("apply_supplier_advance_to_bill", {
-            p_payment_id: bill.id,
-          });
-          if (advError) throw new Error(advError.message);
-        }
-      }
     }
 
     revalidatePath("/supplier");

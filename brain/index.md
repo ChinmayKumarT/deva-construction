@@ -1,6 +1,6 @@
 # Brain Index
 
-_Auto-generated. Last updated 2026-09-15T06:40:15.392Z._
+_Auto-generated. Last updated 2026-09-15T07:06:41.431Z._
 
 - [budget-extensions](pages/budget-extensions.md) — category: decision | <current best understanding — replace this with the real content>
 - [client-payments-tracking](pages/client-payments-tracking.md) — category: decision | <current best understanding — replace this with the real content>
@@ -16,5 +16,5 @@ _Auto-generated. Last updated 2026-09-15T06:40:15.392Z._
 - [sheetjs-to-exceljs](pages/sheetjs-to-exceljs.md) — category: decision | SheetJS (the `xlsx` npm package) had unfixable CVEs that npm audit flagged. Swapped to `exceljs` which covers the same use case (backup Exce
 - [superadmin-role](pages/superadmin-role.md) — category: decision | <current best understanding — replace this with the real content>
 - [supplier-advance-ledger](pages/supplier-advance-ledger.md) — category: decision | Supplier advances live in one ledger table, `supplier_advances`.
-- [supplier-auto-billing](pages/supplier-auto-billing.md) — category: decision | Before Aug 2026, recording a delivery and billing for it were two separate forms. Suppliers often skipped the second form, leaving goods on
+- [supplier-auto-billing](pages/supplier-auto-billing.md) — category: decision | **Reversed on 2026-09-15. Deliveries no longer create a bill.** The owner's instruction: "When a supplier delivers material, the owner shoul
 - [supplier-material-catalog](pages/supplier-material-catalog.md) — category: decision | tags: [supplier, materials, ux] | Suppliers were retyping the same material, unit and rate on every delivery, because a delivery row *is* the material record — `materials` ca
