@@ -217,26 +217,28 @@ async function ownerDeleteRow(table: string, id: string | null): Promise<boolean
       return false;
     }
 
-    if (doomed && doomed.length > 0) {
-      // A material flagged `billed` is skipped by lib/cashflow.ts, because its
-      // cost is counted through the supplier payment instead. Deleting that
-      // payment without clearing the flag would drop the cost out of cash flow
-      // and the cost reports entirely -- the delivery still happened, so it has
-      // to go back to being counted directly.
-      const materialIds = doomed
-        .map((p) => p.material_id)
-        .filter((v): v is string => Boolean(v));
-      if (materialIds.length > 0) {
-        const { error: unbillErr } = await supabase
-          .from("materials")
-          .update({ billed: false })
-          .in("id", materialIds);
-        if (unbillErr) {
-          await setFlashError(`Could not delete: ${unbillErr.message}`);
-          return false;
-        }
+    // Deleting a supplier deletes their purchases too, so archive them before
+    // the supplier row goes. materials.supplier_id is ON DELETE SET NULL: left
+    // alone, every one of these would survive with no supplier, unbilled and
+    // unarchived -- and reappear in the Payments "Purchase" picker as
+    // something still waiting to be paid for, after the owner deleted it.
+    //
+    // Archiving (not resetting `billed`) is deliberate. The delete-forever
+    // warning already says cash flow and the cost reports will change; a
+    // purchase that has been deleted should not keep counting as spend.
+    if (table === "suppliers") {
+      const { error: matErr } = await supabase
+        .from("materials")
+        .update({ archived_at: new Date().toISOString() })
+        .eq("supplier_id", id)
+        .is("archived_at", null);
+      if (matErr) {
+        await setFlashError(`Could not delete: ${matErr.message}`);
+        return false;
       }
+    }
 
+    if (doomed && doomed.length > 0) {
       const { error: payErr } = await supabase
         .from("payments")
         .delete()

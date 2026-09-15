@@ -147,11 +147,21 @@ export default async function ManageSupplierPage(props: { params: Promise<{ id: 
                   // the bills go too, and every money figure that counts them
                   // moves. Archiving is the option that keeps the history.
                   warning={
-                    payments && payments.length > 0
-                      ? `This also permanently deletes ${payments.length} bill${payments.length === 1 ? "" : "s"} ` +
-                        `worth ₹${payments.reduce((a, p) => a + Number(p.amount), 0).toLocaleString()}. ` +
-                        `Cash flow, Profit & Loss and cost ` +
-                        `reports will all change. Archive instead if you only want this supplier out of your lists.`
+                    (payments?.length ?? 0) > 0 || (materials?.length ?? 0) > 0
+                      ? [
+                          (materials?.length ?? 0) > 0
+                            ? `This also removes their ${materials!.length} purchase${materials!.length === 1 ? "" : "s"}`
+                            : null,
+                          (payments?.length ?? 0) > 0
+                            ? `permanently deletes ${payments!.length} bill${payments!.length === 1 ? "" : "s"} worth ₹${payments!
+                                .reduce((a, p) => a + Number(p.amount), 0)
+                                .toLocaleString()}`
+                            : null,
+                        ]
+                          .filter(Boolean)
+                          .join(" and ") +
+                        ". Cash flow, Profit & Loss and cost reports will all change. " +
+                        "Archive instead if you only want this supplier out of your lists."
                       : undefined
                   }
                 />

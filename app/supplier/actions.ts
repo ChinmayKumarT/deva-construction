@@ -242,15 +242,16 @@ export async function archiveSupplierPayment(fd: FormData) {
   if (error) throw new Error(error.message);
   if (!data || data.length === 0) throw new Error("You can only delete bills you generated yourself.");
 
-  // If this bill came from a delivery, hand the cost back to the material.
-  // materials.billed tells lib/cashflow.ts to skip the material because its
-  // payment covers it; leaving the flag set after archiving that payment
-  // would drop the cost from cash flow entirely -- counted in neither place.
+  // A supplier deleting their bill is deleting that purchase, so the delivery
+  // it came from goes too. Resetting `billed` instead used to release the
+  // delivery back to "unbilled", and it reappeared in the admin's Payments
+  // "Purchase" picker as if it were still owed -- after being deleted.
+  // Same shape as archiveDelivery above, which removes both together.
   const materialId = data[0]?.material_id;
   if (materialId) {
     const { error: materialError } = await supabase
       .from("materials")
-      .update({ billed: false })
+      .update({ archived_at: new Date().toISOString() })
       .eq("id", materialId)
       .eq("supplier_id", supplier.id)
       .eq("created_by_supplier", true);

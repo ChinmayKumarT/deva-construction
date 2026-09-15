@@ -70,6 +70,9 @@ export default async function ProjectPaymentsPage(
       .is("archived_at", null)
       .neq("status", "returned")
       .eq("billed", false)
+      // A purchase with no supplier is one whose supplier was deleted -- it
+      // cannot fill a supplier payment and must not be offered as payable.
+      .not("supplier_id", "is", null)
       .order("ordered_at", { ascending: false }),
     supabase.from("project_labourers").select("labourer_id, project_id").is("unassigned_at", null),
     supabase
