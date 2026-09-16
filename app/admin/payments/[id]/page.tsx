@@ -5,6 +5,8 @@ import { AdminPage, AdminPageHeader, AdminContent, Field, SubmitButton } from "@
 import { ArchivedToggle, DeleteForeverButton, RestoreAction } from "@/components/admin/RowActions";
 import { CollapsibleForm } from "@/components/admin/CollapsibleForm";
 import { CreatePaymentForm } from "@/components/admin/PaymentForm";
+import { CollapsibleSection } from "@/components/admin/CollapsibleSection";
+import { FormSubmitButton } from "@/components/FormSubmitButton";
 import { CashFlowBarChart } from "@/components/admin/CashFlowBarChart";
 import { byCategoryTotals } from "@/lib/paymentsChart";
 import { computeWagesDueFromAccrued } from "@/lib/wages";
@@ -156,6 +158,7 @@ export default async function ProjectPaymentsPage(
         </div>
       )}
 
+      <CollapsibleSection title={showArchived ? "Archived payments" : "Payments"} count={(payments ?? []).length} defaultOpen>
       <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white">
         <table className="w-full text-sm">
           <thead className="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
@@ -234,12 +237,10 @@ export default async function ProjectPaymentsPage(
           </tbody>
         </table>
       </div>
+      </CollapsibleSection>
 
       {!isUnassigned && (
-        <>
-          <h2 className="mt-10 mb-3 text-sm font-semibold uppercase tracking-wide text-slate-500">
-            Client payments received
-          </h2>
+        <CollapsibleSection title="Client payments received" count={(clientPayments ?? []).length}>
 
           {!showArchived && (
             <CollapsibleForm label="Record client payment" icon="money">
@@ -295,7 +296,7 @@ export default async function ProjectPaymentsPage(
               </tbody>
             </table>
           </div>
-        </>
+        </CollapsibleSection>
       )}
       </AdminContent>
     </AdminPage>
@@ -316,7 +317,8 @@ function ActionButton({
   return (
     <form action={action}>
       <input type="hidden" name="id" value={id} />
-      <button
+      <FormSubmitButton
+        pendingLabel="…"
         className={
           "rounded-md border px-2 py-1 text-xs " +
           (variant === "primary"
@@ -325,7 +327,7 @@ function ActionButton({
         }
       >
         {label}
-      </button>
+      </FormSubmitButton>
     </form>
   );
 }
