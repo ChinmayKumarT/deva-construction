@@ -13,6 +13,7 @@ import {
 } from "../../actions";
 import { lineTotal } from "@/lib/money";
 import { supplierMoney, advanceAppliedByMaterial } from "@/lib/supplierAccount";
+import { supplierActivity } from "@/lib/supplierActivity";
 import { formatDateTime } from "@/lib/dateFormat";
 import { FormSubmitButton } from "@/components/FormSubmitButton";
 
@@ -23,6 +24,15 @@ const MATERIAL_STATUS_STYLE: Record<string, string> = {
   ordered: "bg-amber-50 text-amber-700 border-amber-200",
   delivered: "bg-emerald-50 text-emerald-700 border-emerald-200",
   returned: "bg-red-50 text-red-700 border-red-200",
+};
+
+const ACTIVITY_STYLE: Record<string, { label: string; className: string }> = {
+  delivery: { label: "Delivery", className: "border-amber-200 bg-amber-50 text-amber-700" },
+  advance_given: { label: "Advance in", className: "border-blue-200 bg-blue-50 text-blue-700" },
+  advance_settled: { label: "From advance", className: "border-indigo-200 bg-indigo-50 text-indigo-700" },
+  advance_returned: { label: "Advance back", className: "border-blue-200 bg-blue-50 text-blue-700" },
+  payment: { label: "Paid", className: "border-emerald-200 bg-emerald-50 text-emerald-700" },
+  bill: { label: "Bill", className: "border-amber-200 bg-amber-50 text-amber-700" },
 };
 
 const PAYMENT_STATUS_STYLE: Record<string, string> = {
@@ -102,6 +112,9 @@ export default async function ManageSupplierPage(props: { params: Promise<{ id: 
       .filter((p) => p.status === "paid" && p.material_id)
       .map((p) => p.material_id as string),
   );
+  // The account math trail: every movement in time order with the running
+  // Remaining and Advance after it. Newest first, to match the tables above.
+  const activity = supplierActivity(materials ?? [], payments ?? [], advances ?? []).reverse();
 
   return (
     <AdminPage>
@@ -423,6 +436,46 @@ export default async function ManageSupplierPage(props: { params: Promise<{ id: 
                 <td />
               </tr>
             )}
+          </tbody>
+        </table>
+      </div>
+
+      {/* The math trail: every movement that feeds Remaining / Lifetime /
+          Advance, in order, with the running figures after each one. Read-only
+          -- derived from the rows above, so its last line matches the stat
+          boxes at the top. */}
+      <h2 className="mt-10 mb-1 text-sm font-semibold uppercase tracking-wide text-slate-500">Account activity</h2>
+      <p className="mb-3 text-xs text-slate-500">How Remaining and Advance changed over time. Newest first.</p>
+      <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white">
+        <table className="w-full text-sm">
+          <thead className="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
+            <tr>
+              <th className="px-4 py-2 font-medium">When</th>
+              <th className="px-4 py-2 font-medium">Activity</th>
+              <th className="px-4 py-2 font-medium text-right">Amount</th>
+              <th className="px-4 py-2 font-medium text-right">Remaining</th>
+              <th className="px-4 py-2 font-medium text-right">Advance</th>
+            </tr>
+          </thead>
+          <tbody>
+            {activity.length === 0 && (
+              <tr><td colSpan={5} className="px-4 py-6 text-center text-slate-500">No activity yet.</td></tr>
+            )}
+            {activity.map((e, i) => {
+              const chip = ACTIVITY_STYLE[e.kind];
+              return (
+                <tr key={i} className="border-t border-slate-100">
+                  <td className="px-4 py-2 text-slate-600">{e.at ? formatDateTime(e.at) : "—"}</td>
+                  <td className="px-4 py-2">
+                    <span className={`rounded-md border px-2 py-0.5 text-xs ${chip.className}`}>{chip.label}</span>
+                    <span className="ml-2 text-slate-600">{e.label}</span>
+                  </td>
+                  <td className="px-4 py-2 text-right font-medium tabular-nums">₹{e.amount.toLocaleString()}</td>
+                  <td className="px-4 py-2 text-right tabular-nums text-slate-700">₹{e.remaining.toLocaleString()}</td>
+                  <td className="px-4 py-2 text-right tabular-nums text-slate-700">₹{e.advance.toLocaleString()}</td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </div>
