@@ -16,6 +16,7 @@ import { supplierMoney, advanceAppliedByMaterial } from "@/lib/supplierAccount";
 import { supplierActivity } from "@/lib/supplierActivity";
 import { formatDateTime } from "@/lib/dateFormat";
 import { FormSubmitButton } from "@/components/FormSubmitButton";
+import { CollapsibleSection } from "@/components/admin/CollapsibleSection";
 
 export const dynamic = "force-dynamic";
 export const fetchCache = "force-no-store";
@@ -218,7 +219,7 @@ export default async function ManageSupplierPage(props: { params: Promise<{ id: 
         )}
       </div>
 
-      <h2 className="mt-10 mb-3 text-sm font-semibold uppercase tracking-wide text-slate-500">Deliveries</h2>
+      <CollapsibleSection title="Deliveries" count={(materials ?? []).length} defaultOpen>
       <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white">
         <table className="w-full text-sm">
           <thead className="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
@@ -303,8 +304,9 @@ export default async function ManageSupplierPage(props: { params: Promise<{ id: 
           </tbody>
         </table>
       </div>
+      </CollapsibleSection>
 
-      <h2 className="mt-10 mb-3 text-sm font-semibold uppercase tracking-wide text-slate-500">Payments</h2>
+      <CollapsibleSection title="Payments" count={(payments ?? []).length} defaultOpen>
       <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white">
         <table className="w-full text-sm">
           <thead className="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
@@ -348,8 +350,9 @@ export default async function ManageSupplierPage(props: { params: Promise<{ id: 
           </tbody>
         </table>
       </div>
-      <h2 className="mt-10 mb-3 text-sm font-semibold uppercase tracking-wide text-slate-500">Advance Account</h2>
+      </CollapsibleSection>
 
+      <CollapsibleSection title="Advance Account" count={(advances ?? []).length}>
       {!archived && (
         <CollapsibleForm label="Give advance" icon="money">
         <form
@@ -439,20 +442,13 @@ export default async function ManageSupplierPage(props: { params: Promise<{ id: 
           </tbody>
         </table>
       </div>
+      </CollapsibleSection>
 
       {/* The math trail: every movement that feeds Remaining / Lifetime /
           Advance, in order, with the running figures after each one. Read-only
-          -- derived from the rows above, so its last line matches the stat
-          boxes at the top. Tucked behind a native <details> disclosure so the
-          page stays calm until the owner asks to see the math. */}
-      <details className="group mt-10">
-        <summary className="flex cursor-pointer list-none items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm font-medium text-slate-700 shadow-sm transition hover:border-brand hover:bg-brand/5 [&::-webkit-details-marker]:hidden">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-slate-400 transition-transform group-open:rotate-90" aria-hidden="true"><path d="M9 6l6 6-6 6" /></svg>
-          Account activity
-          <span className="ml-1 rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-normal text-slate-500">{activity.length}</span>
-          <span className="ml-auto text-xs font-normal text-slate-400">How Remaining &amp; Advance changed</span>
-        </summary>
-      <div className="mt-3 overflow-x-auto rounded-xl border border-slate-200 bg-white">
+          -- its last line matches the stat boxes at the top. */}
+      <CollapsibleSection title="Account activity" count={activity.length} subtitle="How Remaining & Advance changed">
+      <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white">
         <table className="w-full text-sm">
           <thead className="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
             <tr>
@@ -485,14 +481,13 @@ export default async function ManageSupplierPage(props: { params: Promise<{ id: 
           </tbody>
         </table>
       </div>
-      </details>
+      </CollapsibleSection>
 
       {/* Anything listed here shows up as a one-tap chip above this supplier's
           Record Delivery form, so they stop retyping the same material every
           time. The description says WHICH material it is; the rate is typed per
           delivery because it moves per load. See 55_*.sql. */}
-      <h2 className="mt-10 mb-3 text-sm font-semibold uppercase tracking-wide text-slate-500">Material List</h2>
-
+      <CollapsibleSection title="Material List" count={(catalog ?? []).length}>
       {!archived && (
         <CollapsibleForm label="Add material" icon="transaction">
         <form
@@ -582,6 +577,7 @@ export default async function ManageSupplierPage(props: { params: Promise<{ id: 
           </tbody>
         </table>
       </div>
+      </CollapsibleSection>
       </AdminContent>
     </AdminPage>
   );
