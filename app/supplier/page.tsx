@@ -13,6 +13,7 @@ import { ProfileMenu } from "@/components/ProfileMenu";
 import { AccountDetailsPopover } from "@/components/AccountDetailsPopover";
 import { signOut } from "@/app/actions/auth";
 import { supplierMoney, advanceAppliedByMaterial } from "@/lib/supplierAccount";
+import { CollapsibleSection } from "@/components/admin/CollapsibleSection";
 import { materialQuickPicks } from "@/lib/materialQuickPicks";
 import { MaterialQuickPicks, MATERIAL_DATALIST_ID } from "@/components/supplier/MaterialQuickPicks";
 
@@ -240,7 +241,7 @@ export default async function SupplierDashboard() {
             there is no rate on an entry any more, there is nothing here the
             office needs to own -- and the supplier is the one who knows their
             own catalogue. Entries feed the quick picks above. */}
-        <SectionHeader title="My materials" count={(catalog ?? []).length} className="mt-8" />
+        <CollapsibleSection title="My materials" count={(catalog ?? []).length} className="mt-8">
         <div className="rounded-2xl border border-slate-200 bg-white p-5">
           <form action={addOwnMaterial} className="flex flex-wrap items-end gap-3">
             <label className="block text-sm flex-1 min-w-[160px]">
@@ -302,9 +303,10 @@ export default async function SupplierDashboard() {
             </ul>
           )}
         </div>
+        </CollapsibleSection>
 
         {/* ── Deliveries ── */}
-        <SectionHeader title="Deliveries" count={(materials ?? []).length} className="mt-8" />
+        <CollapsibleSection title="Deliveries" count={(materials ?? []).length} className="mt-8" defaultOpen>
         {(materials ?? []).length === 0 ? (
           <div className="rounded-2xl border-2 border-dashed border-slate-200 bg-white p-8 text-center text-sm text-slate-400">
             No deliveries yet.
@@ -384,9 +386,10 @@ export default async function SupplierDashboard() {
             </div>
           </div>
         )}
+        </CollapsibleSection>
 
         {/* ── Payments ── */}
-        <SectionHeader title="Payment History" count={(payments ?? []).length} className="mt-8" />
+        <CollapsibleSection title="Payment History" count={(payments ?? []).length} className="mt-8" defaultOpen>
         {(payments ?? []).length === 0 ? (
           <div className="rounded-2xl border-2 border-dashed border-slate-200 bg-white p-8 text-center text-sm text-slate-400">
             No payments yet.
@@ -450,6 +453,7 @@ export default async function SupplierDashboard() {
             </div>
           </div>
         )}
+        </CollapsibleSection>
 
         <div className="h-8" />
       </div>
