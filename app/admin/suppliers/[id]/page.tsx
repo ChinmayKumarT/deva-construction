@@ -443,10 +443,16 @@ export default async function ManageSupplierPage(props: { params: Promise<{ id: 
       {/* The math trail: every movement that feeds Remaining / Lifetime /
           Advance, in order, with the running figures after each one. Read-only
           -- derived from the rows above, so its last line matches the stat
-          boxes at the top. */}
-      <h2 className="mt-10 mb-1 text-sm font-semibold uppercase tracking-wide text-slate-500">Account activity</h2>
-      <p className="mb-3 text-xs text-slate-500">How Remaining and Advance changed over time. Newest first.</p>
-      <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white">
+          boxes at the top. Tucked behind a native <details> disclosure so the
+          page stays calm until the owner asks to see the math. */}
+      <details className="group mt-10">
+        <summary className="flex cursor-pointer list-none items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm font-medium text-slate-700 shadow-sm transition hover:border-brand hover:bg-brand/5 [&::-webkit-details-marker]:hidden">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-slate-400 transition-transform group-open:rotate-90" aria-hidden="true"><path d="M9 6l6 6-6 6" /></svg>
+          Account activity
+          <span className="ml-1 rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-normal text-slate-500">{activity.length}</span>
+          <span className="ml-auto text-xs font-normal text-slate-400">How Remaining &amp; Advance changed</span>
+        </summary>
+      <div className="mt-3 overflow-x-auto rounded-xl border border-slate-200 bg-white">
         <table className="w-full text-sm">
           <thead className="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
             <tr>
@@ -479,6 +485,7 @@ export default async function ManageSupplierPage(props: { params: Promise<{ id: 
           </tbody>
         </table>
       </div>
+      </details>
 
       {/* Anything listed here shows up as a one-tap chip above this supplier's
           Record Delivery form, so they stop retyping the same material every
