@@ -40,6 +40,10 @@ type Material = {
 
 type Assignment = { labourer_id: string; project_id: string };
 
+type SupplierAccount = { remaining: number; lifetimePayment: number; advanceBalance: number };
+
+const round2 = (n: number) => Math.round(n * 100) / 100;
+
 type Initial = {
   payeeType: string;
   projectId: string;
@@ -58,6 +62,7 @@ function PaymentFormFields({
   materials,
   assignments,
   wageDue,
+  supplierAccounts,
   initial,
   paymentId,
   submitLabel,
@@ -72,6 +77,7 @@ function PaymentFormFields({
   materials: Material[];
   assignments: Assignment[];
   wageDue: Record<string, number>;
+  supplierAccounts?: Record<string, SupplierAccount>;
   initial: Initial;
   paymentId?: string;
   submitLabel: string;
@@ -105,6 +111,46 @@ function PaymentFormFields({
     initialCategoryKnown ? initial.workCategory : initial.workCategory ? OTHER_CATEGORY : "",
   );
   const [workCategoryOther, setWorkCategoryOther] = useState(initialCategoryKnown ? "" : initial.workCategory);
+
+  // Supplier "pay what's owed" mode: only when creating (an edit still tweaks a
+  // single existing payment). Pick a supplier -> see their account and open
+  // purchases, settle any subset, and let extra spill into advance or a plain
+  // payment.
+  const supplierCreate = payeeType === "supplier" && !paymentId;
+  const [selectedPurchases, setSelectedPurchases] = useState<Set<string>>(new Set());
+  const [extraMode, setExtraMode] = useState<"advance" | "payment">("advance");
+
+  const netOf = (m: Material) => Math.max(0, lineTotal(m.quantity, m.unit_cost) - (m.advance_applied ?? 0));
+  const projectNameById = useMemo(() => new Map(projects.map((p) => [p.id, p.name])), [projects]);
+  const supplierRealId = supplierId !== "none" && supplierId !== OTHER_SUPPLIER ? supplierId : null;
+  const supplierPurchases = useMemo(
+    () => (supplierRealId ? materials.filter((m) => m.supplier_id === supplierRealId) : []),
+    [materials, supplierRealId],
+  );
+  const selectedNet = useMemo(
+    () => round2(supplierPurchases.filter((m) => selectedPurchases.has(m.id)).reduce((s, m) => s + netOf(m), 0)),
+    [supplierPurchases, selectedPurchases],
+  );
+  const account = supplierRealId ? supplierAccounts?.[supplierRealId] : undefined;
+  const amountNum = Number(amount) || 0;
+  const extraAmount = round2(amountNum - selectedNet);
+
+  function selectSupplierForPay(id: string) {
+    setSupplierId(id);
+    const ps = id !== "none" && id !== OTHER_SUPPLIER ? materials.filter((m) => m.supplier_id === id) : [];
+    setSelectedPurchases(new Set(ps.map((m) => m.id)));
+    setAmount(String(round2(ps.reduce((s, m) => s + netOf(m), 0))));
+  }
+  function setPurchasesAndAmount(next: Set<string>) {
+    setSelectedPurchases(next);
+    setAmount(String(round2(supplierPurchases.filter((m) => next.has(m.id)).reduce((s, m) => s + netOf(m), 0))));
+  }
+  function togglePurchase(id: string) {
+    const next = new Set(selectedPurchases);
+    if (next.has(id)) next.delete(id);
+    else next.add(id);
+    setPurchasesAndAmount(next);
+  }
 
   const projectMaterials = useMemo(
     () => materials.filter((m) => projectId !== "none" && m.project_id === projectId),
@@ -196,7 +242,9 @@ function PaymentFormFields({
         </select>
       </label>
 
-      {fixedProject ? (
+      {/* Supplier "pay what's owed" takes the project from each purchase, so it
+          has no project field. Labour and edit keep it. */}
+      {!supplierCreate && (fixedProject ? (
         <input type="hidden" name="project_id" value={fixedProject.id} />
       ) : (
         <label className="block text-sm">
@@ -211,7 +259,7 @@ function PaymentFormFields({
             {projects.map((p) => (<option key={p.id} value={p.id}>{p.name}</option>))}
           </select>
         </label>
-      )}
+      ))}
 
       {payeeType === "labour" ? (
         <>
@@ -359,6 +407,105 @@ function PaymentFormFields({
             </>
           )}
         </>
+      ) : supplierCreate ? (
+        <div className="grid gap-4 sm:col-span-2 lg:col-span-3">
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div>
+              <label className="block text-sm">
+                <span className="mb-1 block font-medium text-slate-700">Supplier</span>
+                <select
+                  name={supplierId === OTHER_SUPPLIER ? undefined : "supplier_id"}
+                  className={selectClass}
+                  value={supplierId}
+                  onChange={(e) => selectSupplierForPay(e.target.value)}
+                >
+                  <option value="none">— select a supplier —</option>
+                  {suppliers.map((s) => (<option key={s.id} value={s.id}>{s.name}</option>))}
+                  <option value={OTHER_SUPPLIER}>Other…</option>
+                </select>
+              </label>
+              {suppliers.length === 0 && supplierId === "none" && (
+                <p className="mt-1 text-xs text-slate-500">
+                  No suppliers yet — pick <span className="font-medium">Other…</span> to type a new name, or{" "}
+                  <Link href="/admin/suppliers" className="font-medium text-brand-700 hover:underline">add one first</Link>.
+                </p>
+              )}
+              {supplierId === OTHER_SUPPLIER && (
+                <input
+                  name="new_supplier_name"
+                  value={supplierOtherName}
+                  onChange={(e) => setSupplierOtherName(e.target.value)}
+                  placeholder="Enter supplier name"
+                  required
+                  className={`mt-2 ${inputClass}`}
+                />
+              )}
+            </div>
+            {account && (
+              <div className="flex flex-wrap items-end gap-2">
+                <span className={`rounded-lg border px-3 py-2 text-xs ${account.remaining > 0 ? "border-amber-200 bg-amber-50 text-amber-700" : "border-slate-200 bg-slate-50 text-slate-500"}`}>
+                  <span className="block text-[10px] font-medium uppercase tracking-wide">Remaining</span>
+                  <span className="text-sm font-semibold">₹{account.remaining.toLocaleString()}</span>
+                </span>
+                <span className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-700">
+                  <span className="block text-[10px] font-medium uppercase tracking-wide">Lifetime payment</span>
+                  <span className="text-sm font-semibold">₹{account.lifetimePayment.toLocaleString()}</span>
+                </span>
+                <span className={`rounded-lg border px-3 py-2 text-xs ${account.advanceBalance > 0 ? "border-blue-200 bg-blue-50 text-blue-700" : "border-slate-200 bg-slate-50 text-slate-500"}`}>
+                  <span className="block text-[10px] font-medium uppercase tracking-wide">Advance</span>
+                  <span className="text-sm font-semibold">₹{account.advanceBalance.toLocaleString()}</span>
+                </span>
+              </div>
+            )}
+          </div>
+
+          {supplierRealId && (
+            <div>
+              <div className="mb-2 flex items-center justify-between">
+                <span className="text-sm font-medium text-slate-700">Purchases</span>
+                {supplierPurchases.length > 0 && (
+                  <div className="flex gap-2">
+                    <button type="button" onClick={() => setPurchasesAndAmount(new Set(supplierPurchases.map((m) => m.id)))} className="rounded border border-slate-300 px-2 py-1 text-xs text-slate-700 hover:bg-slate-50">Select all</button>
+                    <button type="button" onClick={() => setPurchasesAndAmount(new Set())} className="rounded border border-slate-300 px-2 py-1 text-xs text-slate-700 hover:bg-slate-50">Clear</button>
+                  </div>
+                )}
+              </div>
+              {supplierPurchases.length === 0 ? (
+                <p className="rounded-lg border border-dashed border-slate-200 bg-slate-50 px-3 py-3 text-sm text-slate-500">No open purchases for this supplier.</p>
+              ) : (
+                <div className="grid gap-1 sm:grid-cols-2">
+                  {supplierPurchases.map((m) => {
+                    const net = netOf(m);
+                    const applied = m.advance_applied ?? 0;
+                    const checked = selectedPurchases.has(m.id);
+                    return (
+                      <label key={m.id} className={`flex cursor-pointer items-center gap-2 rounded-lg border px-3 py-2 text-sm transition ${checked ? "border-brand bg-brand/5" : "border-slate-200 hover:border-slate-300"}`}>
+                        <input type="checkbox" checked={checked} onChange={() => togglePurchase(m.id)} className="accent-brand" />
+                        <span className="flex-1">
+                          <span className="font-medium">{m.name}</span>
+                          <span className="ml-1 text-xs text-slate-500">
+                            ({Number(m.quantity)} {m.unit}{m.project_id ? ` · ${projectNameById.get(m.project_id) ?? ""}` : ""})
+                          </span>
+                          {applied > 0 && <span className="ml-1 rounded bg-blue-50 px-1 text-[10px] text-blue-700">₹{applied.toLocaleString()} from advance</span>}
+                        </span>
+                        <span className="tabular-nums text-slate-700">₹{net.toLocaleString()}</span>
+                      </label>
+                    );
+                  })}
+                </div>
+              )}
+              {[...selectedPurchases].map((id) => (<input key={id} type="hidden" name="material_id" value={id} />))}
+              <p className="mt-2 text-sm text-slate-600">
+                Selected: <span className="font-medium">₹{selectedNet.toLocaleString()}</span> ({selectedPurchases.size} {selectedPurchases.size === 1 ? "purchase" : "purchases"})
+              </p>
+            </div>
+          )}
+
+          <label className="block text-sm">
+            <span className="mb-1 block font-medium text-slate-700">Description</span>
+            <input name="description" className={inputClass} value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Optional note" />
+          </label>
+        </div>
       ) : (
         <div>
           <label className="block text-sm">
@@ -403,7 +550,7 @@ function PaymentFormFields({
         </div>
       )}
 
-      {payeeType === "supplier" && (
+      {payeeType === "supplier" && !supplierCreate && (
         <>
           <div>
             <label className="block text-sm">
@@ -458,7 +605,7 @@ function PaymentFormFields({
               className={selectClass}
               value={workCategory}
               onChange={(e) => setWorkCategory(e.target.value)}
-              required
+              required={!supplierCreate}
             >
               <option value="">— select category —</option>
               {WORK_CATEGORIES.map((c) => (<option key={c} value={c}>{c}</option>))}
@@ -484,19 +631,39 @@ function PaymentFormFields({
       )}
 
       {!(multiSelect && payeeType === "labour") && (
-        <label className="block text-sm">
-          <span className="mb-1 block font-medium text-slate-700">Amount (₹)</span>
-          <input
-            name="amount"
-            type="number"
-            step="0.01"
-            min="0"
-            required={!multiSelect}
-            className={inputClass}
-            value={amount}
-            onChange={(e) => setAmount(e.target.value)}
-          />
-        </label>
+        <div>
+          <label className="block text-sm">
+            <span className="mb-1 block font-medium text-slate-700">Amount (₹)</span>
+            <input
+              name="amount"
+              type="number"
+              step="0.01"
+              min="0"
+              required={!multiSelect}
+              className={inputClass}
+              value={amount}
+              onChange={(e) => setAmount(e.target.value)}
+            />
+          </label>
+          {supplierCreate && (
+            <>
+              <input type="hidden" name="extra_mode" value={extraMode} />
+              {extraAmount > 0 ? (
+                <div className="mt-2 rounded-lg border border-slate-200 bg-slate-50 p-2 text-xs">
+                  <p className="mb-1 text-slate-600">
+                    ₹{extraAmount.toLocaleString()} above the selected purchases — treat it as:
+                  </p>
+                  <div className="flex gap-2">
+                    <button type="button" onClick={() => setExtraMode("advance")} className={`rounded-md border px-2 py-1 ${extraMode === "advance" ? "border-brand bg-brand text-white" : "border-slate-300 bg-white text-slate-700 hover:bg-slate-50"}`}>Advance (credit)</button>
+                    <button type="button" onClick={() => setExtraMode("payment")} className={`rounded-md border px-2 py-1 ${extraMode === "payment" ? "border-brand bg-brand text-white" : "border-slate-300 bg-white text-slate-700 hover:bg-slate-50"}`}>Just a payment</button>
+                  </div>
+                </div>
+              ) : extraAmount < 0 ? (
+                <p className="mt-1 text-xs text-red-600">Amount is less than the selected purchases (₹{selectedNet.toLocaleString()}).</p>
+              ) : null}
+            </>
+          )}
+        </div>
       )}
 
       <div className="flex items-center gap-3 sm:col-span-2 lg:col-span-3">
@@ -517,6 +684,7 @@ export function CreatePaymentForm({
   materials,
   assignments,
   wageDue,
+  supplierAccounts,
   defaultProjectId,
   fixedProject,
 }: {
@@ -527,6 +695,7 @@ export function CreatePaymentForm({
   materials: Material[];
   assignments: Assignment[];
   wageDue: Record<string, number>;
+  supplierAccounts?: Record<string, SupplierAccount>;
   defaultProjectId?: string;
   fixedProject?: { id: string; name: string };
 }) {
@@ -554,6 +723,7 @@ export function CreatePaymentForm({
         materials={materials}
         assignments={assignments}
         wageDue={wageDue}
+        supplierAccounts={supplierAccounts}
         fixedProject={fixedProject}
         initial={{
           payeeType: "supplier",

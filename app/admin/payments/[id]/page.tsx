@@ -9,6 +9,7 @@ import { CashFlowBarChart } from "@/components/admin/CashFlowBarChart";
 import { byCategoryTotals } from "@/lib/paymentsChart";
 import { computeWagesDueFromAccrued } from "@/lib/wages";
 import { advanceAppliedByMaterial } from "@/lib/supplierAccount";
+import { loadSupplierAccounts } from "@/lib/supplierAccountsServer";
 import { formatDateTime } from "@/lib/dateFormat";
 import {
   createPayment, unarchivePayment, deletePayment,
@@ -101,6 +102,7 @@ export default async function ProjectPaymentsPage(
     ...m,
     advance_applied: appliedByMaterial.get(m.id) ?? 0,
   }));
+  const supplierAccounts = await loadSupplierAccounts(supabase);
 
   if (!isUnassigned && !project) notFound();
 
@@ -142,6 +144,7 @@ export default async function ProjectPaymentsPage(
           materials={materialsForForm}
           assignments={assignments ?? []}
           wageDue={wageDue}
+          supplierAccounts={supplierAccounts}
           fixedProject={{ id: project!.id, name: project!.name }}
         />
       )}

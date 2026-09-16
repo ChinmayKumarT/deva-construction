@@ -771,54 +771,48 @@ export async function markMaterialDelivered(fd: FormData) {
 }
 
 /**
- * Settle one delivery in a single click from the supplier profile, without
- * going through the Payments form. Records a real supplier payment for the NET
- * still owed (line total less any advance already put against the delivery),
- * and marks the delivery `billed` so it leaves the Payments "Purchase" picker.
+ * Settle one delivery: record a real supplier payment for the NET still owed
+ * (line total less any advance already put against it) and mark it `billed` so
+ * it leaves the Payments "Purchase" picker. Shared by the one-click Paid button
+ * and the Payments form's multi-purchase settle. Throws on a DB error (callers
+ * decide how to surface it); returns the net paid, or null when the delivery is
+ * ineligible (already settled, returned, archived, or has no supplier) so a
+ * double submit can't raise a second bill.
  *
  * No advance is drawn here -- that already happened at delivery time
  * (apply_supplier_advance_to_material). The payment carries `material_id`, so
  * lib/cashflow.ts counts the delivery once, through the material, not twice.
- * Idempotent: a delivery already settled, returned, or without a supplier is
- * left untouched, so a double-click can't raise a second bill.
  */
-export async function payDelivery(fd: FormData) {
-  const supabase = await createSupabaseServerClient();
-  const id = str(fd, "id");
-  if (!id) return;
-
+async function settleDeliveryAsPaid(
+  supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>,
+  materialId: string,
+  userId: string | null,
+): Promise<{ net: number; supplierId: string } | null> {
   const { data: m } = await supabase
     .from("materials")
     .select("supplier_id, project_id, name, unit, quantity, unit_cost, work_category, status, billed, archived_at")
-    .eq("id", id)
+    .eq("id", materialId)
     .single();
-
-  if (!m || m.archived_at || m.billed || m.status === "returned" || !m.supplier_id) return;
+  if (!m || m.archived_at || m.billed || m.status === "returned" || !m.supplier_id) return null;
 
   const cost = lineTotal(m.quantity, m.unit_cost);
-
-  // Advance already put against this delivery (material-linked rows only).
   const { data: advRows } = await supabase
     .from("supplier_advances")
     .select("amount")
-    .eq("material_id", id)
+    .eq("material_id", materialId)
     .is("payment_id", null);
   const applied = (advRows ?? []).reduce((s, r) => s - Number(r.amount), 0);
   const net = Math.max(0, cost - applied);
 
-  // Only raise a payment when real money is due. A delivery already fully
-  // covered by advance is settled with no payment row -- just mark it.
   if (net > 0) {
-    // The unique index on payments.material_id (40_supplier_delivery_autobill)
-    // would reject a second bill; skip if one somehow already exists.
+    // The unique index on payments.material_id would reject a second bill.
     const { data: existing } = await supabase
       .from("payments")
       .select("id")
-      .eq("material_id", id)
+      .eq("material_id", materialId)
       .is("archived_at", null)
       .limit(1);
     if (!existing || existing.length === 0) {
-      const { data: { user } } = await supabase.auth.getUser();
       const now = new Date().toISOString();
       const { error } = await supabase.from("payments").insert({
         project_id: m.project_id,
@@ -829,24 +823,39 @@ export async function payDelivery(fd: FormData) {
         work_category: m.work_category ?? null,
         status: "paid",
         approved_at: now,
-        approved_by: user?.id ?? null,
+        approved_by: userId,
         paid_at: now,
-        material_id: id,
+        material_id: materialId,
       });
-      if (error) {
-        await setFlashError(`Could not record the payment: ${error.message}`);
-        return;
-      }
+      if (error) throw new Error(error.message);
     }
   }
 
-  const { error: matErr } = await supabase.from("materials").update({ billed: true }).eq("id", id);
-  if (matErr) {
-    await setFlashError(`Could not mark the delivery paid: ${matErr.message}`);
+  const { error: matErr } = await supabase.from("materials").update({ billed: true }).eq("id", materialId);
+  if (matErr) throw new Error(matErr.message);
+  return { net, supplierId: m.supplier_id };
+}
+
+/**
+ * One-click settle from the supplier profile. Wraps settleDeliveryAsPaid with
+ * flash-error handling (this is a bare form action with no returned state).
+ */
+export async function payDelivery(fd: FormData) {
+  const supabase = await createSupabaseServerClient();
+  const id = str(fd, "id");
+  if (!id) return;
+
+  const { data: { user } } = await supabase.auth.getUser();
+  let settled: { net: number; supplierId: string } | null;
+  try {
+    settled = await settleDeliveryAsPaid(supabase, id, user?.id ?? null);
+  } catch (e) {
+    await setFlashError(`Could not mark the delivery paid: ${e instanceof Error ? e.message : "unknown error"}`);
     return;
   }
+  if (!settled) return;
 
-  revalidatePath(`/admin/suppliers/${m.supplier_id}`);
+  revalidatePath(`/admin/suppliers/${settled.supplierId}`);
   revalidatePath("/admin/suppliers");
   revalidatePath("/admin/payments");
   revalidatePath("/admin/materials");
@@ -1020,6 +1029,77 @@ export async function createPayment(
       supabase.auth.getUser(),
       payee_type === "supplier" ? resolveSupplierId(supabase, fd) : Promise.resolve(null),
     ]);
+    // ---- Supplier: settle the selected purchases, then route any amount above
+    //      them to advance (credit) or a plain payment (no credit). Each
+    //      purchase becomes its own paid payment -- they can span projects --
+    //      so this returns without using the single-row path below, which now
+    //      serves labour only.
+    if (payee_type === "supplier") {
+      if (!resolvedSupplierId) {
+        return { error: "Pick a supplier for this payment (or use \"Other…\" to type a new supplier name).", success: false };
+      }
+      const amount = nonNegNum(fd, "amount", "Amount") ?? 0;
+      const description = str(fd, "description");
+      const workCategory = str(fd, "work_category");
+      const extraMode = str(fd, "extra_mode") === "payment" ? "payment" : "advance";
+      const materialIds = fd.getAll("material_id").map((v) => String(v).trim()).filter(Boolean);
+
+      // Settle each picked purchase at its net owed (marks it billed, records a
+      // paid payment carrying material_id). Ineligible ones are skipped.
+      let settledTotal = 0;
+      for (const mid of materialIds) {
+        const res = await settleDeliveryAsPaid(supabase, mid, user?.id ?? null);
+        if (res) settledTotal += res.net;
+      }
+      settledTotal = Math.round(settledTotal * 100) / 100;
+
+      const extra = Math.round((amount - settledTotal) * 100) / 100;
+      if (extra < -0.005) {
+        return { error: `Amount can't be less than the selected purchases (₹${settledTotal.toLocaleString()}).`, success: false };
+      }
+      if (settledTotal <= 0 && extra <= 0) {
+        return { error: "Nothing to pay -- select a purchase or enter an amount.", success: false };
+      }
+      if (extra > 0.005) {
+        if (extraMode === "advance") {
+          // Credit: sits as advance and settles any other open purchases
+          // oldest-first, exactly like the Give-advance flow.
+          const { error: advErr } = await supabase.from("supplier_advances").insert({
+            supplier_id: resolvedSupplierId,
+            amount: extra,
+            description: description || "Advance payment",
+          });
+          if (advErr) throw new Error(advErr.message);
+          await supabase.rpc("settle_supplier_purchases_from_advance", { p_supplier_id: resolvedSupplierId });
+        } else {
+          // Plain payment: money out, no credit, not tied to a delivery.
+          const paidAt = new Date().toISOString();
+          const { error: payErr } = await supabase.from("payments").insert({
+            project_id: null,
+            payee_type: "supplier",
+            supplier_id: resolvedSupplierId,
+            amount: extra,
+            description: description || null,
+            work_category: workCategory,
+            status: "paid",
+            approved_at: paidAt,
+            approved_by: user?.id ?? null,
+            paid_at: paidAt,
+          });
+          if (payErr) throw new Error(payErr.message);
+        }
+      }
+
+      revalidatePath("/admin/payments");
+      revalidatePath("/admin/materials");
+      revalidatePath(`/admin/suppliers/${resolvedSupplierId}`);
+      revalidatePath("/admin/suppliers");
+      revalidatePath("/supplier");
+      revalidatePath("/admin");
+      return { error: null, success: true };
+    }
+
+    // ---- Labour ----
     const now = new Date().toISOString();
     const row: Record<string, unknown> = {
       project_id: uuidOrNull(fd, "project_id"),
@@ -1027,18 +1107,12 @@ export async function createPayment(
       amount: nonNegNum(fd, "amount", "Amount") ?? 0,
       description: str(fd, "description"),
       work_category: str(fd, "multi") === "1" ? (str(fd, "work_category") || null) : requiredStr(fd, "work_category", "Work category"),
-      status: payee_type === "supplier" ? "paid" : "approved",
+      status: "approved",
       approved_at: now,
       approved_by: user?.id ?? null,
-      paid_at: payee_type === "supplier" ? now : null,
+      paid_at: null,
     };
-    if (payee_type === "supplier") {
-      if (!resolvedSupplierId) {
-        return { error: "Pick a supplier for this bill (or use \"Other…\" to type a new supplier name).", success: false };
-      }
-      row.supplier_id = resolvedSupplierId;
-      row.labourer_id = null;
-    } else {
+    {
       const isMulti = str(fd, "multi") === "1";
       const labourerIds = fd.getAll("labourer_id").map((v) => String(v).trim()).filter(Boolean);
 
@@ -1071,45 +1145,18 @@ export async function createPayment(
       if (collectedBy) row.collected_by = collectedBy;
     }
 
-    // Record WHICH material this bill covers, not just that one does. The
-    // billed flag below is a one-way boolean; material_id is the actual link,
-    // and the unique partial index on it (40_supplier_delivery_autobill.sql)
-    // is what stops a delivery being billed twice across the two paths into
-    // this table -- here, and the supplier's own recordDelivery().
-    const materialId = uuidOrNull(fd, "material_id");
-    if (materialId) row.material_id = materialId;
-
+    // Labour wages: one payment row, de-duped against an accidental resubmit.
     const duplicate = await wasJustCreated(supabase, "payments", {
       project_id: row.project_id as string | null,
       payee_type: row.payee_type as string,
-      supplier_id: (row.supplier_id as string | null) ?? null,
+      supplier_id: null,
       labourer_id: (row.labourer_id as string | null) ?? null,
       amount: row.amount as number,
       description: row.description as string | null,
     });
     if (!duplicate) {
-      const { data: inserted, error } = await supabase.from("payments").insert(row).select("id").single();
+      const { error } = await supabase.from("payments").insert(row);
       if (error) throw new Error(error.message);
-
-      // A bill entered by hand draws on the advance the same way a delivery
-      // does -- as far as the credit goes, and no further. One entered as
-      // already paid does not: that money left some other way, and the
-      // function leaves anything but a pending or approved bill alone.
-      if (payee_type === "supplier" && resolvedSupplierId && inserted) {
-        await applyAdvanceToBill(supabase, resolvedSupplierId, inserted.id, row.amount as number);
-      }
-    }
-
-    // Mark the picked purchase as billed so it drops out of the "Purchase
-    // (optional)" dropdown -- otherwise the same material could be paid for
-    // more than once from repeat visits to this form.
-    if (materialId) {
-      const { error: materialError } = await supabase
-        .from("materials")
-        .update({ billed: true })
-        .eq("id", materialId);
-      if (materialError) throw new Error(materialError.message);
-      revalidatePath("/admin/materials");
     }
 
     revalidatePath("/admin/payments");

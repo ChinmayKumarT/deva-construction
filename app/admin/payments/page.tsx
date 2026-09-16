@@ -10,6 +10,7 @@ import { toCumulative } from "@/lib/cashflow";
 import { computeWagesDueFromAccrued } from "@/lib/wages";
 import { SupplierAdvanceForm } from "@/components/admin/SupplierAdvanceForm";
 import { advanceAppliedByMaterial } from "@/lib/supplierAccount";
+import { loadSupplierAccounts } from "@/lib/supplierAccountsServer";
 import { createPayment, giveSupplierAdvance } from "../actions";
 
 export const dynamic = "force-dynamic";
@@ -70,6 +71,7 @@ export default async function PaymentsIndexPage(
     ...m,
     advance_applied: appliedByMaterial.get(m.id) ?? 0,
   }));
+  const supplierAccounts = await loadSupplierAccounts(supabase);
 
   const byProject = new Map<string, { count: number; spend: number }>();
   let unassignedCount = 0;
@@ -127,6 +129,7 @@ export default async function PaymentsIndexPage(
           materials={materialsForForm}
           assignments={assignments ?? []}
           wageDue={wageDue}
+          supplierAccounts={supplierAccounts}
         />
       )}
 
