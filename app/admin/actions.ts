@@ -283,7 +283,18 @@ export async function deleteMaterial(fd: FormData) {
   if (id) await refundSupplierAdvanceForMaterial(id);
   if (await ownerDeleteRow("materials", id)) redirect("/admin/materials");
 }
-export async function deletePayment(fd: FormData) { await ownerDeleteRow("payments", str(fd, "id")); }
+export async function deletePayment(fd: FormData) {
+  const id = str(fd, "id");
+  if (!id) return;
+  const supabase = await createSupabaseServerClient();
+  // A supplier payment that settled a delivery has to re-open that delivery
+  // when it goes -- otherwise the goods stay marked paid with no payment behind
+  // them, so they vanish from what is owed and from the Payments picker.
+  const { data: p } = await supabase.from("payments").select("material_id, payee_type").eq("id", id).single();
+  if (await ownerDeleteRow("payments", id)) {
+    await reopenDeliveryForPayment(supabase, p, false);
+  }
+}
 export async function deleteProjectUpdate(fd: FormData) { await ownerDeleteRow("project_updates", str(fd, "id")); }
 
 /**
@@ -654,8 +665,39 @@ export async function updatePayment(fd: FormData) {
   });
   redirect("/admin/payments");
 }
-export async function archivePayment(fd: FormData) { await setArchived("payments", str(fd, "id"), true); }
-export async function unarchivePayment(fd: FormData) { await setArchived("payments", str(fd, "id"), false); }
+export async function archivePayment(fd: FormData) {
+  const id = str(fd, "id");
+  if (!id) return;
+  const supabase = await createSupabaseServerClient();
+  const { data: p } = await supabase.from("payments").select("material_id, payee_type").eq("id", id).single();
+  await setArchived("payments", id, true);
+  // Deleting the settlement re-opens the delivery, the mirror of paying it.
+  await reopenDeliveryForPayment(supabase, p, false);
+}
+export async function unarchivePayment(fd: FormData) {
+  const id = str(fd, "id");
+  if (!id) return;
+  const supabase = await createSupabaseServerClient();
+  const { data: p } = await supabase.from("payments").select("material_id, payee_type").eq("id", id).single();
+  await setArchived("payments", id, false);
+  // Restoring the payment settles the delivery again.
+  await reopenDeliveryForPayment(supabase, p, true);
+}
+
+// A supplier payment can carry a material_id -- the delivery it settled. Flip
+// that delivery's `billed` flag to match whether the payment is live: false
+// when the payment is archived/deleted (owed again, back in the picker), true
+// when it is restored. Labour payments and ad-hoc supplier payments have no
+// material and are left alone.
+async function reopenDeliveryForPayment(
+  supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>,
+  payment: { material_id: string | null; payee_type: string } | null,
+  billed: boolean,
+) {
+  if (!payment || payment.payee_type !== "supplier" || !payment.material_id) return;
+  await supabase.from("materials").update({ billed }).eq("id", payment.material_id);
+  revalidateAll();
+}
 
 // ---------- Project updates ----------
 export async function updateProjectUpdate(fd: FormData) {
@@ -1041,7 +1083,7 @@ export async function createPayment(
       const amount = nonNegNum(fd, "amount", "Amount") ?? 0;
       const description = str(fd, "description");
       const workCategory = str(fd, "work_category");
-      const extraMode = str(fd, "extra_mode") === "payment" ? "payment" : "advance";
+      const extraMode = str(fd, "extra_mode");
       const materialIds = fd.getAll("material_id").map((v) => String(v).trim()).filter(Boolean);
 
       // Settle each picked purchase at its net owed (marks it billed, records a
@@ -1061,6 +1103,12 @@ export async function createPayment(
         return { error: "Nothing to pay -- select a purchase or enter an amount.", success: false };
       }
       if (extra > 0.005) {
+        // No silent credit: an amount above the selected purchases has to be
+        // sent somewhere on purpose. Getting this wrong is how an accidental
+        // overpayment quietly became an advance that zeroed Remaining.
+        if (extraMode !== "advance" && extraMode !== "payment") {
+          return { error: `₹${extra.toLocaleString()} is more than the selected purchases. Choose whether it is an advance (credit) or just a payment.`, success: false };
+        }
         if (extraMode === "advance") {
           // Credit: sits as advance and settles any other open purchases
           // oldest-first, exactly like the Give-advance flow.

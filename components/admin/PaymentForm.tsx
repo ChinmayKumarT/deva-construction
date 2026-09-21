@@ -118,7 +118,9 @@ function PaymentFormFields({
   // payment.
   const supplierCreate = payeeType === "supplier" && !paymentId;
   const [selectedPurchases, setSelectedPurchases] = useState<Set<string>>(new Set());
-  const [extraMode, setExtraMode] = useState<"advance" | "payment">("advance");
+  // Unset on purpose: an amount above the selected purchases must be sent
+  // somewhere deliberately, so neither option is pre-picked.
+  const [extraMode, setExtraMode] = useState<"advance" | "payment" | "">("");
 
   const netOf = (m: Material) => Math.max(0, lineTotal(m.quantity, m.unit_cost) - (m.advance_applied ?? 0));
   const projectNameById = useMemo(() => new Map(projects.map((p) => [p.id, p.name])), [projects]);
@@ -649,14 +651,17 @@ function PaymentFormFields({
             <>
               <input type="hidden" name="extra_mode" value={extraMode} />
               {extraAmount > 0 ? (
-                <div className="mt-2 rounded-lg border border-slate-200 bg-slate-50 p-2 text-xs">
+                <div className={`mt-2 rounded-lg border p-2 text-xs ${extraMode === "" ? "border-amber-300 bg-amber-50" : "border-slate-200 bg-slate-50"}`}>
                   <p className="mb-1 text-slate-600">
-                    ₹{extraAmount.toLocaleString()} above the selected purchases — treat it as:
+                    ₹{extraAmount.toLocaleString()} is more than the selected purchases — where should it go?
                   </p>
                   <div className="flex gap-2">
                     <button type="button" onClick={() => setExtraMode("advance")} className={`rounded-md border px-2 py-1 ${extraMode === "advance" ? "border-brand bg-brand text-white" : "border-slate-300 bg-white text-slate-700 hover:bg-slate-50"}`}>Advance (credit)</button>
                     <button type="button" onClick={() => setExtraMode("payment")} className={`rounded-md border px-2 py-1 ${extraMode === "payment" ? "border-brand bg-brand text-white" : "border-slate-300 bg-white text-slate-700 hover:bg-slate-50"}`}>Just a payment</button>
                   </div>
+                  {extraMode === "" && <p className="mt-1 text-amber-700">Pick one — it won&apos;t be saved as credit unless you choose Advance.</p>}
+                  {extraMode === "advance" && <p className="mt-1 text-slate-500">Adds ₹{extraAmount.toLocaleString()} of advance credit for this supplier.</p>}
+                  {extraMode === "payment" && <p className="mt-1 text-slate-500">Records ₹{extraAmount.toLocaleString()} as paid, with no credit.</p>}
                 </div>
               ) : extraAmount < 0 ? (
                 <p className="mt-1 text-xs text-red-600">Amount is less than the selected purchases (₹{selectedNet.toLocaleString()}).</p>

@@ -4,7 +4,7 @@ title: Supplier deliveries auto-create their bill
 category: decision
 status: active
 created: "2026-08-26T17:44:53"
-updated: "2026-09-16T11:13:47"
+updated: "2026-09-21T12:15:12"
 ---
 
 
@@ -103,4 +103,10 @@ updated: "2026-09-16T11:13:47"
   kind: decision
   summary: "Payments form supplier branch reworked: pick a supplier -> see Remaining/Lifetime/Advance, multi-select (with Select all) their open purchases, amount autofills to net; amount above the selected purchases goes to advance (credit) or a plain payment (no credit), chosen by a toggle. Settles each purchase via shared settleDeliveryAsPaid; surplus advance auto-settles other open purchases"
   source: "chat + implementation 2026-09-16"
+  affects: [supplier-auto-billing]
+
+- time: 2026-09-21T12:15:12
+  kind: decision
+  summary: "Deleting/archiving a supplier payment now re-opens its linked delivery (billed=false), and restoring re-settles it -- delete is symmetric with pay. Also the payment form no longer silently turns an overpayment into an advance: any amount above the selected purchases requires an explicit Advance-vs-just-a-payment choice, else the server rejects it"
+  source: "chat + implementation 2026-09-21"
   affects: [supplier-auto-billing]
