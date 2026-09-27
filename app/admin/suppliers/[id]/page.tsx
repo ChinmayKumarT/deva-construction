@@ -355,6 +355,7 @@ export default async function ManageSupplierPage(props: { params: Promise<{ id: 
       </div>
       </CollapsibleSection>
 
+      {role !== "manager" && (
       <CollapsibleSection title="Advance Account" count={(advances ?? []).length}>
       {!archived && (
         <CollapsibleForm label="Give advance" icon="money">
@@ -446,6 +447,7 @@ export default async function ManageSupplierPage(props: { params: Promise<{ id: 
         </table>
       </div>
       </CollapsibleSection>
+      )}
 
       {/* The math trail: every movement that feeds Remaining / Lifetime /
           Advance, in order, with the running figures after each one. Read-only
