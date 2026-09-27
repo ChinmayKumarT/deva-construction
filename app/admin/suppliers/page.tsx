@@ -19,7 +19,7 @@ export default async function SuppliersPage(
   const searchParams = await props.searchParams;
   const showArchived = searchParams.archived === "1";
   const supabase = await createSupabaseServerClient();
-  const { isOwner } = await getSessionAndRole();
+  const { isOwner, role } = await getSessionAndRole();
 
   const base = supabase
     .from("suppliers")
@@ -119,6 +119,9 @@ export default async function SuppliersPage(
                   <div className="text-[10px] font-medium uppercase tracking-wide text-slate-500">Deliveries</div>
                   <div className="text-sm font-semibold">{deliveriesBySupplier.get(s.id) ?? 0}</div>
                 </div>
+                {/* Money figures are owner/admin only; managers see deliveries. */}
+                {role !== "manager" && (
+                <>
                 {/* Amber only while money is genuinely owed, so a settled
                     supplier shows a quiet zero rather than a warning colour. */}
                 <div className={`rounded-lg border px-3 py-2 ${
@@ -157,6 +160,8 @@ export default async function SuppliersPage(
                     ₹{m.advanceBalance.toLocaleString()}
                   </div>
                 </div>
+                </>
+                )}
               </div>
               <p className="mt-3 text-sm font-medium text-brand-700">Manage →</p>
             </Link>

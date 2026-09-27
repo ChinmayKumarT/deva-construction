@@ -136,21 +136,26 @@ export default async function ManageSupplierPage(props: { params: Promise<{ id: 
           stretching across a wide screen. */}
       <div className="mb-6 grid max-w-md grid-cols-2 gap-2">
         <StatBox label="Deliveries" value={String(deliveredCount)} />
-        <StatBox
-          label="Remaining"
-          value={`₹${remaining.toLocaleString()}`}
-          className={
-            remaining > 0
-              ? "border-amber-200 bg-amber-50 text-amber-700"
-              : "border-slate-200 bg-white"
-          }
-        />
-        <StatBox label="Lifetime payment" value={`₹${lifetimePayment.toLocaleString()}`} className="border-emerald-200 bg-emerald-50 text-emerald-700" />
-        <StatBox
-          label="Advance balance"
-          value={`₹${advanceBalance.toLocaleString()}`}
-          className={advanceBalance > 0 ? "border-blue-200 bg-blue-50 text-blue-700" : "border-slate-200 bg-white"}
-        />
+        {/* Money figures are owner/admin only; managers see deliveries. */}
+        {role !== "manager" && (
+          <>
+            <StatBox
+              label="Remaining"
+              value={`₹${remaining.toLocaleString()}`}
+              className={
+                remaining > 0
+                  ? "border-amber-200 bg-amber-50 text-amber-700"
+                  : "border-slate-200 bg-white"
+              }
+            />
+            <StatBox label="Lifetime payment" value={`₹${lifetimePayment.toLocaleString()}`} className="border-emerald-200 bg-emerald-50 text-emerald-700" />
+            <StatBox
+              label="Advance balance"
+              value={`₹${advanceBalance.toLocaleString()}`}
+              className={advanceBalance > 0 ? "border-blue-200 bg-blue-50 text-blue-700" : "border-slate-200 bg-white"}
+            />
+          </>
+        )}
       </div>
 
       <div className="max-w-xl rounded-xl border border-slate-200 bg-white p-6">
