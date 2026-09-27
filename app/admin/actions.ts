@@ -133,9 +133,18 @@ export async function updateProject(fd: FormData) {
   redirect("/admin/projects");
 }
 
+// Managers have no delete rights over projects, clients or suppliers -- not
+// even the reversible archive. Permanent delete is already owner-only.
+async function managerDenied(): Promise<boolean> {
+  if ((await getSessionAndRole()).role !== "manager") return false;
+  await setFlashError("Managers can't archive or delete this.");
+  return true;
+}
+
 // "Delete" is a reversible archive -- a real DELETE would cascade and destroy
 // this project's materials and progress updates/photos. See supabase/10_archive.sql.
 export async function archiveProject(fd: FormData) {
+  if (await managerDenied()) return;
   const supabase = await createSupabaseServerClient();
   const id = str(fd, "id");
   if (!id) throw new Error("project id required");
@@ -148,6 +157,7 @@ export async function archiveProject(fd: FormData) {
 }
 
 export async function unarchiveProject(fd: FormData) {
+  if (await managerDenied()) return;
   const supabase = await createSupabaseServerClient();
   const id = str(fd, "id");
   if (!id) throw new Error("project id required");
@@ -336,8 +346,8 @@ export async function updateClient(fd: FormData) {
   });
   redirect("/admin/clients");
 }
-export async function archiveClient(fd: FormData) { await setArchived("clients", str(fd, "id"), true); }
-export async function unarchiveClient(fd: FormData) { await setArchived("clients", str(fd, "id"), false); }
+export async function archiveClient(fd: FormData) { if (!(await managerDenied())) await setArchived("clients", str(fd, "id"), true); }
+export async function unarchiveClient(fd: FormData) { if (!(await managerDenied())) await setArchived("clients", str(fd, "id"), false); }
 
 // ---------- Suppliers ----------
 export async function updateSupplier(fd: FormData) {
@@ -350,8 +360,8 @@ export async function updateSupplier(fd: FormData) {
   });
   redirect("/admin/suppliers");
 }
-export async function archiveSupplier(fd: FormData) { await setArchived("suppliers", str(fd, "id"), true); }
-export async function unarchiveSupplier(fd: FormData) { await setArchived("suppliers", str(fd, "id"), false); }
+export async function archiveSupplier(fd: FormData) { if (!(await managerDenied())) await setArchived("suppliers", str(fd, "id"), true); }
+export async function unarchiveSupplier(fd: FormData) { if (!(await managerDenied())) await setArchived("suppliers", str(fd, "id"), false); }
 
 // ---------- Supplier advances ----------
 export async function giveSupplierAdvance(fd: FormData) {

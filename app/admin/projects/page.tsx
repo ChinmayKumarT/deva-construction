@@ -148,6 +148,7 @@ export default async function ProjectsPage(
                     Archived {p.archived_at ? new Date(p.archived_at).toLocaleDateString() : ""}
                   </p>
                   <div className="flex items-center gap-2">
+                    {!isManager && (
                     <form action={unarchiveProject}>
                       <input type="hidden" name="id" value={p.id} />
                       <FormSubmitButton
@@ -157,6 +158,7 @@ export default async function ProjectsPage(
                         Restore
                       </FormSubmitButton>
                     </form>
+                    )}
                     {isOwner && (
                       <DeleteForeverButton
                         id={p.id} name={p.name} action={deleteProject}

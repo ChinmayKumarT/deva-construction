@@ -12,7 +12,8 @@ export const fetchCache = "force-no-store";
 export default async function ManageClientPage(props: { params: Promise<{ id: string }> }) {
   const params = await props.params;
   const supabase = await createSupabaseServerClient();
-  const { isOwner } = await getSessionAndRole();
+  const { isOwner, role } = await getSessionAndRole();
+  const isManager = role === "manager";
 
   const { data: client } = await supabase
     .from("clients")
@@ -42,6 +43,7 @@ export default async function ManageClientPage(props: { params: Promise<{ id: st
               lists. Their projects are unaffected.
             </p>
             <div className="flex items-center gap-2">
+              {!isManager && (
               <form action={unarchiveClient}>
                 <input type="hidden" name="id" value={client.id} />
                 <FormSubmitButton
@@ -51,6 +53,7 @@ export default async function ManageClientPage(props: { params: Promise<{ id: st
                   Restore
                 </FormSubmitButton>
               </form>
+              )}
               {isOwner && <DeleteForeverButton id={client.id} name={client.name} action={deleteClient} />}
             </div>
           </>
@@ -62,6 +65,7 @@ export default async function ManageClientPage(props: { params: Promise<{ id: st
             >
               Edit
             </Link>
+            {!isManager && (
             <form action={archiveClient}>
               <input type="hidden" name="id" value={client.id} />
               <FormSubmitButton
@@ -72,6 +76,7 @@ export default async function ManageClientPage(props: { params: Promise<{ id: st
                 Archive
               </FormSubmitButton>
             </form>
+            )}
           </div>
         )}
       </div>

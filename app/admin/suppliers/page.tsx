@@ -180,7 +180,7 @@ export default async function SuppliersPage(
             {suppliers!.map((s) => (
               <ManageCard key={s.id} title={s.name}>
                 <div className="flex items-center gap-2">
-                  <RestoreAction id={s.id} action={unarchiveSupplier} />
+                  {role !== "manager" && <RestoreAction id={s.id} action={unarchiveSupplier} />}
                   {isOwner && <DeleteForeverButton id={s.id} name={s.name} action={deleteSupplier} />}
                 </div>
               </ManageCard>

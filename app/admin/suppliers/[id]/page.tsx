@@ -169,6 +169,7 @@ export default async function ManageSupplierPage(props: { params: Promise<{ id: 
               from lists and dropdowns. Their past materials and payments are kept.
             </p>
             <div className="flex items-center gap-2">
+              {!isManager && (
               <form action={unarchiveSupplier}>
                 <input type="hidden" name="id" value={supplier.id} />
                 <FormSubmitButton
@@ -178,6 +179,7 @@ export default async function ManageSupplierPage(props: { params: Promise<{ id: 
                   Restore
                 </FormSubmitButton>
               </form>
+              )}
               {isOwner && (
                 <DeleteForeverButton
                   id={supplier.id}
@@ -216,6 +218,7 @@ export default async function ManageSupplierPage(props: { params: Promise<{ id: 
             >
               Edit
             </Link>
+            {!isManager && (
             <form action={archiveSupplier}>
               <input type="hidden" name="id" value={supplier.id} />
               <FormSubmitButton
@@ -226,6 +229,7 @@ export default async function ManageSupplierPage(props: { params: Promise<{ id: 
                 Archive
               </FormSubmitButton>
             </form>
+            )}
           </div>
         )}
       </div>

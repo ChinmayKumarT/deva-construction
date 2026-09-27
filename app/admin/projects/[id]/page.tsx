@@ -224,6 +224,7 @@ export default async function ManageProjectPage(
               >
                 Edit project
               </Link>
+              {!isManager && (
               <form action={archiveProject}>
                 <input type="hidden" name="id" value={project.id} />
                 <FormSubmitButton
@@ -234,6 +235,7 @@ export default async function ManageProjectPage(
                   Archive
                 </FormSubmitButton>
               </form>
+              )}
             </div>
           )}
         </div>
@@ -286,12 +288,14 @@ export default async function ManageProjectPage(
             all other views. Its materials, payments and updates are retained.
           </p>
           <div className="flex items-center gap-2">
+            {!isManager && (
             <form action={unarchiveProject}>
               <input type="hidden" name="id" value={project.id} />
               <FormSubmitButton pendingLabel="Restoring…" className="rounded-lg bg-brand px-3 py-1.5 text-sm font-medium text-white hover:bg-brand-700">
                 Restore
               </FormSubmitButton>
             </form>
+            )}
             {isOwner && (
               <DeleteForeverButton
                 id={project.id}

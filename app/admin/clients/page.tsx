@@ -18,7 +18,8 @@ export default async function ClientsPage(
   const searchParams = await props.searchParams;
   const showArchived = searchParams.archived === "1";
   const supabase = await createSupabaseServerClient();
-  const { isOwner } = await getSessionAndRole();
+  const { isOwner, role } = await getSessionAndRole();
+  const isManager = role === "manager";
 
   const base = supabase
     .from("clients")
@@ -84,7 +85,7 @@ export default async function ClientsPage(
             {clients!.map((c) => (
               <ManageCard key={c.id} title={c.name}>
                 <div className="flex items-center gap-2">
-                  <RestoreAction id={c.id} action={unarchiveClient} />
+                  {!isManager && <RestoreAction id={c.id} action={unarchiveClient} />}
                   {isOwner && <DeleteForeverButton id={c.id} name={c.name} action={deleteClient} />}
                 </div>
               </ManageCard>
