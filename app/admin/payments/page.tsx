@@ -1,5 +1,6 @@
 import Link from "next/link";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { redirect } from "next/navigation";
+import { createSupabaseServerClient, getSessionAndRole } from "@/lib/supabase/server";
 import { AdminPage, AdminPageHeader, AdminContent, CostBox } from "@/components/admin/Page";
 import { CashFlowBarChart } from "@/components/admin/CashFlowBarChart";
 import { CashFlowTrendChart } from "@/components/admin/CashFlowTrendChart";
@@ -26,6 +27,9 @@ export default async function PaymentsIndexPage(
 ) {
   const searchParams = await props.searchParams;
   const showArchived = searchParams.archived === "1";
+  // Payments are financials -- managers see operations only, same as Costs.
+  const { role } = await getSessionAndRole();
+  if (role === "manager") redirect("/admin");
   const supabase = await createSupabaseServerClient();
 
   const [

@@ -1,5 +1,5 @@
-import { notFound } from "next/navigation";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { notFound, redirect } from "next/navigation";
+import { createSupabaseServerClient, getSessionAndRole } from "@/lib/supabase/server";
 import { AdminPage, AdminPageHeader, AdminContent } from "@/components/admin/Page";
 import { EditPaymentForm } from "@/components/admin/PaymentForm";
 import { computeWagesDue } from "@/lib/wages";
@@ -7,6 +7,7 @@ import { updatePayment } from "../../../actions";
 
 export default async function EditPaymentPage(props: { params: Promise<{ id: string }> }) {
   const params = await props.params;
+  if ((await getSessionAndRole()).role === "manager") redirect("/admin");
   const supabase = await createSupabaseServerClient();
   const [
     { data: payment }, { data: projects }, { data: suppliers }, { data: labourers },

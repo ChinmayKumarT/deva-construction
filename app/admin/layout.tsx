@@ -40,15 +40,21 @@ function buildGroups(canTeamAccess: boolean, isManager: boolean): NavGroup[] {
           ? []
           : [{ href: "/admin/costs", label: "Costs", icon: "costs" as const }]),
         { href: "/admin/attendance", label: "Attendance", icon: "attendance" },
-        { href: "/admin/payments", label: "Payments", icon: "payments" },
+        ...(isManager
+          ? []
+          : [{ href: "/admin/payments", label: "Payments", icon: "payments" as const }]),
         { href: "/admin/updates", label: "Updates", icon: "updates" },
       ],
     },
     ...(insightItems.length ? [{ title: "Insights", items: insightItems }] : []),
-    {
-      title: "Website",
-      items: [{ href: "/admin/website", label: "Projects shown online", icon: "photo" }],
-    },
+    ...(canTeamAccess
+      ? [
+          {
+            title: "Website",
+            items: [{ href: "/admin/website", label: "Projects shown online", icon: "photo" as const }],
+          },
+        ]
+      : []),
     ...(isManager
       ? []
       : [
