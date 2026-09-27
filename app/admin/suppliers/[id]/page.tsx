@@ -450,6 +450,7 @@ export default async function ManageSupplierPage(props: { params: Promise<{ id: 
       {/* The math trail: every movement that feeds Remaining / Lifetime /
           Advance, in order, with the running figures after each one. Read-only
           -- its last line matches the stat boxes at the top. */}
+      {role !== "manager" && (
       <CollapsibleSection title="Account activity" count={activity.length} subtitle="How Remaining & Advance changed">
       <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white">
         <table className="w-full text-sm">
@@ -485,6 +486,7 @@ export default async function ManageSupplierPage(props: { params: Promise<{ id: 
         </table>
       </div>
       </CollapsibleSection>
+      )}
 
       {/* Anything listed here shows up as a one-tap chip above this supplier's
           Record Delivery form, so they stop retyping the same material every
