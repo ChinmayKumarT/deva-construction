@@ -105,9 +105,6 @@ export default async function ManageSupplierPage(props: { params: Promise<{ id: 
   });
   // Advance put against each purchase, for the "paid from advance" badge below.
   const appliedByMaterial = advanceAppliedByMaterial(advances ?? []);
-  // Managers see only the latest 3 payments (list is newest-first). Display
-  // only -- every figure above is still computed from all of them.
-  const shownPayments = role === "manager" ? (payments ?? []).slice(0, 3) : (payments ?? []);
   // Deliveries settled by a real cash payment (via the Paid button or the
   // Payments form) -- these are the ones that can be undone. A delivery settled
   // purely from advance has no payment row and is left as-is.
@@ -314,7 +311,8 @@ export default async function ManageSupplierPage(props: { params: Promise<{ id: 
       </div>
       </CollapsibleSection>
 
-      <CollapsibleSection title="Payments" count={shownPayments.length} defaultOpen>
+      {role !== "manager" && (
+      <CollapsibleSection title="Payments" count={(payments ?? []).length} defaultOpen>
       <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white">
         <table className="w-full text-sm">
           <thead className="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
@@ -327,10 +325,10 @@ export default async function ManageSupplierPage(props: { params: Promise<{ id: 
             </tr>
           </thead>
           <tbody>
-            {shownPayments.length === 0 && (
+            {(payments ?? []).length === 0 && (
               <tr><td colSpan={5} className="px-4 py-6 text-center text-slate-500">No payments recorded yet.</td></tr>
             )}
-            {shownPayments.map((p) => (
+            {(payments ?? []).map((p) => (
               <tr key={p.id} className="border-t border-slate-100">
                 <td className="px-4 py-2 text-slate-600">{formatDateTime(p.created_at)}</td>
                 <td className="px-4 py-2 text-slate-600">{p.description ?? "—"}</td>
@@ -359,6 +357,7 @@ export default async function ManageSupplierPage(props: { params: Promise<{ id: 
         </table>
       </div>
       </CollapsibleSection>
+      )}
 
       {role !== "manager" && (
       <CollapsibleSection title="Advance Account" count={(advances ?? []).length}>
