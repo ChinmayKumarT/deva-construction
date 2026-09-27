@@ -1,6 +1,6 @@
 # Brain Index
 
-_Auto-generated. Last updated 2026-09-21T06:45:12.296Z._
+_Auto-generated. Last updated 2026-09-27T19:27:47.321Z._
 
 - [budget-extensions](pages/budget-extensions.md) — category: decision | <current best understanding — replace this with the real content>
 - [client-payments-tracking](pages/client-payments-tracking.md) — category: decision | <current best understanding — replace this with the real content>
@@ -14,7 +14,7 @@ _Auto-generated. Last updated 2026-09-21T06:45:12.296Z._
 - [rls-is-the-authority](pages/rls-is-the-authority.md) — category: decision | The app enforces permissions at three layers — navigation hiding, server-side route guards (`requireRole()`), and PostgreSQL RLS policies —
 - [role-reservations](pages/role-reservations.md) — category: decision | <current best understanding — replace this with the real content>
 - [sheetjs-to-exceljs](pages/sheetjs-to-exceljs.md) — category: decision | SheetJS (the `xlsx` npm package) had unfixable CVEs that npm audit flagged. Swapped to `exceljs` which covers the same use case (backup Exce
-- [superadmin-role](pages/superadmin-role.md) — category: decision | <current best understanding — replace this with the real content>
+- [superadmin-role](pages/superadmin-role.md) — category: decision | **Roles, top down:** superadmin > admin > manager > client/supplier. Superadmin is never self-serve (the signup trigger clamps it); it is gr
 - [supplier-advance-ledger](pages/supplier-advance-ledger.md) — category: decision | Supplier advances live in one ledger table, `supplier_advances`.
 - [supplier-auto-billing](pages/supplier-auto-billing.md) — category: decision | **The model as of 2026-09-15 (this supersedes the auto-billing era below).
 - [supplier-material-catalog](pages/supplier-material-catalog.md) — category: decision | tags: [supplier, materials, ux] | Suppliers were retyping the same material, unit and rate on every delivery, because a delivery row *is* the material record — `materials` ca

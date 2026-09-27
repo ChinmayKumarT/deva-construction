@@ -641,8 +641,21 @@ export async function updateMaterial(fd: FormData) {
 // Refund after the archive, not before: if the archive fails there is nothing
 // to give back. setArchived() has already revalidated by then, so the helper
 // revalidates the supplier pages itself.
+// Managers may only change deliveries they recorded themselves (created_by,
+// 58_material_created_by.sql); everyone else's are read-only to them.
+async function managerBlockedFromMaterial(id: string): Promise<boolean> {
+  const { user, role } = await getSessionAndRole();
+  if (role !== "manager") return false;
+  const supabase = await createSupabaseServerClient();
+  const { data } = await supabase.from("materials").select("created_by").eq("id", id).single();
+  if (data?.created_by === user?.id) return false;
+  await setFlashError("You can only change deliveries you recorded.");
+  return true;
+}
+
 export async function archiveMaterial(fd: FormData) {
   const id = str(fd, "id");
+  if (id && (await managerBlockedFromMaterial(id))) return;
   await setArchived("materials", id, true);
   if (id) await refundSupplierAdvanceForMaterial(id);
 }
@@ -885,7 +898,7 @@ async function settleDeliveryAsPaid(
 export async function payDelivery(fd: FormData) {
   const supabase = await createSupabaseServerClient();
   const id = str(fd, "id");
-  if (!id) return;
+  if (!id || (await managerBlockedFromMaterial(id))) return;
 
   const { data: { user } } = await supabase.auth.getUser();
   let settled: { net: number; supplierId: string } | null;
@@ -918,7 +931,7 @@ export async function payDelivery(fd: FormData) {
 export async function unpayDelivery(fd: FormData) {
   const supabase = await createSupabaseServerClient();
   const id = str(fd, "id");
-  if (!id) return;
+  if (!id || (await managerBlockedFromMaterial(id))) return;
 
   const { data: m } = await supabase
     .from("materials")
@@ -1492,7 +1505,10 @@ export async function setUserRole(fd: FormData) {
   const new_role = str(fd, "new_role");
   if (!target_id || !new_role) throw new Error("target and role required");
   const { error } = await supabase.rpc("set_user_role", { target_id, new_role });
-  if (error) throw new Error(error.message);
+  if (error) {
+    await setFlashError(`Could not change role: ${error.message}`);
+    return;
+  }
   revalidatePath("/admin/team");
 }
 
@@ -1505,7 +1521,10 @@ export async function deleteUser(fd: FormData) {
   const target_id = str(fd, "id");
   if (!target_id) throw new Error("target required");
   const { error } = await supabase.rpc("admin_delete_user", { target_id });
-  if (error) throw new Error(error.message);
+  if (error) {
+    await setFlashError(`Could not delete user: ${error.message}`);
+    return;
+  }
   revalidatePath("/admin/team");
 }
 

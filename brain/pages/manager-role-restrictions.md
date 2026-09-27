@@ -4,7 +4,7 @@ title: "Managers see operations, not financials"
 category: decision
 status: active
 created: "2026-08-26T17:45:08"
-updated: "2026-08-26T17:45:08"
+updated: "2026-09-28T00:57:47"
 ---
 
 <!-- compiled_truth -->
@@ -33,4 +33,10 @@ Related: [[rls-is-the-authority]]
   kind: decision
   summary: Manager role restricted from all financial views and data
   source: git log
+  affects: [manager-role-restrictions]
+
+- time: 2026-09-28T00:57:47
+  kind: decision
+  summary: "Supplier page for managers: only the Deliveries box and Deliveries/Material lists (money boxes, Payments, Advance Account, Account activity, delivery Total hidden). Managers may only delete/pay/undo deliveries they recorded (materials.created_by, migration 58, default auth.uid()); others are View only, enforced server-side in managerBlockedFromMaterial"
+  source: "chat + implementation 2026-09-28"
   affects: [manager-role-restrictions]

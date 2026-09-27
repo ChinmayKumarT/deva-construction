@@ -55,7 +55,11 @@ function StatBox({ label, value, className }: { label: string; value: string; cl
 export default async function ManageSupplierPage(props: { params: Promise<{ id: string }> }) {
   const params = await props.params;
   const supabase = await createSupabaseServerClient();
-  const { isOwner, role } = await getSessionAndRole();
+  const { isOwner, role, user } = await getSessionAndRole();
+  const isManager = role === "manager";
+  // Managers only change deliveries they recorded; others are read-only.
+  // Mirrors managerBlockedFromMaterial in app/admin/actions.ts.
+  const canChange = (m: { created_by: string | null }) => !isManager || m.created_by === user?.id;
 
   const [
     { data: supplier },
@@ -67,7 +71,7 @@ export default async function ManageSupplierPage(props: { params: Promise<{ id: 
     supabase.from("suppliers").select("id, name, email, phone, profile_id, archived_at").eq("id", params.id).single(),
     supabase
       .from("materials")
-      .select("id, name, unit, quantity, unit_cost, status, billed, ordered_at, projects(name)")
+      .select("id, name, unit, quantity, unit_cost, status, billed, ordered_at, created_by, projects(name)")
       .eq("supplier_id", params.id)
       .is("archived_at", null)
       .order("ordered_at", { ascending: false }),
@@ -232,14 +236,14 @@ export default async function ManageSupplierPage(props: { params: Promise<{ id: 
               <th className="px-4 py-2 font-medium">Date</th>
               <th className="px-4 py-2 font-medium">Project</th>
               <th className="px-4 py-2 font-medium">Material</th>
-              <th className="px-4 py-2 font-medium">Total</th>
+              {!isManager && <th className="px-4 py-2 font-medium">Total</th>}
               <th className="px-4 py-2 font-medium">Status</th>
               <th className="px-4 py-2 font-medium"></th>
             </tr>
           </thead>
           <tbody>
             {(materials ?? []).length === 0 && (
-              <tr><td colSpan={6} className="px-4 py-6 text-center text-slate-500">No deliveries recorded yet.</td></tr>
+              <tr><td colSpan={isManager ? 5 : 6} className="px-4 py-6 text-center text-slate-500">No deliveries recorded yet.</td></tr>
             )}
             {materials?.map((m) => (
               <tr key={m.id} className="border-t border-slate-100">
@@ -247,7 +251,7 @@ export default async function ManageSupplierPage(props: { params: Promise<{ id: 
                 {/* @ts-expect-error relation */}
                 <td className="px-4 py-2">{m.projects?.name ?? "—"}</td>
                 <td className="px-4 py-2">{m.name} <span className="text-xs text-slate-500">({m.quantity} {m.unit})</span></td>
-                <td className="px-4 py-2 font-medium">₹{lineTotal(m.quantity, m.unit_cost).toLocaleString()}</td>
+                {!isManager && <td className="px-4 py-2 font-medium">₹{lineTotal(m.quantity, m.unit_cost).toLocaleString()}</td>}
                 <td className="px-4 py-2">
                   <div className="flex flex-wrap items-center gap-1">
                     <span className={`rounded-md border px-2 py-0.5 text-xs ${MATERIAL_STATUS_STYLE[m.status] ?? ""}`}>{m.status}</span>
@@ -267,6 +271,9 @@ export default async function ManageSupplierPage(props: { params: Promise<{ id: 
                   </div>
                 </td>
                 <td className="px-4 py-2">
+                  {!canChange(m) ? (
+                    <span className="text-xs text-slate-400">View only</span>
+                  ) : (
                   <div className="flex flex-wrap items-center gap-1">
                     {!m.billed && m.status !== "returned" && (
                       <form action={payDelivery}>
@@ -303,6 +310,7 @@ export default async function ManageSupplierPage(props: { params: Promise<{ id: 
                       </FormSubmitButton>
                     </form>
                   </div>
+                  )}
                 </td>
               </tr>
             ))}
