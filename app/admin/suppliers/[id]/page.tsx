@@ -109,6 +109,8 @@ export default async function ManageSupplierPage(props: { params: Promise<{ id: 
   });
   // Advance put against each purchase, for the "paid from advance" badge below.
   const appliedByMaterial = advanceAppliedByMaterial(advances ?? []);
+  // Managers see only the latest 5 deliveries (list is newest-first).
+  const shownDeliveries = isManager ? (materials ?? []).slice(0, 5) : (materials ?? []);
   // Deliveries settled by a real cash payment (via the Paid button or the
   // Payments form) -- these are the ones that can be undone. A delivery settled
   // purely from advance has no payment row and is left as-is.
@@ -228,7 +230,7 @@ export default async function ManageSupplierPage(props: { params: Promise<{ id: 
         )}
       </div>
 
-      <CollapsibleSection title="Deliveries" count={(materials ?? []).length} defaultOpen>
+      <CollapsibleSection title="Deliveries" count={shownDeliveries.length} defaultOpen>
       <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white">
         <table className="w-full text-sm">
           <thead className="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
@@ -242,10 +244,10 @@ export default async function ManageSupplierPage(props: { params: Promise<{ id: 
             </tr>
           </thead>
           <tbody>
-            {(materials ?? []).length === 0 && (
+            {shownDeliveries.length === 0 && (
               <tr><td colSpan={isManager ? 5 : 6} className="px-4 py-6 text-center text-slate-500">No deliveries recorded yet.</td></tr>
             )}
-            {materials?.map((m) => (
+            {shownDeliveries.map((m) => (
               <tr key={m.id} className="border-t border-slate-100">
                 <td className="px-4 py-2 text-slate-600">{m.ordered_at ? new Date(m.ordered_at).toLocaleDateString() : "—"}</td>
                 {/* @ts-expect-error relation */}
