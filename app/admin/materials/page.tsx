@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { createSupabaseServerClient, getSessionAndRole } from "@/lib/supabase/server";
 import { AdminPage, AdminPageHeader, AdminContent, CostBox, Field, Select, SubmitButton } from "@/components/admin/Page";
 import { CategoryField } from "@/components/admin/CategoryField";
 import { ResettableForm, FormError } from "@/components/ResettableForm";
@@ -20,15 +20,25 @@ export default async function MaterialsIndexPage(
 ) {
   const searchParams = await props.searchParams;
   const showArchived = searchParams.archived === "1";
+  const { role, user } = await getSessionAndRole();
+  const isManager = role === "manager";
   const supabase = await createSupabaseServerClient();
+  // Managers see only deliveries they recorded or a supplier recorded directly.
+  const managerScope = `created_by.eq.${user?.id},created_by_supplier.eq.true`;
+
+  let materialsQuery = supabase.from("materials").select("id, project_id, quantity, unit_cost, status");
+  materialsQuery = showArchived ? materialsQuery.not("archived_at", "is", null) : materialsQuery.is("archived_at", null);
+  let archivedQuery = supabase.from("materials").select("id", { count: "exact", head: true }).not("archived_at", "is", null);
+  if (isManager) {
+    materialsQuery = materialsQuery.or(managerScope);
+    archivedQuery = archivedQuery.or(managerScope);
+  }
 
   const [{ data: projects }, { data: materials }, { data: suppliers }, { count: archivedCount }] = await Promise.all([
     supabase.from("projects").select("id, name, status").is("archived_at", null).order("name"),
-    showArchived
-      ? supabase.from("materials").select("id, project_id, quantity, unit_cost, status").not("archived_at", "is", null)
-      : supabase.from("materials").select("id, project_id, quantity, unit_cost, status").is("archived_at", null),
+    materialsQuery,
     supabase.from("suppliers").select("id, name").is("archived_at", null).order("name"),
-    supabase.from("materials").select("id", { count: "exact", head: true }).not("archived_at", "is", null),
+    archivedQuery,
   ]);
 
   const byProject = new Map<string, { count: number; spend: number }>();
@@ -115,7 +125,7 @@ export default async function MaterialsIndexPage(
 
       {!showArchived && (
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          <CostBox label="Total cost" value={totalCost} accent />
+          {!isManager && <CostBox label="Total cost" value={totalCost} accent />}
           {(projects ?? []).length === 0 && (
             <p className="col-span-full rounded-xl border border-dashed border-[var(--line)] bg-white p-8 text-center text-sm text-slate-500">
               No projects yet.
@@ -123,12 +133,12 @@ export default async function MaterialsIndexPage(
           )}
           {(projects ?? []).map((p) => (
             <Link key={p.id} href={`/admin/materials/${p.id}`}>
-              <CostBox label={p.name} value={byProject.get(p.id)?.spend ?? 0} />
+              <CostBox label={p.name} value={isManager ? undefined : byProject.get(p.id)?.spend ?? 0} />
             </Link>
           ))}
           {unassignedCount > 0 && (
             <Link href="/admin/materials/unassigned">
-              <CostBox label="No project" value={unassignedSpend} />
+              <CostBox label="No project" value={isManager ? undefined : unassignedSpend} />
             </Link>
           )}
         </div>

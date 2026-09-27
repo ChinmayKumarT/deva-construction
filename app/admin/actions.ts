@@ -626,7 +626,9 @@ export async function updateMaterial(fd: FormData) {
   // arrived. "Ordered" is no longer offered in the pickers -- see the note on
   // the Materials list page.
   const status = (str(fd, "status") ?? "delivered") as "ordered" | "delivered" | "returned";
-  await updateRow("materials", str(fd, "id"), {
+  const editId = str(fd, "id");
+  if (editId && (await managerBlockedFromMaterial(editId))) return;
+  await updateRow("materials", editId, {
     project_id: uuidOrNull(fd, "project_id"),
     supplier_id: uuidOrNull(fd, "supplier_id"),
     name: str(fd, "name"),
@@ -659,7 +661,11 @@ export async function archiveMaterial(fd: FormData) {
   await setArchived("materials", id, true);
   if (id) await refundSupplierAdvanceForMaterial(id);
 }
-export async function unarchiveMaterial(fd: FormData) { await setArchived("materials", str(fd, "id"), false); }
+export async function unarchiveMaterial(fd: FormData) {
+  const id = str(fd, "id");
+  if (id && (await managerBlockedFromMaterial(id))) return;
+  await setArchived("materials", id, false);
+}
 
 // ---------- Payments ----------
 export async function updatePayment(fd: FormData) {
@@ -808,7 +814,7 @@ export async function createMaterial(
 export async function markMaterialDelivered(fd: FormData) {
   const supabase = await createSupabaseServerClient();
   const id = str(fd, "id");
-  if (!id) return;
+  if (!id || (await managerBlockedFromMaterial(id))) return;
   // Just marks the goods as arrived. No bill is raised: the delivery shows in
   // the Payments "Purchase" picker and the owner pays for it when they choose.
   // Settling from any standing advance is the same event as delivering it

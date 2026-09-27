@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { createSupabaseServerClient, getSessionAndRole } from "@/lib/supabase/server";
 import { AdminPage, AdminPageHeader, AdminContent } from "@/components/admin/Page";
 
 export const dynamic = "force-dynamic";
@@ -72,7 +72,9 @@ export default async function SearchPage(
         href: `/admin/materials`,
       });
     }
-    for (const p of payments ?? []) {
+    // Managers don't see payments anywhere, including search.
+    const isManager = (await getSessionAndRole()).role === "manager";
+    for (const p of isManager ? [] : payments ?? []) {
       results.push({
         type: "Payment", id: p.id, title: p.description ?? `₹${Number(p.amount).toLocaleString()}`,
         // @ts-expect-error relation

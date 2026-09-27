@@ -33,14 +33,16 @@ export default async function ManageMaterialPage(
 ) {
   const params = await props.params;
   const supabase = await createSupabaseServerClient();
-  const { isOwner } = await getSessionAndRole();
+  const { isOwner, role, user } = await getSessionAndRole();
 
   const { data: material } = await supabase
     .from("materials")
-    .select("id, name, unit, quantity, unit_cost, status, work_category, image_url, archived_at, suppliers(name)")
+    .select("id, name, unit, quantity, unit_cost, status, work_category, image_url, archived_at, created_by, created_by_supplier, suppliers(name)")
     .eq("id", params.materialId)
     .single();
   if (!material) notFound();
+  // Managers only see deliveries they recorded or a supplier recorded directly.
+  if (role === "manager" && material.created_by !== user?.id && !material.created_by_supplier) notFound();
 
   const archived = material.archived_at != null;
   const backLabel = params.id === "unassigned" ? "Materials with no project" : "Project materials";
@@ -60,12 +62,16 @@ export default async function ManageMaterialPage(
           value={material.suppliers?.name ?? "No supplier"}
         />
         <InfoBox label="Quantity" value={`${Number(material.quantity)} ${material.unit}`} />
-        <InfoBox label="Unit cost" value={`₹${Number(material.unit_cost).toLocaleString()} each`} />
-        <InfoBox
-          label="Total"
-          value={`₹${lineTotal(material.quantity, material.unit_cost).toLocaleString()}`}
-          className="border-brand/25 bg-brand-50"
-        />
+        {role !== "manager" && (
+          <>
+            <InfoBox label="Unit cost" value={`₹${Number(material.unit_cost).toLocaleString()} each`} />
+            <InfoBox
+              label="Total"
+              value={`₹${lineTotal(material.quantity, material.unit_cost).toLocaleString()}`}
+              className="border-brand/25 bg-brand-50"
+            />
+          </>
+        )}
         <InfoBox
           label="Status"
           value={material.status}
@@ -85,7 +91,9 @@ export default async function ManageMaterialPage(
       )}
 
       <div className="max-w-xl rounded-xl border border-slate-200 bg-white p-6">
-        {archived ? (
+        {role === "manager" && material.created_by !== user?.id ? (
+          <p className="text-sm text-slate-500">View only — recorded by the supplier.</p>
+        ) : archived ? (
           <>
             <p className="mb-4 text-sm text-slate-500">
               Archived {material.archived_at ? new Date(material.archived_at).toLocaleDateString() : ""}. Hidden from

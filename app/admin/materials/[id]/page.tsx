@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { createSupabaseServerClient, getSessionAndRole } from "@/lib/supabase/server";
 import { AdminPage, AdminPageHeader, AdminContent, CostBox, Field, Select, SubmitButton } from "@/components/admin/Page";
 import { ArchivedToggle } from "@/components/admin/RowActions";
 import { CategoryField } from "@/components/admin/CategoryField";
@@ -21,16 +21,22 @@ export default async function ProjectMaterialsPage(
   const params = await props.params;
   const showArchived = searchParams.archived === "1";
   const isUnassigned = params.id === "unassigned";
+  const { role, user } = await getSessionAndRole();
+  const isManager = role === "manager";
   const supabase = await createSupabaseServerClient();
+  // Managers see only deliveries they recorded or a supplier recorded directly.
+  const managerScope = `created_by.eq.${user?.id},created_by_supplier.eq.true`;
 
   let base = supabase
     .from("materials")
     .select("id, name, unit, quantity, unit_cost, status, work_category, ordered_at, archived_at, suppliers(name)")
     .order("ordered_at", { ascending: false });
   base = isUnassigned ? base.is("project_id", null) : base.eq("project_id", params.id);
+  if (isManager) base = base.or(managerScope);
 
   let archivedCountQuery = supabase.from("materials").select("id", { count: "exact", head: true }).not("archived_at", "is", null);
   archivedCountQuery = isUnassigned ? archivedCountQuery.is("project_id", null) : archivedCountQuery.eq("project_id", params.id);
+  if (isManager) archivedCountQuery = archivedCountQuery.or(managerScope);
 
   const [{ data: project }, { data: materials }, { data: suppliers }, { count: archivedCount }] = await Promise.all([
     isUnassigned
@@ -100,7 +106,7 @@ export default async function ProjectMaterialsPage(
         )}
         {(materials ?? []).map((m) => (
           <Link key={m.id} href={`/admin/materials/${params.id}/${m.id}`}>
-            <CostBox label={m.name} value={lineTotal(m.quantity, m.unit_cost)} />
+            <CostBox label={m.name} value={isManager ? undefined : lineTotal(m.quantity, m.unit_cost)} />
           </Link>
         ))}
       </div>
