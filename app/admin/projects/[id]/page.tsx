@@ -4,7 +4,7 @@ import { notFound } from "next/navigation";
 import { createSupabaseServerClient, getSessionAndRole } from "@/lib/supabase/server";
 import { AdminPage, BudgetAlert } from "@/components/admin/Page";
 import { BackLink } from "@/components/admin/BackLink";
-import { AutoSubmitFileInput } from "@/components/admin/AutoSubmitFileInput";
+import { AgreementUpload } from "@/components/admin/AgreementUpload";
 import { ArchivedToggle, DeleteForeverButton, RestoreAction } from "@/components/admin/RowActions";
 import { CategoryField } from "@/components/admin/CategoryField";
 import { wageForStatus } from "@/lib/wages";
@@ -31,7 +31,6 @@ import {
   unarchiveChangeOrder,
   unarchiveClientPayment,
   unarchiveProject,
-  uploadProjectAgreement,
 } from "../../actions";
 
 export const dynamic = "force-dynamic";
@@ -623,13 +622,7 @@ export default async function ManageProjectPage(
                 </a>
                 {!archived && (
                   <div className="mt-3 flex flex-wrap items-center gap-2">
-                    <form action={uploadProjectAgreement}>
-                      <input type="hidden" name="project_id" value={project.id} />
-                      <label className="cursor-pointer rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm text-slate-600 shadow-sm hover:bg-slate-50 transition">
-                        Replace
-                        <AutoSubmitFileInput name="image_file" className="hidden" accept="image/*,application/pdf" />
-                      </label>
-                    </form>
+                    <AgreementUpload projectId={project.id} replace />
                     <form action={removeProjectAgreement}>
                       <input type="hidden" name="project_id" value={project.id} />
                       <FormSubmitButton pendingLabel="Removing…" className="rounded-lg border border-red-200 bg-white px-3 py-1.5 text-sm text-red-600 shadow-sm hover:bg-red-50 transition">
@@ -642,16 +635,7 @@ export default async function ManageProjectPage(
             ) : archived ? (
               <p className="text-sm text-slate-400">No agreement on file.</p>
             ) : (
-              <form action={uploadProjectAgreement} className="flex flex-wrap items-center gap-2">
-                <input type="hidden" name="project_id" value={project.id} />
-                <input
-                  type="file" accept="image/*,application/pdf" name="image_file" required
-                  className="text-sm text-slate-500 file:mr-2 file:rounded-lg file:border file:border-slate-200 file:bg-white file:px-3 file:py-1.5 file:text-sm file:text-slate-600 file:shadow-sm hover:file:bg-slate-50"
-                />
-                <FormSubmitButton className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800 transition">
-                  Upload
-                </FormSubmitButton>
-              </form>
+              <AgreementUpload projectId={project.id} />
             )}
           </Card>
         </div>

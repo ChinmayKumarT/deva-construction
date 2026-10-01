@@ -1436,35 +1436,24 @@ export async function deleteChangeOrder(fd: FormData) {
   await ownerDeleteRow("project_change_orders", str(fd, "id"));
 }
 
-// Same upload pattern as postProjectUpdate above -- image goes to the
-// existing project-images bucket, only the public URL is stored on the row.
-export async function uploadProjectAgreement(fd: FormData) {
+// The file itself is uploaded straight from the browser to the project-images
+// bucket (components/admin/AgreementUpload.tsx) -- passing it through a Server
+// Action hit Vercel's ~4.5 MB request cap, so most PDFs failed with "an
+// unexpected response". Only the resulting public URL comes through here.
+export async function saveProjectAgreement(projectId: string, url: string) {
+  if (!projectId) throw new Error("project required");
+  // Only accept this project's own agreement files in our bucket, so a caller
+  // can't point the agreement at an arbitrary URL.
+  const prefix = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/project-images/${projectId}/agreement-`;
+  if (!url.startsWith(prefix)) throw new Error("Unexpected file location — upload rejected.");
+
   const supabase = await createSupabaseServerClient();
-  const project_id = str(fd, "project_id");
-  if (!project_id) throw new Error("project required");
-
-  const file = fd.get("image_file");
-  if (!(file instanceof File) || file.size === 0) throw new Error("agreement file required");
-  // Photo or PDF only -- this lands in a public bucket.
-  if (!file.type.startsWith("image/") && file.type !== "application/pdf") {
-    throw new Error("Agreement must be a photo or a PDF.");
-  }
-
-  const ext = file.name.split(".").pop()?.toLowerCase() ?? "jpg";
-  const path = `${project_id}/agreement-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
-  const buf = new Uint8Array(await file.arrayBuffer());
-  const { error: upErr } = await supabase.storage
-    .from("project-images")
-    .upload(path, buf, { contentType: file.type || "image/jpeg", upsert: false });
-  if (upErr) throw new Error(`upload failed: ${upErr.message}`);
-  const { data: pub } = supabase.storage.from("project-images").getPublicUrl(path);
-
   const { error } = await supabase
     .from("projects")
-    .update({ agreement_image_url: pub.publicUrl })
-    .eq("id", project_id);
+    .update({ agreement_image_url: url })
+    .eq("id", projectId);
   if (error) throw new Error(error.message);
-  revalidatePath(`/admin/projects/${project_id}`);
+  revalidatePath(`/admin/projects/${projectId}`);
   revalidatePath("/client");
 }
 
