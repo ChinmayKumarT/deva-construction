@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { requireRole } from "@/lib/guard";
+import { requireOwnerOrSuperadmin } from "@/lib/guard";
 
 /**
  * Website showcase — the projects shown publicly on devaconstructions.in.
@@ -20,9 +20,9 @@ import { requireRole } from "@/lib/guard";
 const KINDS = ["Residential", "Commercial", "Renovation"] as const;
 type Kind = (typeof KINDS)[number];
 
-/** Every write here is staff-only; the public site only ever reads. */
+/** Every write here is superadmin/owner-only; the public site only ever reads. */
 async function staffClient() {
-  await requireRole(["superadmin", "admin", "manager"]);
+  await requireOwnerOrSuperadmin();
   return createSupabaseServerClient();
 }
 

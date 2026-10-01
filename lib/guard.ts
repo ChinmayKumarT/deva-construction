@@ -11,3 +11,14 @@ export async function requireRole(expected: Role | Role[]) {
   }
   return { user, role, isOwner };
 }
+
+/**
+ * Superadmin or the owner -- the people who run Team access and the public
+ * website. Anyone else on staff is sent back to /admin. The database enforces
+ * the same rule (is_owner_or_superadmin()); this is only the page-level net.
+ */
+export async function requireOwnerOrSuperadmin() {
+  const session = await requireRole(["superadmin", "admin", "manager"]);
+  if (session.role !== "superadmin" && !session.isOwner) redirect("/admin");
+  return session;
+}

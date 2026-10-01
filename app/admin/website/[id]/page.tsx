@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { requireOwnerOrSuperadmin } from "@/lib/guard";
 import { AdminPage, AdminPageHeader, AdminContent, Field, Select, SubmitButton } from "@/components/admin/Page";
 import {
   archiveShowcaseProject,
@@ -16,6 +17,7 @@ import { FormSubmitButton } from "@/components/FormSubmitButton";
 const SITE = "https://devaconstructions.in";
 
 export default async function EditShowcasePage(props: { params: Promise<{ id: string }> }) {
+  await requireOwnerOrSuperadmin();
   const { id } = await props.params;
   const supabase = await createSupabaseServerClient();
 

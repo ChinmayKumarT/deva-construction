@@ -2658,3 +2658,290 @@ create policy "staff_all_supplier_materials"
 create policy "supplier_own_materials"
   on public.supplier_materials for select
   using (supplier_id in (select id from public.suppliers where profile_id = auth.uid()));
+
+
+-- ============================================================
+-- 55_supplier_material_description.sql
+-- ============================================================
+
+-- The supplier price list carries a description instead of a rate.
+--
+-- 54 gave each catalog entry an agreed unit_cost, prefilled into the Record
+-- Delivery form. In practice the rate is the part that moves -- it changes per
+-- load, per season, per negotiation -- so a pinned rate was stale more often
+-- than it was useful, and it made the list look like an agreement rather than
+-- the typing shortcut it is. What does not move is WHICH material this is:
+-- "OPC 53 grade, Ultratech" is worth far more at the point of entry than a
+-- number that will be wrong next week.
+--
+-- The supplier still types the rate on each delivery, exactly as before. This
+-- table never fed the money model -- a delivery row has always carried its own
+-- name, unit and unit_cost (see the note at the top of 54).
+alter table public.supplier_materials
+  add column if not exists description text;
+
+-- unit_cost is deliberately LEFT IN PLACE rather than dropped. Nothing reads
+-- it any more, existing rows keep whatever rate was agreed, and a dropped
+-- column cannot be undone if this turns out to be the wrong call. It is
+-- `not null default 0`, so inserts that omit it are fine.
+
+
+-- ============================================================
+-- 56_supplier_manages_own_materials.sql
+-- ============================================================
+
+-- Let a supplier maintain their own material list.
+--
+-- 54 made this table read-only for the supplier, on the reasoning that the
+-- office set the agreed rates and the portal only offered them as a prefill.
+-- 55 removed the rate: an entry is now a name, a unit and a description of
+-- which material it is. There is nothing left on the row that the office needs
+-- to own -- and the supplier is the one who knows their own catalogue, so
+-- making them ask the admin to add "OPC 53 grade, Ultratech" is friction for
+-- no benefit.
+--
+-- Run AFTER 55_supplier_material_description.sql.
+
+-- Insert: only ever against their OWN supplier row. The app also resolves the
+-- supplier from the session rather than the form, but this is the real gate --
+-- a supplier cannot add an entry to someone else's list even if they forge the
+-- request. Same reasoning as the supplier bill policy: RLS is the boundary,
+-- not the UI (see 26/49 and the rls-is-the-authority brain page).
+drop policy if exists "supplier_insert_own_materials" on public.supplier_materials;
+create policy "supplier_insert_own_materials"
+  on public.supplier_materials for insert
+  with check (
+    supplier_id in (select id from public.suppliers where profile_id = auth.uid())
+  );
+
+-- Update: so they can archive an entry they added. `using` and `with check`
+-- both scope to their own supplier, which is what stops a row being moved onto
+-- another supplier's list by updating supplier_id.
+drop policy if exists "supplier_update_own_materials" on public.supplier_materials;
+create policy "supplier_update_own_materials"
+  on public.supplier_materials for update
+  using (
+    supplier_id in (select id from public.suppliers where profile_id = auth.uid())
+  )
+  with check (
+    supplier_id in (select id from public.suppliers where profile_id = auth.uid())
+  );
+
+-- Deliberately no DELETE policy. Removing an entry archives it here exactly as
+-- it does everywhere else (10_archive.sql), so the list stops offering it
+-- without throwing away what was once recorded.
+
+
+-- ============================================================
+-- 57_apply_advance_to_material.sql
+-- ============================================================
+
+-- Apply a supplier's advance to a delivered PURCHASE, not a bill.
+--
+-- Deliveries no longer raise a bill (see the supplier-auto-billing brain page):
+-- the unpaid material is the debt. This is the material-side twin of
+-- apply_supplier_advance_to_bill (52_partial_advance_application.sql): it puts
+-- as much of the supplier's advance balance against one purchase as the
+-- purchase needs, writes a negative ledger row naming the material (material_id
+-- set, payment_id left null), and marks the material settled (`billed = true`)
+-- once the advance has covered the whole of it -- which is what drops it out of
+-- the Payments "Purchase" picker and shows it as "paid from advance".
+--
+-- Runs from every delivery path (the supplier's own recordDelivery, the admin
+-- material form, marking an ordered material delivered) and again whenever an
+-- advance is handed over, so credit given after a purchase still reaches it.
+--
+-- Returns the amount applied.
+create or replace function public.apply_supplier_advance_to_material(p_material_id uuid)
+returns numeric
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_supplier uuid;
+  v_status text;
+  v_billed boolean;
+  v_name text;
+  v_cost numeric;
+  v_applied numeric;
+  v_owed numeric;
+  v_balance numeric;
+  v_apply numeric;
+begin
+  select m.supplier_id, m.status, m.billed, m.name,
+         round(coalesce(m.quantity, 0) * coalesce(m.unit_cost, 0), 2)
+    into v_supplier, v_status, v_billed, v_name, v_cost
+    from public.materials m
+   where m.id = p_material_id
+     and m.archived_at is null;
+
+  -- Nothing to do for a returned purchase, one already settled, or one with no
+  -- supplier to draw an advance from.
+  if v_supplier is null or coalesce(v_billed, false) or v_status = 'returned' then
+    return 0;
+  end if;
+
+  -- Staff, or the supplier the purchase belongs to. Nobody else.
+  if not (
+    public.is_staff()
+    or exists (
+      select 1 from public.suppliers s
+       where s.id = v_supplier and s.profile_id = auth.uid()
+    )
+  ) then
+    raise exception 'not allowed to touch this supplier''s advances';
+  end if;
+
+  -- What the advance has already put against this material (net of any refund).
+  -- Only material-linked rows -- a bill settlement (payment_id set) is a
+  -- different thing and must not be swept in here.
+  select coalesce(sum(-a.amount), 0) into v_applied
+    from public.supplier_advances a
+   where a.material_id = p_material_id
+     and a.payment_id is null;
+
+  v_owed := coalesce(v_cost, 0) - v_applied;
+  if v_owed <= 0 then
+    -- Already covered (e.g. an earlier run). Make sure it reads as settled.
+    update public.materials set billed = true
+     where id = p_material_id and coalesce(billed, false) = false;
+    return 0;
+  end if;
+
+  select coalesce(sum(amount), 0) into v_balance
+    from public.supplier_advances where supplier_id = v_supplier;
+  if v_balance <= 0 then
+    return 0;
+  end if;
+
+  -- As far as it goes, and no further: the ledger holds money actually handed
+  -- over, so the balance stops at zero. What is still owed stays on the
+  -- purchase and keeps showing in the picker.
+  v_apply := least(v_balance, v_owed);
+
+  insert into public.supplier_advances (supplier_id, amount, description, material_id, payment_id)
+  values (
+    v_supplier, -v_apply,
+    'Settled from advance: ' || coalesce(v_name, 'purchase'),
+    p_material_id, null
+  );
+
+  -- Fully covered -> the purchase is paid from advance and leaves the picker.
+  if v_applied + v_apply >= v_cost then
+    update public.materials set billed = true where id = p_material_id;
+  end if;
+
+  return v_apply;
+end;
+$$;
+
+revoke execute on function public.apply_supplier_advance_to_material(uuid) from public;
+grant execute on function public.apply_supplier_advance_to_material(uuid) to authenticated;
+
+-- Settle the supplier's open purchases from a balance just handed over, oldest
+-- first, each taking as much as it needs. The mirror of the bill path in
+-- giveSupplierAdvance -- a delivery already on the books when the advance
+-- arrives still gets covered.
+create or replace function public.settle_supplier_purchases_from_advance(p_supplier_id uuid)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_material uuid;
+  v_balance numeric;
+begin
+  if not (
+    public.is_staff()
+    or exists (
+      select 1 from public.suppliers s
+       where s.id = p_supplier_id and s.profile_id = auth.uid()
+    )
+  ) then
+    raise exception 'not allowed to touch this supplier''s advances';
+  end if;
+
+  for v_material in
+    select m.id
+      from public.materials m
+     where m.supplier_id = p_supplier_id
+       and m.archived_at is null
+       and coalesce(m.billed, false) = false
+       and m.status <> 'returned'
+     order by coalesce(m.delivered_at, m.ordered_at, m.created_at) asc
+  loop
+    select coalesce(sum(amount), 0) into v_balance
+      from public.supplier_advances where supplier_id = p_supplier_id;
+    exit when v_balance <= 0;
+    perform public.apply_supplier_advance_to_material(v_material);
+  end loop;
+end;
+$$;
+
+revoke execute on function public.settle_supplier_purchases_from_advance(uuid) from public;
+grant execute on function public.settle_supplier_purchases_from_advance(uuid) to authenticated;
+
+
+-- ============================================================
+-- 59_website_owner_superadmin_only.sql
+-- ============================================================
+
+-- ============================================================
+-- 59_website_owner_superadmin_only.sql
+-- ============================================================
+-- The Website section (showcase_projects / showcase_photos -- what the public
+-- site at devaconstructions.in shows) is now managed by the superadmin and the
+-- owner only. Admins and managers keep everything else but can no longer edit
+-- what strangers see.
+--
+-- The app hides the nav item and guards the pages, but RLS is the wall
+-- (see rls-is-the-authority), so the write policies change here too.
+-- Public read of published rows (public_read_published_*) is untouched.
+-- Run AFTER 57_apply_advance_to_material.sql.
+
+create or replace function public.is_owner_or_superadmin() returns boolean
+language sql stable security definer set search_path = public as $$
+  select public.current_role() = 'superadmin' or public.is_owner()
+$$;
+
+revoke all on function public.is_owner_or_superadmin() from public;
+grant execute on function public.is_owner_or_superadmin() to authenticated;
+
+drop policy if exists "staff_all_showcase_projects" on public.showcase_projects;
+drop policy if exists "website_managers_all_showcase_projects" on public.showcase_projects;
+create policy "website_managers_all_showcase_projects" on public.showcase_projects
+  for all using (public.is_owner_or_superadmin()) with check (public.is_owner_or_superadmin());
+
+drop policy if exists "staff_all_showcase_photos" on public.showcase_photos;
+drop policy if exists "website_managers_all_showcase_photos" on public.showcase_photos;
+create policy "website_managers_all_showcase_photos" on public.showcase_photos
+  for all using (public.is_owner_or_superadmin()) with check (public.is_owner_or_superadmin());
+
+-- Photo files: project-images accepts uploads from any signed-in user (project
+-- updates need that), so fence off just the showcase/ prefix. A restrictive
+-- policy is ANDed with the permissive ones; it only bites inside showcase/.
+drop policy if exists "project_images_showcase_upload_restricted" on storage.objects;
+create policy "project_images_showcase_upload_restricted"
+  on storage.objects as restrictive for insert to authenticated
+  with check (
+    bucket_id <> 'project-images'
+    or name not like 'showcase/%'
+    or public.is_owner_or_superadmin()
+  );
+
+
+-- ============================================================
+-- 58_material_created_by.sql
+-- ============================================================
+-- Who recorded each delivery. Managers may only change (delete / pay / undo)
+-- deliveries they recorded themselves; anything else is read-only to them.
+--
+-- The default stamps the inserting user on every path (admin form, supplier
+-- portal, Android) without app code having to pass it. Rows that predate this
+-- column stay null, which reads as "not recorded by this manager".
+alter table public.materials
+  add column if not exists created_by uuid
+  references public.profiles(id) on delete set null
+  default auth.uid();

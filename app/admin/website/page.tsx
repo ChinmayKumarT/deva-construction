@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { requireOwnerOrSuperadmin } from "@/lib/guard";
 import { AdminPage, AdminPageHeader, AdminContent, Field, Select, SubmitButton } from "@/components/admin/Page";
 import { CollapsibleForm } from "@/components/admin/CollapsibleForm";
 import { createShowcaseProject, setShowcasePublished, unarchiveShowcaseProject } from "./actions";
@@ -16,6 +17,7 @@ import { createShowcaseProject, setShowcasePublished, unarchiveShowcaseProject }
 export const metadata = { title: "Website" };
 
 export default async function WebsitePage() {
+  await requireOwnerOrSuperadmin();
   const supabase = await createSupabaseServerClient();
   const { data: allRows } = await supabase
     .from("showcase_projects")
