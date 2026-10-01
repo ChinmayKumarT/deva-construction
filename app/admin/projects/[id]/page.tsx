@@ -610,10 +610,16 @@ export default async function ManageProjectPage(
             {project.agreement_image_url ? (
               <>
                 <a href={project.agreement_image_url} target="_blank" rel="noreferrer">
-                  <Image
-                    src={project.agreement_image_url} alt="" width={640} height={480} loading="lazy"
-                    className="max-h-80 w-auto rounded-xl border border-slate-200 object-cover"
-                  />
+                  {/\.pdf$/i.test(project.agreement_image_url) ? (
+                    <span className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
+                      PDF · View agreement
+                    </span>
+                  ) : (
+                    <Image
+                      src={project.agreement_image_url} alt="" width={640} height={480} loading="lazy"
+                      className="max-h-80 w-auto rounded-xl border border-slate-200 object-cover"
+                    />
+                  )}
                 </a>
                 {!archived && (
                   <div className="mt-3 flex flex-wrap items-center gap-2">
@@ -621,7 +627,7 @@ export default async function ManageProjectPage(
                       <input type="hidden" name="project_id" value={project.id} />
                       <label className="cursor-pointer rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm text-slate-600 shadow-sm hover:bg-slate-50 transition">
                         Replace
-                        <AutoSubmitFileInput name="image_file" className="hidden" />
+                        <AutoSubmitFileInput name="image_file" className="hidden" accept="image/*,application/pdf" />
                       </label>
                     </form>
                     <form action={removeProjectAgreement}>
@@ -639,7 +645,7 @@ export default async function ManageProjectPage(
               <form action={uploadProjectAgreement} className="flex flex-wrap items-center gap-2">
                 <input type="hidden" name="project_id" value={project.id} />
                 <input
-                  type="file" accept="image/*" name="image_file" required
+                  type="file" accept="image/*,application/pdf" name="image_file" required
                   className="text-sm text-slate-500 file:mr-2 file:rounded-lg file:border file:border-slate-200 file:bg-white file:px-3 file:py-1.5 file:text-sm file:text-slate-600 file:shadow-sm hover:file:bg-slate-50"
                 />
                 <FormSubmitButton className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800 transition">

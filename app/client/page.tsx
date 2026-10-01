@@ -522,10 +522,16 @@ export default async function ClientDashboard() {
                         {p.agreement_image_url && (
                           <div className="mt-4 rounded-xl border border-slate-100 bg-slate-50/50 p-4">
                             <div className="mb-3 text-[10px] font-semibold uppercase tracking-wider text-slate-400">Agreement</div>
-                            <Image
-                              src={p.agreement_image_url} alt="" width={640} height={480} loading="lazy"
-                              className="max-h-72 w-auto rounded-xl border border-slate-100 object-cover"
-                            />
+                            {/\.pdf$/i.test(p.agreement_image_url) ? (
+                              <a href={p.agreement_image_url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
+                                PDF · View agreement
+                              </a>
+                            ) : (
+                              <Image
+                                src={p.agreement_image_url} alt="" width={640} height={480} loading="lazy"
+                                className="max-h-72 w-auto rounded-xl border border-slate-100 object-cover"
+                              />
+                            )}
                             <a
                               href={`${p.agreement_image_url}?download`}
                               className="mt-3 inline-flex items-center gap-1.5 text-sm font-semibold text-brand-700 hover:underline"

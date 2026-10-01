@@ -1444,7 +1444,11 @@ export async function uploadProjectAgreement(fd: FormData) {
   if (!project_id) throw new Error("project required");
 
   const file = fd.get("image_file");
-  if (!(file instanceof File) || file.size === 0) throw new Error("agreement image required");
+  if (!(file instanceof File) || file.size === 0) throw new Error("agreement file required");
+  // Photo or PDF only -- this lands in a public bucket.
+  if (!file.type.startsWith("image/") && file.type !== "application/pdf") {
+    throw new Error("Agreement must be a photo or a PDF.");
+  }
 
   const ext = file.name.split(".").pop()?.toLowerCase() ?? "jpg";
   const path = `${project_id}/agreement-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
