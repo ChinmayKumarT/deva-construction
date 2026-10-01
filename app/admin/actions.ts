@@ -6,6 +6,7 @@ import { createSupabaseServerClient, getSessionAndRole } from "@/lib/supabase/se
 import { WAGE_FACTOR } from "@/lib/wages";
 import { setFlashError } from "@/lib/flash";
 import { lineTotal } from "@/lib/money";
+import { ownStorageUrl } from "@/lib/storageUrl";
 
 function str(fd: FormData, k: string) {
   const v = fd.get(k);
@@ -1277,19 +1278,9 @@ export async function postProjectUpdate(fd: FormData) {
   const project_id = uuidOrNull(fd, "project_id");
   if (!project_id) throw new Error("project required");
 
-  let image_url: string | null = str(fd, "image_url");
-  const file = fd.get("image_file");
-  if (file instanceof File && file.size > 0) {
-    const ext = file.name.split(".").pop()?.toLowerCase() ?? "jpg";
-    const path = `${project_id}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
-    const buf = new Uint8Array(await file.arrayBuffer());
-    const { error: upErr } = await supabase.storage
-      .from("project-images")
-      .upload(path, buf, { contentType: file.type || "image/jpeg", upsert: false });
-    if (upErr) throw new Error(`upload failed: ${upErr.message}`);
-    const { data: pub } = supabase.storage.from("project-images").getPublicUrl(path);
-    image_url = pub.publicUrl;
-  }
+  // The photo was uploaded straight to storage by the browser
+  // (DirectPhotoInput); fall back to a pasted image URL.
+  const image_url = ownStorageUrl(str(fd, "uploaded_image_url")) ?? str(fd, "image_url");
 
   const { error } = await supabase.from("project_updates").insert({
     project_id,

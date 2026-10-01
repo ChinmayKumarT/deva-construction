@@ -5,6 +5,7 @@ import { AdminPage, AdminPageHeader, AdminContent, Field, Select, SubmitButton }
 import { ArchivedToggle, DeleteForeverButton, RestoreAction } from "@/components/admin/RowActions";
 import { FormSubmitButton } from "@/components/FormSubmitButton";
 import { CollapsibleForm } from "@/components/admin/CollapsibleForm";
+import { DirectPhotoInput } from "@/components/DirectPhotoInput";
 import { postProjectUpdate, archiveProjectUpdate, unarchiveProjectUpdate, deleteProjectUpdate } from "../actions";
 
 export default async function UpdatesPage(
@@ -47,7 +48,7 @@ export default async function UpdatesPage(
 
       {!showArchived && (
         <CollapsibleForm label="Post update" icon="update">
-        <form action={postProjectUpdate} encType="multipart/form-data" className="grid gap-4 rounded-xl border border-slate-200 bg-white p-6 sm:grid-cols-2 lg:grid-cols-3">
+        <form action={postProjectUpdate} className="grid gap-4 rounded-xl border border-slate-200 bg-white p-6 sm:grid-cols-2 lg:grid-cols-3">
           <Select label="Project" name="project_id" defaultValue="none">
             <option value="none" disabled>— choose —</option>
             {projects?.map((p) => (<option key={p.id} value={p.id}>{p.name}</option>))}
@@ -56,10 +57,8 @@ export default async function UpdatesPage(
           <Field label="Completion %" name="completion_pct" type="number" step="0.1" min="0" max="100" />
           <label className="block text-sm">
             <span className="mb-1 block font-medium text-slate-700">Photo (upload)</span>
-            <input
-              type="file"
-              name="image_file"
-              accept="image/*"
+            <DirectPhotoInput
+              folder="updates"
               className="w-full rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm file:mr-3 file:rounded-md file:border-0 file:bg-slate-100 file:px-3 file:py-1.5"
             />
           </label>

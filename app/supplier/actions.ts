@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { wasJustCreated } from "@/app/admin/actions";
 import { setFlashError } from "@/lib/flash";
+import { ownStorageUrl } from "@/lib/storageUrl";
 
 export type RecordDeliveryState = { error: string | null; success: boolean };
 
@@ -54,21 +55,9 @@ export async function recordDelivery(
     });
     if (!duplicate) {
       // Optional photo of what was actually delivered, so admin can check it
-      // against the recorded quantity/status. Same upload pattern as
-      // postProjectUpdate in app/admin/actions.ts.
-      let image_url: string | null = null;
-      const file = fd.get("image_file");
-      if (file instanceof File && file.size > 0) {
-        const ext = file.name.split(".").pop()?.toLowerCase() ?? "jpg";
-        const path = `${project_id}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
-        const buf = new Uint8Array(await file.arrayBuffer());
-        const { error: upErr } = await supabase.storage
-          .from("project-images")
-          .upload(path, buf, { contentType: file.type || "image/jpeg", upsert: false });
-        if (upErr) throw new Error(`upload failed: ${upErr.message}`);
-        const { data: pub } = supabase.storage.from("project-images").getPublicUrl(path);
-        image_url = pub.publicUrl;
-      }
+      // against the recorded quantity/status. Uploaded straight to storage by
+      // the browser (DirectPhotoInput); only the URL comes through here.
+      const image_url = ownStorageUrl(String(fd.get("uploaded_image_url") ?? ""));
 
       // A delivery just records that the goods arrived on site. No bill is
       // raised here: it shows on the owner's Payments "Purchase" picker

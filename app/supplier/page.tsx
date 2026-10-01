@@ -8,6 +8,7 @@ import {
   type RecordDeliveryState,
 } from "./actions";
 import { FormSubmitButton } from "@/components/FormSubmitButton";
+import { DirectPhotoInput } from "@/components/DirectPhotoInput";
 import { ResettableForm, FormError } from "@/components/ResettableForm";
 import { ProfileMenu } from "@/components/ProfileMenu";
 import { AccountDetailsPopover } from "@/components/AccountDetailsPopover";
@@ -218,10 +219,8 @@ export default async function SupplierDashboard() {
                 <input type="hidden" name="status" value="delivered" />
                 <label className="block text-sm">
                   <span className="mb-1 block font-medium text-slate-700">Photo (optional)</span>
-                  <input
-                    type="file"
-                    name="image_file"
-                    accept="image/*"
+                  <DirectPhotoInput
+                    folder="deliveries"
                     className="w-full rounded-lg border border-slate-200 bg-slate-50/50 px-3 py-1.5 text-sm file:mr-3 file:rounded-md file:border-0 file:bg-brand/10 file:px-3 file:py-1.5 file:text-brand-700 file:font-medium"
                   />
                 </label>
