@@ -6,8 +6,9 @@ const config: CapacitorConfig = {
   // Required by Capacitor even when we use server.url. Any folder works.
   webDir: "public",
   server: {
-    // Vercel-hosted web app — every UI change deploys here and the app picks it up.
-    url: "https://deva-demo.vercel.app",
+    // The live web app (app.devaconstructions.in, hosted on Vercel) — every UI
+    // change deploys here and the app picks it up.
+    url: "https://app.devaconstructions.in",
     cleartext: false,
   },
   android: {

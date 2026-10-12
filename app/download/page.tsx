@@ -68,7 +68,7 @@ export default function DownloadPage() {
           </button>
         ) : (
           <a
-            href="https://deva-demo.vercel.app"
+            href="https://app.devaconstructions.in"
             target="_blank"
             rel="noreferrer"
             className="mt-8 inline-flex w-full items-center justify-center gap-2 rounded-lg bg-brand px-6 py-3 font-medium text-white hover:bg-brand-700 active:bg-brand-800 transition"
@@ -91,7 +91,7 @@ export default function DownloadPage() {
             <div className="mt-8 rounded-2xl border border-[var(--line)] bg-white p-6 text-left">
               <h2 className="text-sm font-semibold text-ink">Android (Chrome)</h2>
               <ol className="mt-3 space-y-2 text-sm text-slate-600 list-decimal list-inside">
-                <li>Open <span className="font-medium text-brand-700">deva-demo.vercel.app</span> in Chrome.</li>
+                <li>Open <span className="font-medium text-brand-700">app.devaconstructions.in</span> in Chrome.</li>
                 <li>Tap the <span className="font-medium">Install app</span> banner, or tap <span className="font-medium">⋮ menu → Install app</span>.</li>
                 <li>Tap <span className="font-medium">Install</span> — the app icon appears on your home screen.</li>
               </ol>
@@ -100,7 +100,7 @@ export default function DownloadPage() {
             <div className="mt-4 rounded-2xl border border-[var(--line)] bg-white p-6 text-left">
               <h2 className="text-sm font-semibold text-ink">iPhone (Safari)</h2>
               <ol className="mt-3 space-y-2 text-sm text-slate-600 list-decimal list-inside">
-                <li>Open <span className="font-medium text-brand-700">deva-demo.vercel.app</span> in Safari.</li>
+                <li>Open <span className="font-medium text-brand-700">app.devaconstructions.in</span> in Safari.</li>
                 <li>Tap the <span className="font-medium">Share</span> button (square with arrow).</li>
                 <li>Tap <span className="font-medium">Add to Home Screen → Add</span>.</li>
               </ol>
@@ -109,7 +109,7 @@ export default function DownloadPage() {
             <div className="mt-4 rounded-2xl border border-[var(--line)] bg-white p-6 text-left">
               <h2 className="text-sm font-semibold text-ink">Desktop (Chrome / Edge)</h2>
               <ol className="mt-3 space-y-2 text-sm text-slate-600 list-decimal list-inside">
-                <li>Open <span className="font-medium text-brand-700">deva-demo.vercel.app</span> in Chrome or Edge.</li>
+                <li>Open <span className="font-medium text-brand-700">app.devaconstructions.in</span> in Chrome or Edge.</li>
                 <li>Click the <span className="font-medium">install icon</span> in the address bar.</li>
                 <li>Click <span className="font-medium">Install</span> — the app opens in its own window.</li>
               </ol>
